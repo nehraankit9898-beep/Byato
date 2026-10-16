@@ -390,18 +390,29 @@ export function getIntegrationEncryptionKeyring(): { id: string; key: Buffer }[]
 
 /**
  * ADMIN_BOOTSTRAP_SECRET — one-time bootstrap authorization for creating the
- * first Super Admin (Phase 2). Optional; if unset, bootstrap is disabled.
- * When set it must not be a known-weak value.
+ * first Super Admin (Phase 2). Optional; if unset, bootstrap is disabled
+ * (fail-closed) and "" is returned.
+ *
+ * When set, it must be a strong secret in EVERY environment (not only in
+ * production): at least MIN_SECRET_LENGTH characters and not a known
+ * placeholder. Weak values throw ConfigValidationError; the message never
+ * contains the value itself. Callers map that to a safe 500 — it must not be
+ * reported as a client error or as an authentication failure.
  */
 export function getAdminBootstrapSecret(): string {
-  const raw = process.env.ADMIN_BOOTSTRAP_SECRET;
-  if (!raw || raw.trim() === "") return "";
-  if (isProduction() && raw.trim().length < MIN_SECRET_LENGTH) {
+  const raw = (process.env.ADMIN_BOOTSTRAP_SECRET ?? "").trim();
+  if (!raw) return "";
+  if (FORBIDDEN_SECRET_VALUES.has(raw) || FORBIDDEN_SECRET_VALUES.has(raw.toLowerCase())) {
     throw new ConfigValidationError(
-      `ADMIN_BOOTSTRAP_SECRET must be at least ${MIN_SECRET_LENGTH} characters long in production.`,
+      "ADMIN_BOOTSTRAP_SECRET is set to a known placeholder value and is rejected. Generate a real secret with: openssl rand -hex 32",
     );
   }
-  return raw.trim();
+  if (raw.length < MIN_SECRET_LENGTH) {
+    throw new ConfigValidationError(
+      `ADMIN_BOOTSTRAP_SECRET must be at least ${MIN_SECRET_LENGTH} characters long. Generate one with: openssl rand -hex 32`,
+    );
+  }
+  return raw;
 }
 
 /**

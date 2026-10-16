@@ -79,6 +79,21 @@ export interface BootstrapResult {
   mustChangePassword: boolean;
 }
 
+/**
+ * Expected, client-facing bootstrap refusals (already bootstrapped / email in
+ * use). Routes map this to HTTP 409; anything else is an internal failure.
+ */
+export class BootstrapConflictError extends Error {
+  readonly code: "ALREADY_BOOTSTRAPPED" | "EMAIL_IN_USE";
+  constructor(code: "ALREADY_BOOTSTRAPPED" | "EMAIL_IN_USE", message: string) {
+    super(message);
+    this.name = "BootstrapConflictError";
+    this.code = code;
+  }
+}
+
+const ALREADY_BOOTSTRAPPED_MESSAGE = "A Super Admin already exists. Bootstrap is disabled.";
+
 /** PlatformSetting key for the one-shot bootstrap claim (audit fix bootstrap-1). */
 const BOOTSTRAP_CLAIM_KEY = "bootstrap.super_admin.claimed";
 
@@ -103,13 +118,18 @@ export async function bootstrapFirstSuperAdmin(params: {
   email: string;
   bootstrapSecret: string;
 }): Promise<BootstrapResult> {
+  // Defense in depth: the callers verify the secret; an empty value is never
+  // a valid authorization, even if a future caller forgets to check.
+  if (!params.bootstrapSecret || params.bootstrapSecret.trim() === "") {
+    throw new Error("Bootstrap requires an authorization secret.");
+  }
   const existingCount = await db.user.count({ where: { role: "SUPER_ADMIN" } });
   if (existingCount > 0) {
-    throw new Error("A Super Admin already exists. Bootstrap is disabled.");
+    throw new BootstrapConflictError("ALREADY_BOOTSTRAPPED", ALREADY_BOOTSTRAPPED_MESSAGE);
   }
   const existingUser = await db.user.findUnique({ where: { email: params.email } });
   if (existingUser) {
-    throw new Error("A user with this email already exists.");
+    throw new BootstrapConflictError("EMAIL_IN_USE", "A user with this email already exists.");
   }
 
   // Idempotent row bootstrap, then the atomic claim.
@@ -123,7 +143,7 @@ export async function bootstrapFirstSuperAdmin(params: {
     data: { value: "true" },
   });
   if (claim.count !== 1) {
-    throw new Error("A Super Admin already exists. Bootstrap is disabled.");
+    throw new BootstrapConflictError("ALREADY_BOOTSTRAPPED", ALREADY_BOOTSTRAPPED_MESSAGE);
   }
 
   const releaseClaim = async () => {
@@ -140,7 +160,7 @@ export async function bootstrapFirstSuperAdmin(params: {
     const recheck = await db.user.count({ where: { role: "SUPER_ADMIN" } });
     if (recheck > 0) {
       await releaseClaim();
-      throw new Error("A Super Admin already exists. Bootstrap is disabled.");
+      throw new BootstrapConflictError("ALREADY_BOOTSTRAPPED", ALREADY_BOOTSTRAPPED_MESSAGE);
     }
 
     // Cryptographically random one-time password — never logged, returned once.

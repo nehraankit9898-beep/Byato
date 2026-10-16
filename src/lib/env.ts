@@ -368,11 +368,25 @@ export function validateExtendedEnv(): EnvValidationResult {
       "REDIS_URL is not set in production — rate limits are per-instance (in-process). Set REDIS_URL when running more than one app instance.",
     );
   }
+  // - Production runs on PostgreSQL (Neon). A missing DATABASE_URL otherwise
+  //   only surfaces as Prisma's "Environment variable not found" on the first
+  //   DB query of each request, so it is validated once at boot instead.
   // - SQLite is a development database only.
-  if (isProduction() && (process.env.DATABASE_URL || "").trim().startsWith("file:")) {
-    errors.push(
-      "DATABASE_URL must be a PostgreSQL connection string in production (file:/SQLite is rejected).",
-    );
+  if (isProduction()) {
+    const dbUrl = (process.env.DATABASE_URL || "").trim();
+    if (!dbUrl) {
+      errors.push(
+        "DATABASE_URL is required in production. Set it to the Neon PostgreSQL connection string (Vercel: Project → Settings → Environment Variables → Production).",
+      );
+    } else if (dbUrl.startsWith("file:")) {
+      errors.push(
+        "DATABASE_URL must be a PostgreSQL connection string in production (file:/SQLite is rejected).",
+      );
+    } else if (!/^postgres(ql)?:\/\//i.test(dbUrl)) {
+      errors.push(
+        "DATABASE_URL must start with postgresql:// or postgres:// in production (Neon connection string).",
+      );
+    }
   }
 
   return { ok: errors.length === 0, errors, warnings };

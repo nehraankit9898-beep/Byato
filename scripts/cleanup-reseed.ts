@@ -3,6 +3,8 @@
  * Run: bun run scripts/cleanup-reseed.ts
  */
 import { db } from "../src/lib/db";
+import { assertDevOnlyScript } from "./dev-only-guard";
+assertDevOnlyScript("cleanup-reseed");
 
 async function main() {
   console.log("🧹 Cleaning test artifacts...");

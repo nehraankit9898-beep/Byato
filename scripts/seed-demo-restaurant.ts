@@ -4,6 +4,8 @@
  */
 import { db } from "../src/lib/db";
 import { randomBytes } from "crypto";
+import { assertDevOnlyScript } from "./dev-only-guard";
+assertDevOnlyScript("seed-demo-restaurant");
 
 async function main() {
   const hotel = await db.hotel.findFirst({ where: { name: "Grand Palace Hotel" } });

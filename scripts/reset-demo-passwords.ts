@@ -5,6 +5,8 @@
  */
 import { db } from "../src/lib/db";
 import { hashPassword } from "../src/lib/auth";
+import { assertDevOnlyScript } from "./dev-only-guard";
+assertDevOnlyScript("reset-demo-passwords");
 
 async function main() {
   const pw = process.env.STAYLOOP_DEMO_PASSWORD || "DevAdmin123";
