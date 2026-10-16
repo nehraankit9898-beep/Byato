@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Environment & secrets — NEVER commit real env files
+.env
+.env.*
+!.env.example
+!.env.production.example
+!.env.test.example
+.auth-secret.dev
+.dev-mfa-secret
+
+# Databases (demo/dev data is reproducible via `bun run seed`)
+# 2026-10 audit fix: `db/*.db` is root-anchored, so prisma/db/custom.db
+# escaped the pattern and a 2.2 MB stale demo database (3 seed accounts with
+# known passwords) shipped in the repo. prisma/ is now covered too.
+db/*.db
+db/*.db-journal
+prisma/db/
+*.sqlite
+*.sqlite3
+
+# Runtime artifacts
+*.tsbuildinfo
+coverage/
+out/
+build/
+# Backup archives (repo-root default of BACKUP_DIR). Anchored: an unanchored
+# `backups/` also matched src/app/api/super-admin/backups/, so that route was
+# never committed.
+/backups/
+var/
+*.log
+dev.log
+server.log
+.next/
+next-env.d.ts
+.DS_Store
+worklog.md
+
+# Skills (platform-specific)
+skills/
