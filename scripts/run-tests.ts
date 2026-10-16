@@ -343,6 +343,12 @@ async function main() {
       // what stopped tests/unit.test.ts (and therefore `bun run test`) from
       // running at all.
       "tests/import-cycle-regression.test.ts",
+      // Super Admin bootstrap contract (fail-closed config, secret handling,
+      // rate limit, 409/201/500 branches with a mocked db) and the dev-script
+      // production guard. DB-free.
+      "tests/bootstrap-endpoint.test.ts",
+      "tests/super-admin-hotel-errors.test.ts",
+      "tests/dev-script-guard.test.ts",
       // 2026-10 bug-sweep regression: the async dev/test secret-adoption race
       // (session-expired-after-login, GCM backup round-trip failures,
       // BLOCKED tenant integrations). See the suite header for the full map.

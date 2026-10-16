@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireSuperAdminSession } from "@/lib/api-helpers";
-import { createHotelTenant, ensurePlansSeed } from "@/lib/super-admin";
+import { createHotelTenant, ensurePlansSeed, HotelValidationError } from "@/lib/super-admin";
 import { parseWith, createHotelSchema } from "@/lib/validation";
 
 /**
@@ -130,8 +130,15 @@ export async function POST(req: Request) {
       { status: 201 },
     );
   } catch (err) {
+    // Only deliberate validation failures reach the client. Database / Prisma /
+    // connection errors are logged server-side and returned as a generic 500.
+    if (err instanceof HotelValidationError) {
+      return NextResponse.json({ error: { code: "BAD_REQUEST", message: err.message } }, { status: 400 });
+    }
     console.error("[super-admin/hotels POST] error:", err instanceof Error ? err.message : err);
-    const message = err instanceof Error ? err.message : "Could not create hotel.";
-    return NextResponse.json({ error: { code: "BAD_REQUEST", message } }, { status: 400 });
+    return NextResponse.json(
+      { error: { code: "INTERNAL", message: "Could not create hotel." } },
+      { status: 500 },
+    );
   }
 }

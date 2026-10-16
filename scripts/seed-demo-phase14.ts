@@ -5,6 +5,8 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "crypto";
+import { assertDevOnlyScript } from "./dev-only-guard";
+assertDevOnlyScript("seed-demo-phase14");
 
 const db = new PrismaClient();
 

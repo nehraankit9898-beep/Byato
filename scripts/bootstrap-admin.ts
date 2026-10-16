@@ -14,7 +14,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { bootstrapFirstSuperAdmin } from "../src/lib/super-admin";
-import { randomBytes } from "crypto";
+import { ConfigValidationError, getAdminBootstrapSecret } from "../src/lib/config";
 
 const db = new PrismaClient();
 
@@ -24,8 +24,18 @@ function arg(name: string): string | null {
 }
 
 async function main() {
-  const secret = process.env.ADMIN_BOOTSTRAP_SECRET;
-  if (!secret || secret.trim() === "") {
+  // Same validation as POST /api/super-admin/bootstrap: unset → disabled,
+  // weak or placeholder → rejected. The value itself is never printed.
+  let secret: string;
+  try {
+    secret = getAdminBootstrapSecret();
+  } catch (err) {
+    console.error(
+      err instanceof ConfigValidationError ? err.message : "ADMIN_BOOTSTRAP_SECRET is invalid.",
+    );
+    process.exit(1);
+  }
+  if (!secret) {
     console.error("ADMIN_BOOTSTRAP_SECRET is not set — bootstrap disabled (fail-closed).");
     process.exit(1);
   }
@@ -51,7 +61,6 @@ async function main() {
   } finally {
     await db.$disconnect();
   }
-  void randomBytes;
 }
 
 main();

@@ -10,6 +10,8 @@
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { DEFAULT_TEMPLATES } from "../src/lib/templates";
+import { assertDevOnlyScript } from "./dev-only-guard";
+assertDevOnlyScript("seed-phase63");
 
 const db = new PrismaClient();
 

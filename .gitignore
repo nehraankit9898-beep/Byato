@@ -1,6 +1,18 @@
 # Dependencies
 node_modules/
 
+# Hosting-platform CLI state (Vercel / Netlify link files can carry project
+# and org identifiers; never commit them)
+.vercel
+.netlify
+
+# Private keys, certificates and keystores (credentials must live in the
+# platform's environment-variable settings, never in the repository)
+*.pem
+*.key
+*.p12
+*.pfx
+
 # Environment & secrets — NEVER commit real env files
 .env
 .env.*

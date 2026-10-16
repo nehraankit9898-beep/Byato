@@ -10,6 +10,8 @@
 import { PrismaClient } from "@prisma/client";
 import { randomBytes, scryptSync } from "crypto";
 import { ensurePlansSeed, ensureDefaultFeatureFlags, PLAN_DEFS } from "../src/lib/super-admin";
+import { assertDevOnlyScript } from "./dev-only-guard";
+assertDevOnlyScript("seed-phase3-6");
 
 const db = new PrismaClient();
 
