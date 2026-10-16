@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { tierForScore, TIER_LABELS } from "@/lib/lead-scoring";
 
 /**
  * Customer Scoring — Phase 3
@@ -140,16 +141,8 @@ export async function recomputeCustomerScores(hotelId: string): Promise<{
   return { processed: scored.length, topScorers };
 }
 
-export function tierForScore(score: number): string {
-  if (score >= 81) return "VERY_HOT";
-  if (score >= 61) return "HOT";
-  if (score >= 31) return "WARM";
-  return "COLD";
-}
-
-export const TIER_LABELS: Record<string, string> = {
-  COLD: "Cold",
-  WARM: "Warm",
-  HOT: "Hot",
-  VERY_HOT: "Very Hot",
-};
+// CLEANUP (2026-10): tierForScore / TIER_LABELS were duplicated here with the
+// SAME thresholds as lead-scoring.ts (81/61/31). Consolidated to a single
+// implementation — identical behavior, one authoritative copy. Re-exported
+// for any existing importer of this module.
+export { tierForScore, TIER_LABELS };

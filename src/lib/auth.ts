@@ -222,7 +222,11 @@ export function verifySessionToken(token: string): SessionPayload | null {
 // ---------- Cookie handling ----------
 
 export const SESSION_COOKIE = "stayloop_session";
-export const CSRF_COOKIE = "stayloop_csrf";
+// CLEANUP (2026-10): CSRF_COOKIE was independently defined here AND in
+// lib/csrf.ts with the same value — a drift hazard (two places to rename).
+// lib/csrf.ts is the single source of truth; re-exported here because the
+// auth routes import it from this module.
+export { CSRF_COOKIE } from "@/lib/csrf";
 
 /**
  * Cookie options that work in BOTH contexts:

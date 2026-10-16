@@ -120,16 +120,23 @@ jobs:
       - name: Apply migrations to clean PostgreSQL 16
         run: bunx prisma migrate deploy --schema prisma/schema.postgres.prisma
 
-      # AUDIT FIX: real schema validation — the migrations directory must
-      # match schema.postgres.prisma EXACTLY (empty diff via shadow database).
+      # AUDIT FIX (real fix, 2026-10): the old gate ran `migrate diff`
+      # WITHOUT `--script`, which prints a human-readable summary
+      # ("[*] Changed the X table…") that can never match `^(CREATE|ALTER|DROP)`
+      # — the gate was structurally unable to fail, and real drift
+      # (BranchMembership.orgId vs franchiseOrganizationId, missing
+      # Reservation_publicToken_key) shipped to production. `--script`
+      # emits executable SQL; an empty diff prints only the comment
+      # "-- This is an empty migration."
       - name: Migrations match schema (empty diff)
         run: |
           bunx prisma migrate diff \
             --from-migrations prisma/migrations \
             --to-schema-datamodel prisma/schema.postgres.prisma \
             --shadow-database-url "postgresql://stayloop:cipassword@127.0.0.1:5432/postgres" \
+            --script \
             > /tmp/drift.sql
-          if [ -s /tmp/drift.sql ] && grep -qE "^(CREATE|ALTER|DROP)" /tmp/drift.sql; then
+          if grep -qE "^(CREATE|ALTER|DROP|GRANT|REVOKE|COMMENT)" /tmp/drift.sql; then
             echo "Schema drift between prisma/migrations and schema.postgres.prisma:"
             cat /tmp/drift.sql
             exit 1

@@ -164,8 +164,24 @@ async function main() {
     ...TEST_SECRETS,
   };
 
-  // Push schema to the fresh DB
+  // Push schema to the fresh DB.
+  //
+  // BUG FIX (2026-10, reproduced): node_modules/@prisma/client may hold the
+  // POSTGRESQL client left behind by `npm run build` (both schemas share one
+  // output path — "last generate wins"). The harness then failed in seed with
+  // PrismaClientInitializationError: "the URL must start with the protocol
+  // postgresql://". Regenerate the client that matches THIS environment
+  // (DATABASE_URL is a file: URL → SQLite client) before touching the DB.
   console.log("\n[1/6] Creating test database schema…");
+  const gen = spawnSync("node", ["scripts/prisma-generate.mjs"], {
+    cwd: ROOT,
+    env,
+    stdio: "inherit",
+  });
+  if (gen.status !== 0) {
+    console.error("prisma client generation failed");
+    process.exit(1);
+  }
   const push = spawnSync(
     "bunx",
     ["prisma", "db", "push", "--skip-generate", "--accept-data-loss"],
