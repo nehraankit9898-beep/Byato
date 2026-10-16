@@ -4,6 +4,7 @@ import "./globals.css";
 import { headers } from "next/headers";
 import { Toaster } from "@/components/ui/toaster";
 import { CspNonceProvider } from "@/components/app/csp-nonce";
+import { Analytics } from "@vercel/analytics/next";
 
 // Licensed under the SIL Open Font License (see fonts/LICENSE.txt). Local
 // assets avoid a build-time dependency on Google's font service.
@@ -60,6 +61,7 @@ export default async function RootLayout({
         <CspNonceProvider nonce={nonce}>
           {children}
           <Toaster />
+          <Analytics />
         </CspNonceProvider>
       </body>
     </html>
