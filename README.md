@@ -130,3 +130,4 @@ docs/           architecture, security, ops runbooks (backup, incidents, DR)
   [`docs/INCIDENT_RESPONSE.md`](docs/INCIDENT_RESPONSE.md) — runbooks
 - [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md) — key rotation policy
 - [`docs/DATABASE.md`](docs/DATABASE.md) — SQLite → PostgreSQL details
+"# Byato" 
