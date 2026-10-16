@@ -83,6 +83,18 @@ export interface BootstrapResult {
  * Expected, client-facing bootstrap refusals (already bootstrapped / email in
  * use). Routes map this to HTTP 409; anything else is an internal failure.
  */
+/**
+ * Client-facing validation failure while creating a hotel tenant (unknown plan,
+ * owner email already in use). Routes return these messages as 400; any other
+ * error is an internal failure and must not reach the client.
+ */
+export class HotelValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HotelValidationError";
+  }
+}
+
 export class BootstrapConflictError extends Error {
   readonly code: "ALREADY_BOOTSTRAPPED" | "EMAIL_IN_USE";
   constructor(code: "ALREADY_BOOTSTRAPPED" | "EMAIL_IN_USE", message: string) {
@@ -461,10 +473,10 @@ export async function createHotelTenant(params: {
   invitation: { token: string; expiresAt: Date; activationPath: string };
 }> {
   const plan = await db.plan.findUnique({ where: { name: params.planName } });
-  if (!plan) throw new Error(`Unknown plan: ${params.planName}`);
+  if (!plan) throw new HotelValidationError(`Unknown plan: ${params.planName}`);
 
   const ownerEmailTaken = await db.user.findUnique({ where: { email: params.ownerEmail } });
-  if (ownerEmailTaken) throw new Error("A user with the owner email already exists.");
+  if (ownerEmailTaken) throw new HotelValidationError("A user with the owner email already exists.");
 
   const hotel = await db.hotel.create({
     data: {

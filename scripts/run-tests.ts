@@ -347,6 +347,7 @@ async function main() {
       // rate limit, 409/201/500 branches with a mocked db) and the dev-script
       // production guard. DB-free.
       "tests/bootstrap-endpoint.test.ts",
+      "tests/super-admin-hotel-errors.test.ts",
       "tests/dev-script-guard.test.ts",
       // 2026-10 bug-sweep regression: the async dev/test secret-adoption race
       // (session-expired-after-login, GCM backup round-trip failures,
