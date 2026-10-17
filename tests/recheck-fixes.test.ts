@@ -20,11 +20,10 @@
  */
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { createHash, createHmac } from "crypto";
-import { PrismaClient } from "@prisma/client";
 import { encryptCredentials } from "../src/lib/crypto";
-import { apiCall, login, rawWebhook, ADMIN_PASSWORD, HOTEL_A_ADMIN } from "./helpers";
+import { apiCall, login, rawWebhook, ADMIN_PASSWORD, HOTEL_A_ADMIN, testDb } from "./helpers";
 
-const db = new PrismaClient();
+const db = testDb();
 
 let jarA: { cookie: string; csrf: string };
 let hotelAId = "";

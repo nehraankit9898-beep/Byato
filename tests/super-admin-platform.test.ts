@@ -14,15 +14,7 @@
  *   - tenant isolation: super admin is never silently converted into a tenant.
  */
 import { describe, test, expect } from "bun:test";
-import { PrismaClient } from "@prisma/client";
-import {
-  apiCall,
-  jarFromResponse,
-  login,
-  ADMIN_PASSWORD,
-  HOTEL_A_ADMIN,
-  HOTEL_A_STAFF,
-} from "./helpers";
+import { apiCall, jarFromResponse, login, ADMIN_PASSWORD, HOTEL_A_ADMIN, HOTEL_A_STAFF, testDb } from "./helpers";
 import { hashPassword } from "../src/lib/auth";
 import { generateTotp } from "../src/lib/mfa";
 
@@ -32,7 +24,7 @@ const SA_EMAIL = "platform-admin@stayloop.test";
 const SA_PASSWORD = "PlatformAdmin123";
 const ROLE_USER_PASSWORD = "RoleProbe123";
 
-const db = new PrismaClient();
+const db = testDb();
 
 /** All platform endpoints (with probe ids) — used for deny-matrix checks. */
 const PLATFORM_GETS = [

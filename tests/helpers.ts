@@ -3,6 +3,25 @@
  */
 import { createHmac } from "crypto";
 
+/**
+ * Test-harness Prisma client.
+ *
+ * In the STAYLOOP_TEST environment the client is generated with the pure-JS
+ * "client" query engine (prisma/schema.test.prisma), which requires a driver
+ * adapter — mirroring what src/lib/db.ts does for the app. Outside the test
+ * environment this is a plain `new PrismaClient()` (classic engine), so these
+ * tests still work unchanged in a normal development checkout.
+ */
+export function testDb(): import("@prisma/client").PrismaClient {
+  const { PrismaClient } = require("@prisma/client");
+  const url = (process.env.DATABASE_URL || "").trim();
+  if (process.env.STAYLOOP_TEST === "1" && url.startsWith("file:")) {
+    const { PrismaLibSQL } = require("@prisma/adapter-libsql");
+    return new PrismaClient({ adapter: new PrismaLibSQL({ url: url.split("?")[0] }) });
+  }
+  return new PrismaClient();
+}
+
 export const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3100";
 export const ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD ?? "TestAdmin123";
 export const STAFF_PASSWORD = process.env.TEST_STAFF_PASSWORD ?? "TestStaff123";

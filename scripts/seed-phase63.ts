@@ -7,13 +7,13 @@
  *
  * Idempotent: safe to re-run.
  */
-import { PrismaClient } from "@prisma/client";
+import { createScriptPrismaClient } from "./prisma-client";
 import { randomBytes } from "crypto";
 import { DEFAULT_TEMPLATES } from "../src/lib/templates";
 import { assertDevOnlyScript } from "./dev-only-guard";
 assertDevOnlyScript("seed-phase63");
 
-const db = new PrismaClient();
+const db = createScriptPrismaClient();
 
 function daysAgo(n: number, hour = 12): Date {
   const d = new Date();

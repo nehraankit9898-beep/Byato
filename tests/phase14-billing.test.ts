@@ -13,7 +13,7 @@
  *   8. Razorpay restaurant webhook: signature + replay protection
  */
 import { describe, test, expect } from "bun:test";
-import { apiCall, login, ADMIN_PASSWORD } from "./helpers";
+import { apiCall, login, ADMIN_PASSWORD, testDb } from "./helpers";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3100";
 
@@ -232,8 +232,7 @@ describe("Phase 14 — bill creation", () => {
   test("sequential invoice numbers: two hotels never share, one hotel increments", async () => {
     const { nextInvoiceNumber } = await import("../src/lib/billing");
     const { db } = await import("../src/lib/db");
-    const { PrismaClient } = await import("@prisma/client");
-    const other = new PrismaClient({ datasources: { db: { url: `${process.env.DATABASE_URL}?connection_limit=1` } } });
+    const other = testDb();
     const otherHotel = await other.hotel.create({
       data: { name: `P14 Other ${Date.now()}`, status: "ACTIVE" },
     });

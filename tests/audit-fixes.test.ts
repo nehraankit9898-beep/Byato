@@ -17,18 +17,9 @@
  *   F18  Restaurant visit validation        → guests=-3 → 422 (not 500/201)
  */
 import { describe, test, expect, beforeAll } from "bun:test";
-import { PrismaClient } from "@prisma/client";
-import {
-  apiCall,
-  login,
-  ADMIN_PASSWORD,
-  HOTEL_A_ADMIN,
-  HOTEL_B_ADMIN,
-  HOTEL_A_STAFF,
-  STAFF_PASSWORD,
-} from "./helpers";
+import { apiCall, login, ADMIN_PASSWORD, HOTEL_A_ADMIN, HOTEL_B_ADMIN, HOTEL_A_STAFF, STAFF_PASSWORD, testDb } from "./helpers";
 
-const db = new PrismaClient();
+const db = testDb();
 
 let jarA: { cookie: string; csrf: string };
 let jarB: { cookie: string; csrf: string };
