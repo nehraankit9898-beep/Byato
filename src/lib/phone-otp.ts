@@ -285,7 +285,7 @@ export async function verifyPhoneOtp(params: {
       codeHash: row.codeHash,
       consumedAt: null,
       expiresAt: { gt: new Date() },
-      attempts: { lte: OTP_MAX_ATTEMPTS },
+      attempts: { lt: OTP_MAX_ATTEMPTS },
     },
     data: { consumedAt: new Date() },
   });

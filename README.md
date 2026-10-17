@@ -63,8 +63,8 @@ ADMIN_BOOTSTRAP_SECRET=<strong-secret> bun run bootstrap:admin
 | Command                        | What it does                                        |
 |--------------------------------|-----------------------------------------------------|
 | `bun run dev`                  | Dev server on port 3000                             |
-| `bun run build`                | Production standalone build                         |
-| `bun run start`                | Start the standalone production server              |
+| `bun run build`                | Production default build (Netlify / next start)      |
+| `bun run start`                | Start the default production server                 |
 | `bun run typecheck`            | TypeScript check (no emit)                          |
 | `bun run lint`                 | ESLint                                              |
 | `bun run test`                 | Full test suite (security, RBAC, phases 1–18)       |
@@ -131,3 +131,10 @@ docs/           architecture, security, ops runbooks (backup, incidents, DR)
 - [`docs/SECRET_ROTATION.md`](docs/SECRET_ROTATION.md) — key rotation policy
 - [`docs/DATABASE.md`](docs/DATABASE.md) — SQLite → PostgreSQL details
 "# Byato" 
+
+### Explicit standalone build mode
+
+For a self-hosted standalone artifact, run `bun run build:standalone` then
+`bun run start:standalone`. Standard `bun run build` pairs with `bun run start`;
+Netlify uses the standard build and manages startup itself. Docker already selects
+the standalone build and starts its copied `server.js` directly.

@@ -148,7 +148,7 @@ export function endpointSubscribesTo(endpoint: Endpoint, eventType: string): boo
     if (arr.includes("*")) return true;
     return arr.some((e: unknown) => typeof e === "string" && (
       e === eventType ||
-      (eventType.startsWith(String(e) + ".") && e.endsWith(".*"))
+      (e.endsWith(".*") && eventType.startsWith(e.slice(0, -1)))
     ));
   } catch {
     return false;

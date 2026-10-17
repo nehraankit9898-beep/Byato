@@ -49,3 +49,41 @@
 2. Run the §6 smoke test after the first deploy (health, QR scan, idempotent payment replay, security headers).
 3. Keep CI branch protection requiring the (now effective) drift gate and the full suite.
 4. Continue the per-handler isolation review; enable `REDIS_URL` when scaling past one web instance.
+
+
+---
+
+# Current defensive audit addendum — 2026-10-17
+
+This addendum supersedes historical verification claims only for this session's scope.
+**No whole-application security certification is given.** See BUGS_FOUND.md for exact locations,
+reproductions, severity, fixes and verification. AUD-001/AUD-002 (High MFA issues) and AUD-003
+(Medium OTP race) were reproduced with mocked persistence and fixed. AUD-004 is a webhook
+routing defect; AUD-005 fixes deployment contracts. AUD-006 remains an upstream High-rated
+development-tool dependency advisory (five package entries, one underlying braces advisory).
+Runtime-only npm audit reports zero current advisories, not immunity from vulnerabilities.
+
+## Control-by-control assessment
+| Area | Observed implementation / evidence | Verification limit |
+|---|---|---|
+| Passwords and sessions | scrypt password hashing, HMAC sessions, httpOnly cookies, tokenVersion revocation | Unit tests pass; end-to-end auth blocked |
+| Password reset/email verification | hashed expiring single-use tokens and email adapters | Actual delivery, resets and expiry not tested |
+| MFA | TOTP replay-step claims, backup hashes, setup and confirmation guards now conditional | New regression tests pass; complete HTTP/PG flow not tested |
+| RBAC/IDOR/tenancy | central DB-backed guards, 11-role permission catalog, tenant-scoped lookups and reserved custom grants | Selected unit/static tests pass; every operation/tenant query not exhaustively verified |
+| Super Admin | strong-secret bootstrap, constant-time check, one-shot claim, forced password/MFA restrictions | Mocked endpoint tests pass; real DB bootstrap/role mutation not performed |
+| SQL injection | Prisma query layer and parameterized paths used; raw SQL needs continued per-call review | No live injection test or exhaustive raw-query proof |
+| XSS | React escaping, consolidated HTML escaping and per-request nonce CSP | 16 QR regressions + security-hardening tests pass; full browser CSP/XSS not tested |
+| CSRF/CORS/cookies | cookie double-submit/origin checks, bearer-mode distinction, exact trusted-origin CORS, Secure cookie logic | Unit/proxy tests pass; real proxy/browser/session integration unverified |
+| SSRF/redirects | outbound webhook HTTPS/private-host/DNS checks and redirect handling exist | DNS rebinding/egress remains an untested risk; no external probes |
+| Validation/request sizes | Zod, shared streaming JSON cap, provider-specific signature handlers | 13 audit regressions include capped-body tests; not all raw-body endpoints uniformly capped |
+| Rate limit/brute force | Redis-or-local limiters, lockout, phone OTP ceiling | New OTP predicate test passes; distributed/multi-worker behavior blocked |
+| Uploads/path traversal | CSV/import, export/download and backup filesystem paths exist; no general upload service established by this review | Full path/CSV size/provider storage review incomplete |
+| Secrets/logging | fail-closed production configuration, encrypted integration secrets, scrubbed audit metadata | Tracked-file secret scanner exit 0; external logs/history/secrets not certified |
+| Payments/webhooks | gateway HMAC/order correlation/idempotency, outbound signing and retry queue | Ten callback-route and four settlement boundary tests pass; live gateways not tested |
+| Dependencies | npm full audit exit 1; runtime-only audit exit 0 | AUD-006 unresolved; no forced tooling downgrade |
+| Production configuration | startup validation, headers, liveness/readiness split, separate worker | Direct Next compile only; real startup/TLS/storage/deployment not verified |
+
+No exploit was attempted outside the repository. No secrets were copied into reports, no
+production accounts changed and no external service calls were used to send messages or money.
+Urgent next step: validate these MFA fixes against disposable PostgreSQL and real session-bound
+HTTP requests before a release, then run the full denied/allowed cross-tenant regression suite.
