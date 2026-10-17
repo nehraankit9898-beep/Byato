@@ -266,6 +266,9 @@ async function main() {
       ...TEST_SECRETS,
     };
     const TEST_FILES = [
+      "tests/mfa-enrollment-regression.test.ts",
+      "tests/build-mode-contract.test.ts",
+      "tests/audit-current-regressions.test.ts",
       "tests/auth.test.ts",
       "tests/lockout.test.ts",
       "tests/navigation-rbac.test.ts",

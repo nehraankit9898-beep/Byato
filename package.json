@@ -6,8 +6,8 @@
     "dev": "node scripts/prisma-generate.mjs && next dev -p 3000",
     "build": "prisma generate --schema prisma/schema.postgres.prisma && next build",
     "postinstall": "node scripts/prisma-generate.mjs",
-    "build:standalone": "STAYLOOP_STANDALONE=1 next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
-    "start": "NODE_ENV=production node .next/standalone/server.js",
+    "build:standalone": "prisma generate --schema prisma/schema.postgres.prisma && STAYLOOP_STANDALONE=1 next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "start": "next start -H 0.0.0.0",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "bun run scripts/run-tests.ts",
@@ -26,7 +26,8 @@
     "scan:secrets": "bun run scripts/scan-secrets.ts",
     "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.postgres.prisma",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"*.{ts,mjs,json}\" \".prettierrc.json\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"*.{ts,mjs,json}\" \".prettierrc.json\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"*.{ts,mjs,json}\" \".prettierrc.json\"",
+    "start:standalone": "NODE_ENV=production node .next/standalone/server.js"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

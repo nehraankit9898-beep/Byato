@@ -178,19 +178,33 @@ export interface MfaSetup {
   qrDataUrl: string;
 }
 
-/** Begin MFA setup: generates a secret + QR. Does NOT enable MFA yet. */
+export class MfaSetupConflictError extends Error {
+  constructor() {
+    super(
+      "MFA is already enabled or setup changed. Disable the existing factor with a fresh code before starting again.",
+    );
+    this.name = "MfaSetupConflictError";
+  }
+}
+
+/** Begin MFA setup: generates a secret + QR. Never replaces an enabled factor. */
 export async function beginMfaSetup(userId: string): Promise<MfaSetup> {
   const secret = base32Encode(randomBytes(20));
-  const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { email: true, mfaEnabled: true },
+  });
+  if (!user || user.mfaEnabled) throw new MfaSetupConflictError();
   const otpauthUrl = `otpauth://totp/StayLoop:${encodeURIComponent(user?.email ?? userId)}?secret=${secret}&issuer=StayLoop&algorithm=SHA1&digits=${DIGITS}&period=${PERIOD_SECONDS}`;
   // QR rendered server-side; secret never leaves the response of THIS call.
   const QRCode = (await import("qrcode")).default;
   const qrDataUrl = await QRCode.toDataURL(otpauthUrl, { margin: 1, width: 240 });
   // Store encrypted secret pre-verification so the verify step can confirm it.
-  await db.user.update({
-    where: { id: userId },
-    data: { mfaSecret: encryptSecret(secret), mfaEnabled: false },
+  const saved = await db.user.updateMany({
+    where: { id: userId, mfaEnabled: false },
+    data: { mfaSecret: encryptSecret(secret), mfaBackupCodes: null, mfaLastUsedStep: null },
   });
+  if (saved.count !== 1) throw new MfaSetupConflictError();
   return { secret, otpauthUrl, qrDataUrl };
 }
 
@@ -209,10 +223,13 @@ export async function confirmMfaSetup(
   const setupStep = matchTotpStep(secret, code);
   if (setupStep === null) return { ok: false, error: "That code is incorrect. Try the next one." };
   const { plain, hashes } = generateBackupCodes();
-  await db.user.update({
-    where: { id: userId },
+  // Compare-and-set the exact secret that was verified. A concurrent setup or
+  // confirmation must not enable a different secret or return obsolete codes.
+  const enabled = await db.user.updateMany({
+    where: { id: userId, mfaEnabled: false, mfaSecret: user.mfaSecret },
     data: { mfaEnabled: true, mfaBackupCodes: JSON.stringify(hashes), mfaLastUsedStep: setupStep },
   });
+  if (enabled.count !== 1) return { ok: false, error: "MFA setup changed. Please start again." };
   await logAudit({
     userId,
     action: AUDIT_ACTIONS.MFA_CHANGED,

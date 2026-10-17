@@ -207,7 +207,7 @@ jobs:
           pg_dump --version
 
       - name: Production build (standalone server)
-        run: bun run build
+        run: bun run build:standalone
         env:
           DATABASE_URL: file:../db/ci.db
 

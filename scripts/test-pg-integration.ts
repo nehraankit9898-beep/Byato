@@ -296,7 +296,7 @@ async function main() {
     assert(
       "4-standalone-build",
       existsSync(serverJs),
-      ".next/standalone/server.js present (bun run build before this suite)",
+      ".next/standalone/server.js present (bun run build:standalone before this suite)",
     );
 
     // ---- Step 5: temp shared storage ---------------------------------

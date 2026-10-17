@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAuth, serverError } from "@/lib/api-helpers";
-import { beginMfaSetup } from "@/lib/mfa";
+import { requireAuth, jsonError, serverError } from "@/lib/api-helpers";
+import { beginMfaSetup, MfaSetupConflictError } from "@/lib/mfa";
 
 /**
  * POST /api/mfa/setup — begin TOTP enrolment (Phase 10 §14).
@@ -18,6 +18,9 @@ export async function POST(req: Request) {
       qrDataUrl: setup.qrDataUrl,
     });
   } catch (err) {
+    if (err instanceof MfaSetupConflictError) {
+      return jsonError(err.message, 409, "MFA_SETUP_CONFLICT");
+    }
     return serverError(err, "Could not start MFA setup. Please try again.");
   }
 }
