@@ -10,10 +10,10 @@
  */
 import "./queue-test-env";
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { testDb } from "./helpers";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { PrismaClient } from "@prisma/client";
 
 const backupDir = mkdtempSync(join(tmpdir(), "stayloop-ops-backup-"));
 
@@ -26,9 +26,7 @@ import {
   WORKER_HEARTBEAT_KEY,
 } from "../src/lib/worker-heartbeat";
 
-const db = new PrismaClient({
-  datasources: { db: { url: `${process.env.DATABASE_URL}?connection_limit=1` } },
-});
+const db = testDb();
 
 beforeAll(async () => {
   process.env.BACKUP_DIR = backupDir;

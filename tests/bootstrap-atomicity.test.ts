@@ -9,15 +9,13 @@
  */
 import "./queue-test-env";
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { testDb } from "./helpers";
 import { spawnSync } from "child_process";
 import { resolve } from "path";
-import { PrismaClient } from "@prisma/client";
 import { cleanupQueueTestTmp } from "./queue-test-env";
 
 const ROOT = resolve(import.meta.dir, "..");
-const db = new PrismaClient({
-  datasources: { db: { url: `${process.env.DATABASE_URL}?connection_limit=1` } },
-});
+const db = testDb();
 
 import { bootstrapFirstSuperAdmin } from "../src/lib/super-admin";
 

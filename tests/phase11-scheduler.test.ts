@@ -13,12 +13,10 @@
  */
 import "./queue-test-env";
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { PrismaClient } from "@prisma/client";
+import { testDb } from "./helpers";
 import { QUEUE_TEST_TMP, cleanupQueueTestTmp } from "./queue-test-env";
 
-const db = new PrismaClient({
-  datasources: { db: { url: `${process.env.DATABASE_URL}?connection_limit=1` } },
-});
+const db = testDb();
 
 import { sweepDueCampaigns, enrollJourneyCustomer, sweepJourneys } from "../src/lib/scheduler";
 

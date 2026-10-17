@@ -109,14 +109,44 @@ if (
   );
 }
 
+/**
+ * Test-environment driver adapter.
+ *
+ * In the security-test environment (STAYLOOP_TEST=1, SQLite) the Prisma
+ * client is generated with the pure-JS/WASM "client" query engine
+ * (prisma/schema.test.prisma, selected by scripts/prisma-generate.mjs) so no
+ * native engine binary has to be downloaded — required in network-restricted
+ * CI sandboxes. That engine talks to the database through a driver adapter;
+ * for SQLite we use the pure-JS LibSQL adapter (no native dependencies).
+ *
+ * Development and production are UNCHANGED: without STAYLOOP_TEST the client
+ * uses the classic engine and the URL from `datasources` as before.
+ */
+function testDriverAdapter(url: string | undefined) {
+  if (process.env.STAYLOOP_TEST !== "1" || !url?.startsWith("file:")) return undefined;
+  // Lazy require: keeps @prisma/adapter-libsql out of the module graph (and
+  // out of production bundles) unless the test environment is actually on.
+  const { PrismaLibSQL } = require("@prisma/adapter-libsql") as typeof import("@prisma/adapter-libsql");
+  // The adapter speaks plain file: URLs; strip Prisma connection params.
+  const fileUrl = url.split("?")[0];
+  return new PrismaLibSQL({ url: fileUrl });
+}
+
 export const db =
   globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.LOG_PRISMA_QUERIES === "1" ? ["query"] : ["error"],
-    datasources: (() => {
-      const url = datasourceUrl();
-      return url ? { db: { url } } : undefined;
-    })(),
-  });
+  (() => {
+    const url = datasourceUrl();
+    const adapter = testDriverAdapter(url);
+    return new PrismaClient({
+      log: process.env.LOG_PRISMA_QUERIES === "1" ? ["query"] : ["error"],
+      // With a driver adapter the data source URL comes from the adapter
+      // itself — passing both would be ignored with a warning by Prisma.
+      datasources: adapter ? undefined : url ? { db: { url } } : undefined,
+      // Prisma 6.19 rejects `adapter: undefined` ("use null to conditionally
+      // disable driver adapters") — omit the key entirely on the classic
+      // engine path so dev/production behave exactly as before.
+      ...(adapter ? { adapter } : {}),
+    });
+  })();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;

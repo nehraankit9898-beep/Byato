@@ -74,13 +74,27 @@ export async function createFranchise(
     });
     return { ok: true, id: org.id };
   } catch (e) {
-    return { ok: false, error: (e as Error).message };
+    // Never disclose ORM errors or constraint details to an API caller.
+    console.error("[franchise] create failed:", e instanceof Error ? e.message : e);
+    return { ok: false, error: "Unable to create the franchise organization.", status: 500 };
   }
 }
 
 /**
  * Add a branch (Hotel) to a franchise organization via its existing
  * BranchMembership. A hotel may belong to at most one organization.
+ *
+ * SECURITY (tenant isolation): a client-supplied hotelId must be VERIFIED
+ * against the caller's own tenant scope. Without this check, any franchise
+ * admin could attach ANY hotel in the platform to their organization and
+ * then read that tenant's aggregated sales/customer/stock data through
+ * GET /api/franchise/[id] (cross-tenant data exposure) and schedule central
+ * menu rollouts against it. A branch may only be added when the target is
+ * the caller's own hotel or an already-shared sibling:
+ *   - a member of the SAME BranchGroup as the caller's hotel (explicit,
+ *     server-verified shared-ownership relationship), or
+ *   - already bound to THIS franchise organization (idempotent re-attach).
+ * A hotel already bound to a DIFFERENT organization can never be captured.
  */
 export async function addBranchToFranchise(
   user: AuthedUser,
@@ -90,16 +104,45 @@ export async function addBranchToFranchise(
   if (!(await isFranchiseAdmin(user, orgId))) {
     return { ok: false, error: "Forbidden", status: 403 };
   }
-  // The hotel must already have a BranchMembership in some group, OR we
-  // create one in a default group. For MVP we attach the hotel directly
-  // to the franchise via the `orgId` column on BranchMembership.
-  // The existing BranchGroup from Phase 16 remains for owner-visibility
-  // grouping; FranchiseOrganization adds chain-level governance.
+  if (!user.hotelId) {
+    return { ok: false, error: "Hotel context is required.", status: 403 };
+  }
   const hotel = await db.hotel.findUnique({
     where: { id: hotelId },
     select: { id: true, status: true },
   });
   if (!hotel) return { ok: false, error: "Hotel not found.", status: 404 };
+
+  // Tenant-scope verification (see function doc).
+  if (hotelId !== user.hotelId) {
+    const [targetMembership, callerMembership] = await Promise.all([
+      db.branchMembership.findUnique({ where: { hotelId } }),
+      db.branchMembership.findUnique({ where: { hotelId: user.hotelId } }),
+    ]);
+    const inSharedGroup =
+      !!targetMembership && !!callerMembership && targetMembership.groupId === callerMembership.groupId;
+    const alreadyInThisOrg = targetMembership?.franchiseOrganizationId === orgId;
+    if (!inSharedGroup && !alreadyInThisOrg) {
+      return {
+        ok: false,
+        error:
+          "This hotel is not part of your branch group. Only hotels you administer in your own branch group can be added to your franchise.",
+        status: 403,
+      };
+    }
+    if (
+      targetMembership?.franchiseOrganizationId &&
+      targetMembership.franchiseOrganizationId !== orgId
+    ) {
+      return { ok: false, error: "That hotel already belongs to another franchise.", status: 409 };
+    }
+  }
+
+  // The hotel must already have a BranchMembership in some group, OR we
+  // create one in a default group. For MVP we attach the hotel directly
+  // to the franchise via the `orgId` column on BranchMembership.
+  // The existing BranchGroup from Phase 16 remains for owner-visibility
+  // grouping; FranchiseOrganization adds chain-level governance.
 
   // Find or create the organization's own BranchGroup.
   let group = await db.branchGroup.findFirst({

@@ -356,6 +356,12 @@ async function main() {
       // (session-expired-after-login, GCM backup round-trip failures,
       // BLOCKED tenant integrations). See the suite header for the full map.
       "tests/config-secret-stability.test.ts",
+      // 2026-10 master RBAC & tenant-isolation regression suite: custom-role
+      // mass-assignment/reserved-permission/inactive-revocation, staff
+      // owner-boundary + self-escalation, super-admin boundary, session
+      // revocation/tampering, cross-tenant nested + franchise capture,
+      // export/financial permission boundaries.
+      "tests/rbac-security-master.test.ts",
     ];
     const unregistered = readdirSync(join(ROOT, "tests"))
       .filter((f) => f.endsWith(".test.ts"))
@@ -374,7 +380,16 @@ async function main() {
       // phase11-scheduler additionally spawns the Prisma CLI (`prisma db
       // push`) inside its own test, which alone takes ~60 s on a cold cache —
       // past Bun's 30 s default, so it flaked with "(unnamed) [30015ms]".
-      const longFiles = ["phase11", "phase14", "phase15", "phase16", "phase17"];
+      const longFiles = [
+        "phase11",
+        "phase14",
+        "phase15",
+        "phase16",
+        "phase17",
+        // Many logins (argon2 + MFA-free) + first-hit dev compilation of
+        // several brand-new routes → needs the same headroom as the phases.
+        "rbac-security-master",
+      ];
       const timeout = longFiles.some((f) => file.includes(f)) ? "120000" : "30000";
       failures += await runInherited("bun", ["test", file, "--timeout", timeout], testEnv);
       await ensureServerHealthy(`after ${file}`);

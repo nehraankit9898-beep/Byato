@@ -28,7 +28,7 @@
  *      recommendations/passes/interactions (404/empty semantics).
  */
 import { describe, test, expect } from "bun:test";
-import { apiCall, login } from "./helpers";
+import { apiCall, login, testDb } from "./helpers";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3100";
 
@@ -275,10 +275,7 @@ const TEST_PNID = `PNID-${Date.now()}`;
 
 {
   // Fixture: WhatsApp integration for the tenant (plaintext creds in test env).
-  const { PrismaClient } = await import("@prisma/client");
-  const fixtureDb = new PrismaClient({
-    datasources: { db: { url: `${process.env.DATABASE_URL}?connection_limit=1` } },
-  });
+  const fixtureDb = testDb();
   await fixtureDb.integration.create({
     data: {
       hotelId: fresh.hotelId,
@@ -409,8 +406,7 @@ describe("P18 — WhatsApp chatbot end-to-end", () => {
   test("sold-out item cannot be ordered through chat", async () => {
     // Archive-price trick: create an item then flip availability off via API.
     const soldOut = await createMenuItem("Sold Out Special", 10000);
-    const { PrismaClient } = await import("@prisma/client");
-    const fx = new PrismaClient({ datasources: { db: { url: `${process.env.DATABASE_URL}?connection_limit=1` } } });
+    const fx = testDb();
     await fx.menuItem.update({ where: { id: soldOut.id }, data: { available: false } });
     await fx.$disconnect();
 
@@ -439,8 +435,7 @@ describe("P18 — recommendations (RULE_BASED + human approval)", () => {
     });
     expect(custRes.status).toBe(201);
     const customerId = (custRes.body as { customer: { id: string } }).customer.id;
-    const { PrismaClient } = await import("@prisma/client");
-    const fx = new PrismaClient({ datasources: { db: { url: `${process.env.DATABASE_URL}?connection_limit=1` } } });
+    const fx = testDb();
     await fx.customer.update({
       where: { id: customerId },
       data: { totalRestaurantVisits: 3, lastRestaurantVisit: new Date(Date.now() - 10 * 86400000) },
