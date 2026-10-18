@@ -80,16 +80,20 @@ ADMIN_BOOTSTRAP_SECRET=<strong-secret> bun run bootstrap:admin
 
 ## Production Deployment
 
-Production runs on **PostgreSQL 16 + Redis 7** behind Caddy (automatic HTTPS),
-deployed with Docker Compose on an Ubuntu VPS.
+**Primary production target: Vercel + Neon PostgreSQL.** Keep Vercel project
+environment variables aligned with `.env.example`; use the PostgreSQL Prisma
+schema and apply checked-in migrations before serving real customer traffic.
+Do not run development seed or destructive database-push commands against
+production.
 
-👉 Follow **[`DEPLOYMENT.md`](DEPLOYMENT.md)** — beginner-friendly, verified
-copy-paste steps for a fresh VPS (Docker install, `.env`, migrations, web +
-worker + Caddy, health checks, backups).
+For deployment-specific steps, follow the Vercel project settings and the
+repository's PostgreSQL migration instructions in [`docs/DATABASE.md`](docs/DATABASE.md).
+Check [`LAUNCH_CHECKLIST.md`](LAUNCH_CHECKLIST.md) before enabling real
+customers or outbound campaigns.
 
-Before going live with real customers, walk through
-**[`LAUNCH_CHECKLIST.md`](LAUNCH_CHECKLIST.md)** (demo/staging vs real-customer
-gates).
+**Secondary/self-hosted path:** [`DEPLOYMENT.md`](DEPLOYMENT.md) documents the
+Docker + PostgreSQL + Redis + Caddy VPS deployment. The Netlify configuration
+is retained for compatibility; it is not the primary production target.
 
 ### Environment
 
