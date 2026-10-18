@@ -13,9 +13,13 @@ import { createHmac } from "crypto";
  * tests still work unchanged in a normal development checkout.
  */
 export function testDb(): import("@prisma/client").PrismaClient {
+  // Test-only synchronous adapter loading keeps this path out of production initialization.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { PrismaClient } = require("@prisma/client");
   const url = (process.env.DATABASE_URL || "").trim();
   if (process.env.STAYLOOP_TEST === "1" && url.startsWith("file:")) {
+    // Test-only synchronous adapter loading keeps this path out of production initialization.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaLibSQL } = require("@prisma/adapter-libsql");
     return new PrismaClient({ adapter: new PrismaLibSQL({ url: url.split("?")[0] }) });
   }

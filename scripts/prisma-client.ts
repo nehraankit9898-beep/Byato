@@ -12,6 +12,8 @@ import { PrismaClient } from "@prisma/client";
 export function createScriptPrismaClient(): PrismaClient {
   const url = (process.env.DATABASE_URL || "").trim();
   if (process.env.STAYLOOP_TEST === "1" && url.startsWith("file:")) {
+    // Test-only synchronous adapter loading keeps this path out of production initialization.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaLibSQL } = require("@prisma/adapter-libsql") as typeof import("@prisma/adapter-libsql");
     return new PrismaClient({
       adapter: new PrismaLibSQL({ url: url.split("?")[0] }),

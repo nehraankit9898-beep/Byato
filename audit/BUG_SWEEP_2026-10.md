@@ -280,3 +280,25 @@ fresh process so any future TDZ cycle fails the build.
   (PGlite): it is re-runnable, the backfill is correct, and the cancelled slot
   can be re-booked while a duplicate active booking is rejected. Prisma's own
   `migrate diff` drift check needs the CI Postgres service and was not run here.
+
+
+---
+
+## 2026-10-18 follow-up — new BUG-14 through BUG-18
+
+IDs 11–13 were assigned in `VERIFICATION_2026-10-12.md`; they are not reused.
+Full root causes, failing reproductions, code fixes, regressions, dependencies,
+rollout/rollback and honest verification limits are in
+[DEEP_BUG_HUNT_2026-10-18.md](DEEP_BUG_HUNT_2026-10-18.md).
+
+| ID | Severity | Summary |
+|---|---|---|
+| BUG-14 | Medium | Production frame-ancestor validation accepted wildcard/directive text |
+| BUG-15 | High | Status-only CAS missed concurrent same-status payments/refunds |
+| BUG-16 | High | Privacy deletion violated customer uniqueness and stranded partial changes |
+| BUG-17 | Medium | 22 API files bypassed historical shared request-body cap |
+| BUG-18 | Medium | Bun lock workspace drift blocked frozen installation/CI |
+
+All five have fixes and regressions. No new schema migration. DEP-002 remains
+an existing dependency finding, not a sixth new bug. Production build and real
+PostgreSQL/provider/browser checks remain gates, not claimed passes.

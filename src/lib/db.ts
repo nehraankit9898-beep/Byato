@@ -126,6 +126,8 @@ function testDriverAdapter(url: string | undefined) {
   if (process.env.STAYLOOP_TEST !== "1" || !url?.startsWith("file:")) return undefined;
   // Lazy require: keeps @prisma/adapter-libsql out of the module graph (and
   // out of production bundles) unless the test environment is actually on.
+  // Test-only synchronous adapter loading keeps this path out of production initialization.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { PrismaLibSQL } = require("@prisma/adapter-libsql") as typeof import("@prisma/adapter-libsql");
   // The adapter speaks plain file: URLs; strip Prisma connection params.
   const fileUrl = url.split("?")[0];

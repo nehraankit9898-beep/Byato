@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { db } from "@/lib/db";
 import { jsonError, serverError } from "@/lib/api-helpers";
 import { consumeSecurityToken } from "@/lib/security-tokens";
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = (await req.json().catch(() => null)) as { token?: string } | null;
+    const body = (await readJsonCapped(req)) as { token?: string } | null;
     const token = typeof body?.token === "string" ? body.token.trim() : "";
     if (!token) return jsonError("A verification token is required.", 400, "VALIDATION_ERROR");
 

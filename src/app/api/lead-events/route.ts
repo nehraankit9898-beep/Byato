@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { db } from "@/lib/db";
 import { requireAuth, jsonError, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
     const denied = requirePermission(auth.user, "LEAD_CREATE");
     if (denied) return denied;
 
-    const body = await req.json().catch(() => null);
+    const body = await readJsonCapped(req);
     const parsed = parseWith(leadEventCreateSchema, body);
     if (!parsed.ok || !parsed.data) return jsonError(parsed.error ?? "Invalid request.");
 

@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { db } from "@/lib/db";
 import { jsonError, serverError } from "@/lib/api-helpers";
 import { issueSecurityToken } from "@/lib/security-tokens";
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
       return jsonError("Too many requests. Please try again later.", 429, "RATE_LIMITED");
     }
 
-    const body = await req.json().catch(() => null);
+    const body = await readJsonCapped(req);
     const parsed = resendSchema.safeParse(body);
     if (!parsed.success) {
       // Same generic response shape as success — no enumeration signal.

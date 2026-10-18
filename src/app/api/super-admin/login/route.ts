@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json().catch(() => null);
+    const body = await readJsonCapped(req);
     const parsed = parseWith(superAdminLoginSchema, body);
     if (!parsed.ok || !parsed.data) {
       return NextResponse.json(

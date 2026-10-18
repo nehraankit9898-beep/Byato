@@ -1,3 +1,4 @@
+import { readBodyCapped, MAX_JSON_BODY_BYTES } from "@/lib/body";
 import { db } from "@/lib/db";
 import { jsonError, serverError } from "@/lib/api-helpers";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
@@ -27,7 +28,8 @@ export async function POST(req: Request) {
     }
 
     const secret = getTrackingWebhookSecret();
-    const rawBody = await req.text();
+    const rawBody = await readBodyCapped(req, MAX_JSON_BODY_BYTES);
+    if (rawBody === null) return Response.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large." } }, { status: 413 });
     const verified = verifyWebhookSignature(rawBody, req.headers, secret);
     if (!verified.ok) {
       await logAudit({

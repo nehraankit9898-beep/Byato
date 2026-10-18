@@ -1,3 +1,4 @@
+import { readBodyCapped, MAX_JSON_BODY_BYTES } from "@/lib/body";
 import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { decryptCredentials, isEncryptedEnvelope } from "@/lib/crypto";
@@ -111,7 +112,8 @@ async function lookupTenantByPhoneNumberId(phoneNumberId: string): Promise<strin
 }
 
 export async function POST(req: Request) {
-  const rawBody = await req.text();
+  const rawBody = await readBodyCapped(req, MAX_JSON_BODY_BYTES);
+  if (rawBody === null) return Response.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large." } }, { status: 413 });
 
   // --- Signature (fail-closed in production).
   const appSecret = process.env.WHATSAPP_APP_SECRET;

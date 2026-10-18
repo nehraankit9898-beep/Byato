@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { jsonError, serverError } from "@/lib/api-helpers";
 import { resolvePublicMenu } from "@/lib/menu";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -40,7 +41,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
 
     let body: { transcript?: unknown };
     try {
-      body = (await req.json()) as { transcript?: unknown };
+      const parsedBody = await readJsonCapped(req);
+      if (!parsedBody) return jsonError("Invalid JSON body.", 400, "BAD_REQUEST");
+      body = parsedBody;
     } catch {
       return jsonError("Invalid JSON body.", 400, "BAD_REQUEST");
     }

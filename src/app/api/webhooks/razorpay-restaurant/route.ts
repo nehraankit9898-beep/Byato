@@ -1,3 +1,4 @@
+import { readBodyCapped, MAX_JSON_BODY_BYTES } from "@/lib/body";
 import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { jsonError } from "@/lib/api-helpers";
@@ -24,7 +25,8 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 export async function POST(req: Request) {
-  const raw = await req.text();
+  const raw = await readBodyCapped(req, MAX_JSON_BODY_BYTES);
+  if (raw === null) return Response.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large." } }, { status: 413 });
   const signature = req.headers.get("x-razorpay-signature") ?? "";
 
   // Resolve the verifying secret: platform env first, then tenant integration.

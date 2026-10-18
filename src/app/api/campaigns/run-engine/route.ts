@@ -1,3 +1,4 @@
+import { readBodyCapped, MAX_JSON_BODY_BYTES } from "@/lib/body";
 import { db } from "@/lib/db";
 import { timingSafeEqual } from "crypto";
 import { requireAuth, jsonError, serverError } from "@/lib/api-helpers";
@@ -64,7 +65,8 @@ export async function POST(req: Request) {
       const signature = req.headers.get("x-engine-signature");
       const timestamp = req.headers.get("x-engine-timestamp");
       if (signature && timestamp) {
-        const rawBody = await req.text();
+        const rawBody = await readBodyCapped(req, MAX_JSON_BODY_BYTES);
+        if (rawBody === null) return Response.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large." } }, { status: 413 });
         const { signWebhookPayload } = await import("@/lib/webhook-verify");
         const expected = signWebhookPayload(engineSecret, timestamp, rawBody);
         const a = Buffer.from(signature);

@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 /**
  * Phase 11 — Public developer API gateway: /api/v1/*
  *
@@ -147,7 +148,7 @@ async function handle(req: Request, ctx: Ctx): Promise<Response> {
     // ---- /api/v1/customers ----
     if (resource === "customers") {
       if (method === "POST" && !sub) {
-        const body = await req.json().catch(() => null);
+        const body = await readJsonCapped(req);
         const name = typeof body?.name === "string" ? body.name.trim() : "";
         const phoneRaw = typeof body?.phone === "string" ? body.phone.trim() : "";
         if (!name) return err(422, "VALIDATION_ERROR", "'name' is required.");
@@ -268,7 +269,7 @@ async function handle(req: Request, ctx: Ctx): Promise<Response> {
     // ---- /api/v1/visits ----
     if (resource === "visits") {
       if (method === "POST" && !sub) {
-        const body = await req.json().catch(() => null);
+        const body = await readJsonCapped(req);
         const phoneRaw = typeof body?.phone === "string" ? body.phone.trim() : "";
         const phoneResult = normalizePhone(phoneRaw);
         if (!phoneResult.ok)

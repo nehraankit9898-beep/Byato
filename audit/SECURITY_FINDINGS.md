@@ -1,3 +1,11 @@
+# Current follow-up — 2026-10-18
+
+See [DEEP_BUG_HUNT_2026-10-18.md](DEEP_BUG_HUNT_2026-10-18.md) for evidence and limits. New: **BUG-14** production frame-policy validation (Medium), **BUG-15** same-status bill-balance lost updates (High), **BUG-16** non-atomic/uniqueness-breaking privacy deletion (High), **BUG-17** 22 routes bypassing the historical body cap (Medium), **BUG-18** frozen lockfile drift (Medium). Each is code-fixed with a failing-before/passing-after regression. BUG-17 demonstrates additional public/webhook exposure beyond SEC-005; BUG-15 demonstrates the same-status gap in previous P14 concurrency fixes.
+
+DEP-002 is not new: full-tree audit reduced from 26 high / 39 total records to one high dev-tool braces advisory; 265 locked production-reachable package names returned no advisories. Production build and real PostgreSQL concurrency remain unverified. Earlier assertions that production frame ancestors were always explicit were incorrect; BUG-14 corrects them. Older findings/status below are historical unless rechecked in the new report.
+
+---
+
 # Security findings — 2026-10-12 addendum
 
 Historical detailed review: `audit/SECURITY_FINDINGS.md` (older audit; dates/results differ). Findings below are for this checkout.
