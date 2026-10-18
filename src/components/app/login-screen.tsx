@@ -122,8 +122,8 @@ export function LoginScreen({
               <Hotel className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xl font-bold tracking-tight">RestroLoop</p>
-              <p className="text-xs text-amber-100/80">Hotel Customer Retention</p>
+              <p className="text-xl font-bold tracking-tight">Beyto</p>
+              <p className="text-xs text-amber-100/80">Restaurant CRM & Guest Loyalty</p>
             </div>
           </div>
         </div>
@@ -171,7 +171,7 @@ export function LoginScreen({
         </div>
 
         <div className="relative text-xs text-amber-100/70">
-          © {new Date().getFullYear()} RestroLoop · Restaurant CRM & Ordering
+          © {new Date().getFullYear()} Beyto · Restaurant CRM & Ordering
         </div>
       </div>
 
@@ -189,7 +189,7 @@ export function LoginScreen({
               <Hotel className="h-7 w-7" />
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-bold tracking-tight">RestroLoop</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Beyto</h1>
               <p className="text-xs text-muted-foreground">Hotel Customer Retention</p>
             </div>
           </div>
