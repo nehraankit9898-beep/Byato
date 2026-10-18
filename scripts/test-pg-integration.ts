@@ -219,8 +219,10 @@ async function main() {
       if (appUser) {
         for (const name of [dbName, shadowName, restoreName]) {
           await admin.$executeRawUnsafe(`ALTER DATABASE "${name}" OWNER TO "${appUser}"`);
+          const dbAdminUrl = new URL(PG_APP_URL);
+          dbAdminUrl.pathname = `/${name}`;
           const dbAdmin = new PrismaClient({
-            datasources: { db: { url: `${appUrl.protocol}//${appUser}@${appUrl.host}/${name}` } },
+            datasources: { db: { url: dbAdminUrl.toString() } },
           });
           try {
             await dbAdmin.$executeRawUnsafe(`ALTER SCHEMA public OWNER TO "${appUser}"`);
@@ -462,6 +464,11 @@ async function main() {
       "MFA enabled with a valid TOTP code (backup codes issued once)",
     );
 
+    // MFA replay protection correctly rejects a TOTP step that was already
+    // consumed during enrollment. Wait until the next real 30-second step
+    // before using a fresh code for the login challenge below.
+    await wait(30_000 - (Date.now() % 30_000) + 1_000);
+
     // ---- Step 11: usable dashboard (full MFA login: challenge + code) --
     const login3raw = await api("POST", "/api/super-admin/login", {
       body: { email: SA_EMAIL, password: "IntegrationSA-New-Pass-456!" },
@@ -641,7 +648,7 @@ async function main() {
       "13b-worker-backup",
       backupDone && backupRow?.status === "SUCCESS" && backupRow?.verified === true,
       "worker executed pg_dump + AES-256-GCM backup (SUCCESS, verified at creation)",
-      `backup row: ${JSON.stringify(backupRow).slice(0, 400)}\nworker log:\n${workerLog.slice(-2000)}`,
+      `backup row: ${JSON.stringify(backupRow ?? null).slice(0, 400)}\nworker log:\n${workerLog.slice(-2000)}`,
     );
 
     const verify = await api("POST", "/api/super-admin/backups?verify=1", { jar: jar3, body: {} });
