@@ -14,7 +14,7 @@
  * Usage: bun run test
  */
 import { spawn, spawnSync } from "child_process";
-import { mkdtempSync, readdirSync, rmSync } from "fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
@@ -163,6 +163,24 @@ async function main() {
     PORT: String(PORT),
     ...TEST_SECRETS,
   };
+
+  // BUG FIX (2026-10, reproduced in a network-restricted sandbox): the Prisma
+  // CLI preflight for `db push` checks that a NATIVE query-engine binary
+  // (libquery_engine…so.node) exists and, if missing, downloads it from
+  // binaries.prisma.sh — a host that is unreachable in restricted CI/sandbox
+  // environments, so a fresh `npm ci` makes every CLI command fail with a TLS
+  // download error BEFORE the schema is even parsed. In this environment the
+  // engine is never actually executed: the client is generated with
+  // engineType="client" (pure-JS/WASM query engine) and a driver adapter
+  // (prisma.config.ts + src/lib/db.ts), so the preflight only needs the FILE
+  // to exist (an existsSync check). Point PRISMA_QUERY_ENGINE_LIBRARY at a
+  // stub file in the temp dir to short-circuit the download.
+  const engineStub = join(tmp, "prisma-engine-stub.so.node");
+  writeFileSync(
+    engineStub,
+    "stub: satisfies prisma CLI preflight existence check only; never loaded (engineType=client + driver adapter path uses pure JS/WASM)\n",
+  );
+  env.PRISMA_QUERY_ENGINE_LIBRARY = engineStub;
 
   // Push schema to the fresh DB.
   //
