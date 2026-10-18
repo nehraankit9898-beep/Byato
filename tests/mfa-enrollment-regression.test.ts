@@ -33,7 +33,7 @@ mock.module("../src/lib/audit", () => ({ logAudit: async () => {}, AUDIT_ACTIONS
 mock.module("../src/lib/config", () => ({
   getAuthSecret: () => "isolated-mfa-test-secret-not-a-real-credential",
 }));
-const { beginMfaSetup, confirmMfaSetup, generateTotp } = await import("../src/lib/mfa");
+const { beginMfaSetup, confirmMfaSetup, disableMfa, regenerateBackupCodes, generateTotp } = await import("../src/lib/mfa");
 
 beforeEach(() => {
   user = {
@@ -92,5 +92,34 @@ describe("MFA enrollment must not bypass step-up verification", () => {
       confirmMfaSetup("user-1", code),
     ]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
+  });
+
+  test("disable does not clear a different factor installed after step-up verification", async () => {
+    const setup = await beginMfaSetup("user-1");
+    expect((await confirmMfaSetup("user-1", generateTotp(setup.secret))).ok).toBe(true);
+    let updates = 0;
+    beforeUpdate = () => {
+      updates += 1;
+      if (updates === 2) user.mfaSecret = "concurrently-replaced-factor";
+    };
+    const result = await disableMfa("user-1", generateTotp(setup.secret));
+    expect(result.ok).toBe(false);
+    expect(user.mfaEnabled).toBe(true);
+    expect(user.mfaSecret).toBe("concurrently-replaced-factor");
+  });
+
+  test("backup-code rotation cannot write codes after MFA is concurrently disabled", async () => {
+    const setup = await beginMfaSetup("user-1");
+    expect((await confirmMfaSetup("user-1", generateTotp(setup.secret))).ok).toBe(true);
+    const existingCodes = user.mfaBackupCodes;
+    let updates = 0;
+    beforeUpdate = () => {
+      updates += 1;
+      if (updates === 2) user.mfaEnabled = false;
+    };
+    const result = await regenerateBackupCodes("user-1", generateTotp(setup.secret));
+    expect(result.ok).toBe(false);
+    expect(user.mfaEnabled).toBe(false);
+    expect(user.mfaBackupCodes).toBe(existingCodes);
   });
 });
