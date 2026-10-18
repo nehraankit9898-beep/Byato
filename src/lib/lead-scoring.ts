@@ -88,9 +88,8 @@ export async function recordLeadEvent(params: {
 }> {
   const points = LEAD_SIGNAL_POINTS[params.type] ?? 0;
 
-  let created: { id: string } | null = null;
   try {
-    created = await db.leadEvent.create({
+    await db.leadEvent.create({
       data: {
         hotelId: params.hotelId,
         customerId: params.customerId,
@@ -122,7 +121,6 @@ export async function recordLeadEvent(params: {
     }
     throw err;
   }
-  void created;
 
   const { newScore, newTier, promoted } = await recomputeLeadScore(
     params.customerId,
