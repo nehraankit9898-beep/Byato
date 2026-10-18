@@ -235,7 +235,7 @@ jobs:
           docker build --target worker -t stayloop-worker:ci .
 
       - name: Trivy vulnerability scan (web)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: stayloop-web:ci
           severity: HIGH,CRITICAL
@@ -243,7 +243,7 @@ jobs:
           ignore-unfixed: "true"
 
       - name: Trivy vulnerability scan (worker)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: stayloop-worker:ci
           severity: HIGH,CRITICAL
