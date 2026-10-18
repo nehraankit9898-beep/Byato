@@ -274,7 +274,7 @@ const NAV_PLATFORM_ADMIN: NavItem[] = [
 const NAV_SOON: NavItem[] = [];
 
 const VIEW_TITLES: Record<ViewId, { title: string; subtitle: string }> = {
-  dashboard: { title: "Dashboard", subtitle: "Your hotel's retention at a glance" },
+  dashboard: { title: "Dashboard", subtitle: "Your restaurant's customer activity at a glance" },
   customers: { title: "Customers", subtitle: "Every guest, one searchable list" },
   segments: { title: "Segments", subtitle: "Smart guest groups, built automatically" },
   visits: { title: "Visits", subtitle: "Check-ins recorded across your hotel" },
@@ -567,7 +567,7 @@ export function AppShell({
             <SheetContent side="left" className="w-[280px] p-0 border-0">
               <SheetTitle className="sr-only">Navigation menu</SheetTitle>
               <SheetDescription className="sr-only">
-                Main navigation for your hotel workspace
+                Main navigation for your restaurant workspace
               </SheetDescription>
               <SidebarNav
                 view={view}
@@ -681,7 +681,7 @@ export function AppShell({
             <p>
               {user.role === "SUPER_ADMIN"
                 ? "Platform operator — tenant data stays isolated per hotel."
-                : "Guest data is private to your hotel — never shared across hotels."}
+                : "Guest data is private to your restaurant — never shared across restaurants."}
             </p>
           </div>
         </footer>
