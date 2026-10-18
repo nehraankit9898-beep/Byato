@@ -62,7 +62,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
       setDone(true);
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Could not register your hotel. Please try again.",
+        err instanceof ApiError ? err.message : "Could not register your restaurant. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -80,7 +80,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
             <CheckCircle2 className="h-7 w-7" />
           </div>
-          <h1 className="text-xl font-bold">Hotel registered!</h1>
+          <h1 className="text-xl font-bold">Restaurant registered!</h1>
           <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
             <span className="font-medium text-foreground">{form.hotelName}</span> is ready. You can
             now sign in with <span className="font-medium">{form.email}</span>.
@@ -113,10 +113,10 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Hotel className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">Register your hotel</h1>
+          <h1 className="text-xl font-bold tracking-tight">Register your restaurant</h1>
         </div>
         <p className="text-sm text-muted-foreground mb-6">
-          Create your hotel&apos;s workspace in under a minute. You&apos;ll be the first admin.
+          Create your restaurant&apos;s workspace in under a minute. You&apos;ll be the first admin.
         </p>
 
         {error && (
@@ -128,12 +128,12 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="hotelName">Hotel name *</Label>
+              <Label htmlFor="hotelName">Restaurant name *</Label>
               <div className="relative">
                 <Hotel className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="hotelName"
-                  placeholder="e.g. Sunrise Grand Hotel"
+                  placeholder="e.g. Sunrise Bistro"
                   className="pl-10 h-11"
                   value={form.hotelName}
                   onChange={(e) => set("hotelName", e.target.value)}
@@ -157,7 +157,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="hotelPhone">Hotel phone</Label>
+              <Label htmlFor="hotelPhone">Contact phone</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -192,7 +192,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
                 <Input
                   id="reg-email"
                   type="email"
-                  placeholder="you@yourhotel.com"
+                  placeholder="you@yourrestaurant.com"
                   className="pl-10 h-11"
                   value={form.email}
                   onChange={(e) => set("email", e.target.value)}
@@ -248,7 +248,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
                 <Loader2 className="h-4 w-4 animate-spin" /> Creating your workspace…
               </>
             ) : (
-              "Create hotel workspace"
+              "Create restaurant workspace"
             )}
           </Button>
 
