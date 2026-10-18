@@ -217,24 +217,32 @@ export async function deliverWebhook(
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
-    const res = await fetch(delivery.endpoint.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        [WEBHOOK_SIGNATURE_HEADER]: delivery.signature,
-        [WEBHOOK_EVENT_ID_HEADER]: delivery.eventId,
-        [WEBHOOK_EVENT_TYPE_HEADER]: delivery.eventType,
-      },
-      body: delivery.payload,
-      signal: controller.signal,
-      // SECURITY FIX: fetch followed redirects by default, so the 3xx branch
-      // below was unreachable and an endpoint could bounce the delivery to
-      // any URL — including http:// internal services such as the cloud
-      // metadata endpoint. Redirects are now returned and dead-lettered.
-      redirect: "manual",
-    });
-    clearTimeout(timeout);
-    const snippet = await res.text().catch(() => "");
+    let res: Response;
+    let snippet = "";
+    try {
+      res = await fetch(delivery.endpoint.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          [WEBHOOK_SIGNATURE_HEADER]: delivery.signature,
+          [WEBHOOK_EVENT_ID_HEADER]: delivery.eventId,
+          [WEBHOOK_EVENT_TYPE_HEADER]: delivery.eventType,
+        },
+        body: delivery.payload,
+        signal: controller.signal,
+        // SECURITY FIX: fetch followed redirects by default, so the 3xx branch
+        // below was unreachable and an endpoint could bounce the delivery to
+        // any URL — including http:// internal services such as the cloud
+        // metadata endpoint. Redirects are now returned and dead-lettered.
+        redirect: "manual",
+      });
+      // Keep the deadline active while consuming the response body too; a
+      // server that sends headers and then stalls must not hold the worker.
+      snippet = await res.text().catch(() => "");
+    } finally {
+      // Clear the timer on success, fetch failure, and response-body timeout.
+      clearTimeout(timeout);
+    }
     // 2xx → delivered. 3xx/4xx → dead (don't retry client errors). 5xx → retry.
     if (res.status >= 200 && res.status < 300) {
       await db.webhookDelivery.update({
