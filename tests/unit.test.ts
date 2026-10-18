@@ -15,6 +15,7 @@ import { hasPermission } from "../src/lib/permissions";
 import { assertCsrf, csrfCookieOptions } from "../src/lib/csrf";
 import { sessionCookieOptions } from "../src/lib/auth";
 import { isSecureRequest } from "../src/lib/proxy";
+import { LEAD_SIGNAL_POINTS, TIER_THRESHOLDS, tierForScore } from "../src/lib/lead-scoring";
 
 describe("webhook-verify", () => {
   const secret = "unit-test-secret-that-is-long-enough-1234";
@@ -258,3 +259,23 @@ describe("proxy-aware security (preview gateway fix)", () => {
     expect(isSecureRequest(req)).toBe(true);
   });
 });
+
+describe("lead scoring tier thresholds", () => {
+  test("tier boundaries remain stable", () => {
+    expect(tierForScore(TIER_THRESHOLDS.COLD)).toBe("COLD");
+    expect(tierForScore(TIER_THRESHOLDS.WARM - 1)).toBe("COLD");
+    expect(tierForScore(TIER_THRESHOLDS.WARM)).toBe("WARM");
+    expect(tierForScore(TIER_THRESHOLDS.HOT - 1)).toBe("WARM");
+    expect(tierForScore(TIER_THRESHOLDS.HOT)).toBe("HOT");
+    expect(tierForScore(TIER_THRESHOLDS.VERY_HOT - 1)).toBe("HOT");
+    expect(tierForScore(TIER_THRESHOLDS.VERY_HOT)).toBe("VERY_HOT");
+  });
+
+  test("lead-event point values remain defined for supported event types", () => {
+    expect(LEAD_SIGNAL_POINTS.MESSAGE_OPENED).toBe(5);
+    expect(LEAD_SIGNAL_POINTS.LINK_CLICKED).toBe(10);
+    expect(LEAD_SIGNAL_POINTS.REPLIED).toBe(20);
+    expect(LEAD_SIGNAL_POINTS.BOOKING_COMPLETED).toBe(50);
+  });
+});
+
