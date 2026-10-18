@@ -252,10 +252,15 @@ export async function disableMfa(
   if (!user?.mfaEnabled) return { ok: false, error: "MFA is not enabled." };
   const verified = await verifyStepUpCode(userId, code, user.mfaSecret, user.mfaBackupCodes);
   if (!verified) return { ok: false, error: "That code is incorrect." };
-  await db.user.update({
-    where: { id: userId },
+  // Compare-and-set the factor that was verified. If MFA was replaced or
+  // disabled concurrently, never clear a newer factor using this stale snapshot.
+  const disabled = await db.user.updateMany({
+    where: { id: userId, mfaEnabled: true, mfaSecret: user.mfaSecret },
     data: { mfaEnabled: false, mfaSecret: null, mfaBackupCodes: null },
   });
+  if (disabled.count !== 1) {
+    return { ok: false, error: "MFA changed during this operation. Please retry." };
+  }
   await logAudit({
     userId,
     action: AUDIT_ACTIONS.MFA_DISABLED,
@@ -279,7 +284,15 @@ export async function regenerateBackupCodes(
   const verified = await verifyStepUpCode(userId, code, user.mfaSecret, user.mfaBackupCodes);
   if (!verified) return { ok: false, error: "That code is incorrect." };
   const { plain, hashes } = generateBackupCodes();
-  await db.user.update({ where: { id: userId }, data: { mfaBackupCodes: JSON.stringify(hashes) } });
+  // Do not restore backup codes onto an account that was disabled or whose
+  // MFA factor changed after step-up verification.
+  const rotated = await db.user.updateMany({
+    where: { id: userId, mfaEnabled: true, mfaSecret: user.mfaSecret },
+    data: { mfaBackupCodes: JSON.stringify(hashes) },
+  });
+  if (rotated.count !== 1) {
+    return { ok: false, error: "MFA changed during this operation. Please retry." };
+  }
   await logAudit({
     userId,
     action: AUDIT_ACTIONS.MFA_CHANGED,
