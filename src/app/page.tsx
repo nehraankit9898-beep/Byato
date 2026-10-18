@@ -129,7 +129,7 @@ function App() {
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground animate-pulse">
           <Hotel className="h-7 w-7" />
         </div>
-        <p className="text-sm font-medium text-muted-foreground">Loading RestroLoop…</p>
+        <p className="text-sm font-medium text-muted-foreground">Loading Beyto…</p>
       </div>
     );
   }
