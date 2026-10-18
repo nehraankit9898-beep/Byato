@@ -5,6 +5,7 @@ import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import { buildCustomersCsv } from "@/lib/export-customers";
 import { enqueueJob, queueDepth } from "@/lib/queue";
 import { exportInlineMaxRows } from "@/lib/env";
+import { shouldQueueCsvExport } from "@/lib/export-policy";
 import { reserveUsage, releaseUsage } from "@/lib/saas/limits";
 
 /**
@@ -41,10 +42,11 @@ export async function GET(req: Request) {
       );
     }
 
-    const asyncParam = new URL(req.url).searchParams.get("async");
     const totalRows = await db.customer.count({ where: { hotelId } });
 
-    if (asyncParam !== "false" && totalRows > exportInlineMaxRows()) {
+    // The inline limit is a server-side safety boundary, not a client preference.
+    // Never let query parameters force a large export to run in the request.
+    if (shouldQueueCsvExport(totalRows, exportInlineMaxRows())) {
       const depth = await queueDepth();
       if (depth.queued + depth.running >= 100) {
         // Queue is saturated — this request never produced anything: give the
