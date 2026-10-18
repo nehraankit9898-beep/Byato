@@ -431,7 +431,7 @@ function SidebarNav({
           <Hotel className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <p className="text-[15px] font-bold tracking-tight leading-tight">RestroLoop</p>
+          <p className="text-[15px] font-bold tracking-tight leading-tight">Beyto</p>
           <p className="text-[10.5px] text-sidebar-foreground/50 truncate">
             {user.hotelName || "Platform Control Centre"}
           </p>
@@ -645,7 +645,7 @@ export function AppShell({
           <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
             <p className="flex items-center gap-1.5">
               <Hotel className="h-3.5 w-3.5 text-primary" />
-              RestroLoop · {user.hotelName || "Platform Control Centre"}
+              Beyto · {user.hotelName || "Platform Control Centre"}
             </p>
             <p>
               {user.role === "SUPER_ADMIN"

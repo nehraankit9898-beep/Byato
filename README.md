@@ -1,6 +1,6 @@
-# StayLoop — Hotel & Restaurant Customer Retention & Loyalty SaaS
+# Beyto — Hotel & Restaurant Customer Retention & Loyalty SaaS
 
-StayLoop helps hotels and restaurants increase repeat customers by storing
+Beyto helps hotels and restaurants increase repeat customers by storing
 customer visits (room stays + restaurant visits), recording marketing consent,
 automatically segmenting customers, running consent-first campaigns, automating
 follow-ups, scoring leads from engagement signals, and giving one super admin a

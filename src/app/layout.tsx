@@ -20,9 +20,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "RestroLoop — Restaurant CRM, Loyalty & QR Ordering",
+  title: "Beyto — Restaurant CRM, Loyalty & QR Ordering",
   description:
-    "Turn one-time guests into repeat customers. Track visits, record marketing consent, and understand your loyal guests — built for hotels.",
+    "Turn first-time diners into regulars. Manage customer visits, consent-based campaigns, loyalty, and restaurant operations in one dashboard.",
   keywords: ["hotel", "customer retention", "loyalty", "visits", "hospitality"],
   icons: {
     // DEPLOY FIX (Netlify 404 on /favicon.ico): the icon must be served from

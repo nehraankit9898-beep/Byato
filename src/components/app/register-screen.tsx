@@ -254,7 +254,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
 
           <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
             By registering you agree to record guest marketing consent honestly. Guests can opt out
-            at any time — RestroLoop enforces it automatically.
+            at any time — Beyto enforces it automatically.
           </p>
         </form>
       </motion.div>
