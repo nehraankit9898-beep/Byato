@@ -23,6 +23,8 @@
  *    producer; payloads are minimal event references, not full data dumps.
  */
 import { createHmac, randomBytes } from "crypto";
+import { request as httpsRequest, type RequestOptions } from "node:https";
+import { isIP } from "node:net";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import type { AuthedUser } from "@/lib/api-helpers";
@@ -115,19 +117,93 @@ export function validateWebhookUrl(url: string, isProduction: boolean): boolean 
   }
 }
 
+type PinnedAddress = { address: string; family: number };
+type DestinationResolution =
+  | { ok: true; address: PinnedAddress }
+  | { ok: false; reason: string };
+
 /**
- * Production delivery-time destination check: the endpoint URL must still
- * validate (endpoints saved before host validation existed) and its hostname
- * must not resolve to a blocked address. Returns the reason, or null if OK.
- * DNS failures throw and are retried like any transport error.
+ * Resolve once, reject the host if ANY answer is non-public, and return one of
+ * those checked addresses for the socket lookup. The returned IP is used by
+ * the actual HTTPS connection, not merely pre-checked before a second DNS
+ * resolution.
  */
-async function blockedDestination(url: string): Promise<string | null> {
-  if (!validateWebhookUrl(url, true)) return "destination not allowed (must be a public https URL)";
+async function resolvePublicDestination(url: string): Promise<DestinationResolution> {
+  if (!validateWebhookUrl(url, true)) {
+    return { ok: false, reason: "destination not allowed (must be a public https URL)" };
+  }
   const host = new URL(url).hostname.replace(/^\[|\]$/g, "");
-  const { lookup } = await import("dns/promises");
-  const addresses = await lookup(host, { all: true });
-  const blocked = addresses.find((a) => isBlockedWebhookHost(a.address));
-  return blocked ? `destination resolves to a non-public address (${blocked.address})` : null;
+  const { lookup } = await import("node:dns/promises");
+  const family = isIP(host);
+  const addresses = family
+    ? [{ address: host, family }]
+    : await lookup(host, { all: true });
+  if (addresses.length === 0) throw new Error("Webhook hostname resolved to no addresses.");
+  const blocked = addresses.find((address) => isBlockedWebhookHost(address.address));
+  if (blocked) {
+    return {
+      ok: false,
+      reason: `destination resolves to a non-public address (${blocked.address})`,
+    };
+  }
+  return { ok: true, address: addresses[0] };
+}
+
+/** Return a DNS lookup callback that can only connect to the checked IP. */
+export function createPinnedWebhookLookup(
+  pinned: PinnedAddress,
+): NonNullable<RequestOptions["lookup"]> {
+  return (hostname, options, callback) => {
+    if (typeof options === "object" && options !== null && options.all) {
+      callback(null, [{ address: pinned.address, family: pinned.family }]);
+    } else {
+      callback(null, pinned.address, pinned.family);
+    }
+  };
+}
+
+/** Send HTTPS directly to the pinned IP while retaining the URL hostname for Host/SNI/cert checks. */
+function postPinnedHttps(
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+  pinned: PinnedAddress,
+): Promise<{ status: number; text: string }> {
+  const target = new URL(url);
+  const hostname = target.hostname.replace(/^\[|\]$/g, "");
+  const hostHeader = target.host;
+  return new Promise((resolve, reject) => {
+    const request = httpsRequest(
+      {
+        protocol: "https:",
+        hostname,
+        port: target.port || undefined,
+        path: `${target.pathname}${target.search}`,
+        method: "POST",
+        headers: { ...headers, Host: hostHeader },
+        lookup: createPinnedWebhookLookup(pinned),
+        agent: false, // no pooled socket can bypass this request's pinned lookup
+        rejectUnauthorized: true,
+        ...(isIP(hostname) ? {} : { servername: hostname }),
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer | string) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        response.on("end", () => {
+          resolve({
+            status: response.statusCode ?? 0,
+            text: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        response.on("error", reject);
+      },
+    );
+    request.setTimeout(10_000, () => request.destroy(new Error("Webhook request timed out.")));
+    request.on("error", reject);
+    request.end(body);
+  });
 }
 
 interface Endpoint {
@@ -205,63 +281,79 @@ export async function deliverWebhook(
   }
   const attempt = delivery.attempt + 1;
   try {
+    const headers = {
+      "Content-Type": "application/json",
+      [WEBHOOK_SIGNATURE_HEADER]: delivery.signature,
+      [WEBHOOK_EVENT_ID_HEADER]: delivery.eventId,
+      [WEBHOOK_EVENT_TYPE_HEADER]: delivery.eventType,
+    };
+    let responseStatus: number;
+    let snippet: string;
+
     if (process.env.NODE_ENV === "production") {
-      const blocked = await blockedDestination(delivery.endpoint.url);
-      if (blocked) {
+      const destination = await resolvePublicDestination(delivery.endpoint.url);
+      if (!destination.ok) {
         await db.webhookDelivery.update({
           where: { id: deliveryId },
-          data: { attempt, status: "DEAD", responseStatus: null, responseSnippet: blocked },
+          data: { attempt, status: "DEAD", responseStatus: null, responseSnippet: destination.reason },
         });
         return { ok: false, error: "destination blocked, dead-lettered" };
       }
+      const response = await postPinnedHttps(
+        delivery.endpoint.url,
+        headers,
+        delivery.payload,
+        destination.address,
+      );
+      responseStatus = response.status;
+      snippet = response.text;
+    } else {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      try {
+        const response = await fetch(delivery.endpoint.url, {
+          method: "POST",
+          headers,
+          body: delivery.payload,
+          signal: controller.signal,
+          // Redirects stay manual so a 3xx cannot bounce delivery to an
+          // internal URL, even in non-production contract-test mode.
+          redirect: "manual",
+        });
+        responseStatus = response.status;
+        snippet = await response.text().catch(() => "");
+      } finally {
+        clearTimeout(timeout);
+      }
     }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-    const res = await fetch(delivery.endpoint.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        [WEBHOOK_SIGNATURE_HEADER]: delivery.signature,
-        [WEBHOOK_EVENT_ID_HEADER]: delivery.eventId,
-        [WEBHOOK_EVENT_TYPE_HEADER]: delivery.eventType,
-      },
-      body: delivery.payload,
-      signal: controller.signal,
-      // SECURITY FIX: fetch followed redirects by default, so the 3xx branch
-      // below was unreachable and an endpoint could bounce the delivery to
-      // any URL — including http:// internal services such as the cloud
-      // metadata endpoint. Redirects are now returned and dead-lettered.
-      redirect: "manual",
-    });
-    clearTimeout(timeout);
-    const snippet = await res.text().catch(() => "");
+
     // 2xx → delivered. 3xx/4xx → dead (don't retry client errors). 5xx → retry.
-    if (res.status >= 200 && res.status < 300) {
+    if (responseStatus >= 200 && responseStatus < 300) {
       await db.webhookDelivery.update({
         where: { id: deliveryId },
         data: {
           attempt,
           status: "DELIVERED",
-          responseStatus: res.status,
+          responseStatus,
           responseSnippet: snippet.slice(0, 500) || null,
           deliveredAt: new Date(),
         },
       });
-      return { ok: true, status: res.status };
+      return { ok: true, status: responseStatus };
     }
-    if (res.status >= 300 && res.status < 500) {
+    if (responseStatus >= 300 && responseStatus < 500) {
       await db.webhookDelivery.update({
         where: { id: deliveryId },
         data: {
           attempt,
           status: "DEAD",
-          responseStatus: res.status,
+          responseStatus,
           responseSnippet: snippet.slice(0, 500) || null,
         },
       });
-      return { ok: false, status: res.status, error: "client error, dead-lettered" };
+      return { ok: false, status: responseStatus, error: "client error, dead-lettered" };
     }
-    return recordRetry(deliveryId, attempt, res.status, snippet);
+    return recordRetry(deliveryId, attempt, responseStatus, snippet);
   } catch (e) {
     return recordRetry(deliveryId, attempt, undefined, (e as Error).message);
   }

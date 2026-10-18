@@ -20,8 +20,8 @@
  */
 import { describe, test, expect, beforeAll } from "bun:test";
 import { apiCall, jarFromResponse, login, ADMIN_PASSWORD, HOTEL_B_ADMIN, testDb } from "./helpers";
-import { generateTotp } from "../src/lib/mfa";
-import { createHmac } from "crypto";
+import { generateTotp, regenerateBackupCodes, verifyLoginCode } from "../src/lib/mfa";
+import { createHash, createHmac } from "crypto";
 
 const BOOTSTRAP_SECRET =
   process.env.ADMIN_BOOTSTRAP_SECRET ?? "test-bootstrap-secret-0123456789abcdef0123456789abcdef";
@@ -31,6 +31,7 @@ const SA_PASSWORD = "Phase10Admin123!";
 const db = testDb();
 
 let saJar: { cookie: string; csrf: string } | null = null;
+let saTotpSecret = "";
 let hotelAId = "";
 let hotelBId = "";
 let hotelBJar: { cookie: string; csrf: string } | null = null;
@@ -82,6 +83,7 @@ beforeAll(async () => {
   saJar = jarFromResponse(loginRes);
   const setup = await apiCall("POST", "/api/mfa/setup", { jar: saJar!, body: {} });
   expect(setup.status).toBe(200);
+  saTotpSecret = setup.body.secret as string;
   const enable = await apiCall("POST", "/api/mfa/enable", {
     jar: saJar!,
     body: { code: generateTotp(setup.body.secret) },
@@ -494,6 +496,37 @@ describe("Phase 10 — Billing: coupons, checkout, webhooks, refunds", () => {
 });
 
 describe("Phase 10 — Security centre, MFA policy, backups, templates", () => {
+  test("legacy unkeyed backup hashes are rejected and can be rotated with TOTP", async () => {
+    const user = await db.user.findUnique({ where: { email: SA_EMAIL }, select: { id: true } });
+    expect(user).toBeTruthy();
+    const oldCode = "ABCDEF012345";
+    const legacyHash = createHash("sha256").update(oldCode).digest("hex");
+    await db.user.update({
+      where: { id: user!.id },
+      data: { mfaBackupCodes: JSON.stringify([legacyHash]) },
+    });
+
+    expect(await verifyLoginCode(user!.id, oldCode)).toEqual({
+      ok: false,
+      error: "Invalid authentication code.",
+    });
+
+    // A fresh authenticator code still lets the user recover by replacing the
+    // unusable legacy codes with keyed hashes. Choose the next TOTP step so it
+    // cannot replay the code used during initial MFA enrollment.
+    const nextStepAt = (Math.floor(Date.now() / 30_000) + 1) * 30_000;
+    const regenerated = await regenerateBackupCodes(user!.id, generateTotp(saTotpSecret, nextStepAt));
+    expect(regenerated.ok).toBe(true);
+    if (regenerated.ok) expect(regenerated.backupCodes).toHaveLength(10);
+
+    const refreshed = await db.user.findUnique({
+      where: { id: user!.id },
+      select: { mfaBackupCodes: true },
+    });
+    expect(refreshed?.mfaBackupCodes).not.toContain(legacyHash);
+    expect(await verifyLoginCode(user!.id, oldCode)).toMatchObject({ ok: false });
+  });
+
   test("security dashboard aggregates live events + policy", async () => {
     const res = await apiCall("GET", "/api/super-admin/security", { jar: saJar! });
     expect(res.status).toBe(200);

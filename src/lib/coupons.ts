@@ -1,3 +1,4 @@
+import { randomInt } from "crypto";
 import { db } from "@/lib/db";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 
@@ -93,6 +94,36 @@ export function computeDiscount(
   }
   if (discount > orderAmount) discount = orderAmount;
   return Math.max(0, discount);
+}
+
+/** Calculate a bill coupon discount directly in minor units (never via major units). */
+export function computeDiscountMinor(
+  coupon: {
+    discountType: string;
+    discountValue: number;
+    maximumDiscount: number | null;
+  },
+  subtotalMinor: number,
+): number {
+  const subtotal = Number.isFinite(subtotalMinor) ? Math.max(0, Math.trunc(subtotalMinor)) : 0;
+  const roundMajorToMinor = (amount: number) =>
+    Number.isFinite(amount) ? Math.floor(amount * 100 + 0.5) : 0;
+  let discountMinor: number;
+
+  if (coupon.discountType === "PERCENTAGE") {
+    const roundedBps = Math.round(coupon.discountValue * 100);
+    // Values above 100% are capped to the subtotal below, so clamp the rate
+    // here as well; this keeps integer products within the safe numeric range.
+    const basisPoints = Number.isFinite(roundedBps) ? Math.min(10_000, Math.max(0, roundedBps)) : 0;
+    discountMinor = Math.floor((subtotal * basisPoints + 5_000) / 10_000);
+  } else {
+    discountMinor = roundMajorToMinor(coupon.discountValue);
+  }
+
+  if (coupon.maximumDiscount !== null) {
+    discountMinor = Math.min(discountMinor, roundMajorToMinor(coupon.maximumDiscount));
+  }
+  return Math.min(subtotal, Math.max(0, discountMinor));
 }
 
 /**
@@ -324,6 +355,6 @@ export async function redeemCoupon(
 export function generateCouponCode(prefix = "STAY"): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = prefix + "-";
-  for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) out += chars[randomInt(chars.length)];
   return out;
 }

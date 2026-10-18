@@ -14,17 +14,22 @@ import { requestIp } from "@/lib/login-security";
  * session (creating one if none exists) and returns a session token that the
  * cart submit uses — the diner never sees IDs of other tables or customers.
  *
- * Rate-limited per IP (public catalog endpoint). Responses contain ONLY
+ * Rate-limited per QR code with a higher shared-IP backstop (public catalog endpoint). Responses contain ONLY
  * display-safe fields: no staff data, no tenant settings, no analytics.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ code: string }> }) {
   try {
     const { code } = await ctx.params;
 
-    // Public endpoint: per-IP rate limit (catalog is read-only + cached by
-    // the client; 60 scans/min/IP is far above human browsing).
-    const burst = await checkRateLimit(`public-menu:${requestIp(req)}`, 60, 60 * 1000);
-    if (!burst.allowed) {
+    // Read-only menu requests are keyed to the QR capability so unrelated
+    // tables sharing a venue Wi-Fi do not consume one another's budget. The
+    // 10x IP limit remains as a broad abuse backstop.
+    const codeBucket = /^[A-Za-z0-9_-]{16,64}$/.test(code) ? code : "invalid";
+    const [codeBurst, ipBackstop] = await Promise.all([
+      checkRateLimit(`public-menu:code:${codeBucket}`, 60, 60 * 1000),
+      checkRateLimit(`public-menu:ip:${requestIp(req)}`, 600, 60 * 1000),
+    ]);
+    if (!codeBurst.allowed || !ipBackstop.allowed) {
       return jsonError("Too many requests. Please wait a moment.", 429, "RATE_LIMITED");
     }
 

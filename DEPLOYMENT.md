@@ -140,7 +140,13 @@ Also set:
 DOMAIN=stayloop.example.com          # your domain — DNS in step 4
 ACME_EMAIL=ops@example.com          # Let's Encrypt expiry notices
 APP_ORIGIN=https://stayloop.example.com
+TRUSTED_PROXY_HOPS=1                # bundled Caddy overwrites XFF with the peer IP
 ```
+
+`TRUSTED_PROXY_HOPS=1` is deliberate for this stack: Caddy sends a single
+`X-Forwarded-For` entry (`{remote_host}`), so the application uses that address.
+If you replace or add a proxy/CDN, inspect the forwarded chain and update this
+to select the actual client IP from the right. Never expose the app port directly.
 
 Email (optional but recommended — user verification / password reset):
 

@@ -7,8 +7,8 @@ import { logSecurityEvent } from "@/lib/saas/security";
  * Login security — Phase 10.
  *
  * Authoritative, DB-backed (shared across processes/instances):
- *   - per-account lockout via User.failedLoginAttempts / lockedUntil
- *   - progressive lockout: 15 min → 30 min → 60 min → 24 h
+ *   - per-account+IP lockout via recent AuthAttempt rows (never a global
+ *     account lock an attacker can trigger from a different network)
  *   - per-IP throttling via the AuthAttempt table
  *   - every attempt recorded (AuthAttempt + AuditLog with IP)
  *
@@ -17,7 +17,6 @@ import { logSecurityEvent } from "@/lib/saas/security";
  */
 
 const MAX_FAILURES = 5;
-const LOCK_STEPS_MS = [15 * 60_000, 30 * 60_000, 60 * 60_000, 24 * 60 * 60_000];
 const IP_WINDOW_MS = 15 * 60_000;
 // Volume cap: protects against enumeration bursts while staying friendly to
 // shared/NAT offices where many legitimate users sign in from one IP.
@@ -27,39 +26,53 @@ const IP_MAX_FAILURES = 25;
 
 export interface LockoutStatus {
   locked: boolean;
+  failures: number;
   retryAfterSeconds?: number;
   lockLevel?: number;
 }
 
-/** Is the account currently locked? */
-export async function getLockoutStatus(userId: string): Promise<LockoutStatus> {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { lockedUntil: true, failedLoginAttempts: true },
+/** Is this email currently locked from this IP? */
+export async function getLockoutStatus(params: { email: string; ip: string }): Promise<LockoutStatus> {
+  const where = {
+    email: params.email.trim().toLowerCase(),
+    ipAddress: params.ip === "unknown" ? null : params.ip,
+    success: false,
+    createdAt: { gte: new Date(Date.now() - IP_WINDOW_MS) },
+  };
+  const failures = await db.authAttempt.count({ where });
+  if (failures < MAX_FAILURES) return { locked: false, failures };
+
+  const oldestFailure = await db.authAttempt.findFirst({
+    where,
+    orderBy: { createdAt: "asc" },
+    select: { createdAt: true },
   });
-  if (!user?.lockedUntil) return { locked: false };
-  if (user.lockedUntil > new Date()) {
-    return {
-      locked: true,
-      retryAfterSeconds: Math.max(1, Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000)),
-      lockLevel: Math.floor((user.failedLoginAttempts || 0) / MAX_FAILURES),
-    };
-  }
-  return { locked: false };
+  if (!oldestFailure) return { locked: false, failures };
+
+  const retryAt = oldestFailure.createdAt.getTime() + IP_WINDOW_MS;
+  return {
+    locked: retryAt > Date.now(),
+    failures,
+    retryAfterSeconds: Math.max(1, Math.ceil((retryAt - Date.now()) / 1000)),
+    lockLevel: Math.floor(failures / MAX_FAILURES),
+  };
 }
 
 /** Per-IP throttling from the shared AuthAttempt table. */
 export async function isIpThrottled(
   ip: string,
 ): Promise<{ throttled: boolean; reason?: "volume" | "failures" }> {
-  if (ip === "unknown") return { throttled: false };
+  const unknownIp = ip === "unknown";
+  const ipAddress = unknownIp ? null : ip;
+  const maxAttempts = unknownIp ? 10 : IP_MAX_ATTEMPTS;
+  const maxFailures = unknownIp ? 5 : IP_MAX_FAILURES;
   const since = new Date(Date.now() - IP_WINDOW_MS);
   const [total, failures] = await Promise.all([
-    db.authAttempt.count({ where: { ipAddress: ip, createdAt: { gte: since } } }),
-    db.authAttempt.count({ where: { ipAddress: ip, success: false, createdAt: { gte: since } } }),
+    db.authAttempt.count({ where: { ipAddress, createdAt: { gte: since } } }),
+    db.authAttempt.count({ where: { ipAddress, success: false, createdAt: { gte: since } } }),
   ]);
-  if (failures >= IP_MAX_FAILURES) return { throttled: true, reason: "failures" };
-  if (total >= IP_MAX_ATTEMPTS) return { throttled: true, reason: "volume" };
+  if (failures >= maxFailures) return { throttled: true, reason: "failures" };
+  if (total >= maxAttempts) return { throttled: true, reason: "volume" };
   return { throttled: false };
 }
 
@@ -68,58 +81,41 @@ export interface FailureRecordResult {
   lockedForSeconds?: number;
 }
 
-/** Record a failed attempt for the account (creates lockout when threshold hit). */
+/** Record a failed login (known or unknown); lockout is scoped to email + IP. */
 export async function recordFailedLogin(params: {
-  userId: string;
+  userId?: string | null;
   email: string;
   ip: string;
   hotelId?: string | null;
 }): Promise<FailureRecordResult> {
-  // Phase 10 — Security Centre feed.
+  // Security events and attempts are recorded for both known and unknown
+  // emails, keeping their failure paths the same shape and maintaining the
+  // shared per-IP throttle.
   await logSecurityEvent({
     type: "FAILED_LOGIN",
     severity: "WARNING",
-    userId: params.userId,
+    userId: params.userId ?? null,
     email: params.email,
     hotelId: params.hotelId ?? null,
     ipAddress: params.ip,
     details: { email: params.email },
   });
-  // SECURITY FIX (lost update): the counter is incremented atomically in SQL
-  // and the NEW value is read back from the same statement's result. The old
-  // read-then-write let parallel wrong guesses all read the same value, so
-  // the 5-attempt lockout could be bypassed with concurrent requests.
-  const bumped = await db.user.update({
-    where: { id: params.userId },
-    data: { failedLoginAttempts: { increment: 1 } },
-    select: { failedLoginAttempts: true },
-  });
-  const failures = bumped.failedLoginAttempts;
-  const lockIndex = Math.floor(failures / MAX_FAILURES) - 1; // 0-based on each 5th
-  const justLocked = failures % MAX_FAILURES === 0 && lockIndex >= 0;
-  const lockedForSeconds = justLocked
-    ? Math.floor(LOCK_STEPS_MS[Math.min(lockIndex, LOCK_STEPS_MS.length - 1)] / 1000)
-    : undefined;
-
-  if (justLocked) {
-    await db.user.update({
-      where: { id: params.userId },
-      data: { lockedUntil: new Date(Date.now() + (lockedForSeconds ?? 0) * 1000) },
-    });
-  }
-
   await recordAuthAttempt({ email: params.email, success: false, ip: params.ip });
+
+  const lockout = await getLockoutStatus({ email: params.email, ip: params.ip });
+  const justLocked = lockout.locked && lockout.failures === MAX_FAILURES;
+  const lockedForSeconds = lockout.locked ? lockout.retryAfterSeconds : undefined;
 
   await logAudit({
     hotelId: params.hotelId ?? null,
-    userId: params.userId,
+    userId: params.userId ?? null,
     action: "LOGIN_FAILED",
-    entityType: "user",
-    entityId: params.userId,
+    entityType: params.userId ? "user" : undefined,
+    entityId: params.userId ?? undefined,
     metadata: {
-      failures,
-      locked: justLocked,
-      lockMinutes: lockedForSeconds ? Math.floor(lockedForSeconds / 60) : null,
+      failures: lockout.failures,
+      locked: lockout.locked,
+      lockMinutes: lockedForSeconds ? Math.ceil(lockedForSeconds / 60) : null,
     },
     ipAddress: params.ip,
   });
@@ -128,11 +124,11 @@ export async function recordFailedLogin(params: {
     await logSecurityEvent({
       type: "LOCKOUT",
       severity: "CRITICAL",
-      userId: params.userId,
+      userId: params.userId ?? null,
       email: params.email,
       hotelId: params.hotelId ?? null,
       ipAddress: params.ip,
-      details: { failures, lockedForSeconds },
+      details: { failures: lockout.failures, lockedForSeconds },
     });
   }
 

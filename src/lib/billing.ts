@@ -23,7 +23,7 @@
 import { createHash, createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
-import { normalizeCouponCode, validateCoupon, computeDiscount } from "@/lib/coupons";
+import { normalizeCouponCode, validateCoupon, computeDiscountMinor } from "@/lib/coupons";
 import type { Prisma } from "@prisma/client";
 
 /* ------------------------------------------------------------------ */
@@ -452,6 +452,24 @@ export async function createBillFromSession(input: CreateBillInput): Promise<Cre
     notes: string | null;
   }> = [];
   const index = new Map<string, number>();
+  const menuItemIds = [
+    ...new Set(
+      orders
+        .flatMap((order) => order.items)
+        .filter((item) => item.status !== "CANCELLED" && item.menuItemId)
+        .map((item) => item.menuItemId as string),
+    ),
+  ];
+  const menuItemCategories: Array<{ id: string; categoryId: string | null }> = menuItemIds.length
+    ? ((await db.menuItem.findMany({
+        where: { hotelId, id: { in: menuItemIds } },
+        select: { id: true, categoryId: true },
+      })) as Array<{ id: string; categoryId: string | null }>)
+    : [];
+  const categoryIdByMenuItem = new Map<string, string | null>(
+    menuItemCategories.map((item) => [item.id, item.categoryId]),
+  );
+
   for (const order of orders) {
     for (const item of order.items) {
       if (item.status === "CANCELLED") continue;
@@ -462,14 +480,9 @@ export async function createBillFromSession(input: CreateBillInput): Promise<Cre
         lines[at].lineSubtotalMinor += item.lineTotalMinor;
       } else {
         index.set(key, lines.length);
-        let categoryId: string | null = null;
-        if (item.menuItemId) {
-          const mi = await db.menuItem.findUnique({
-            where: { id: item.menuItemId },
-            select: { categoryId: true },
-          });
-          categoryId = mi?.categoryId ?? null;
-        }
+        const categoryId = item.menuItemId
+          ? (categoryIdByMenuItem.get(item.menuItemId) ?? null)
+          : null;
         lines.push({
           orderId: order.id,
           orderItemId: item.id,
@@ -510,11 +523,10 @@ export async function createBillFromSession(input: CreateBillInput): Promise<Cre
     if (!coupon) {
       throw new BillValidationError("Coupon code not found.", "COUPON_INVALID");
     }
-    const discount = computeDiscount(coupon, subtotalMinor / 100);
-    if (discount <= 0) {
+    discountMinor = computeDiscountMinor(coupon, subtotalMinor);
+    if (discountMinor <= 0) {
       throw new BillValidationError("Coupon discount is zero for this amount.", "COUPON_INVALID");
     }
-    discountMinor = roundMinor(discount * 100);
     couponCode = normalized;
     couponRow = { id: coupon.id, customerLimit: coupon.customerLimit };
   } else if (input.manualDiscountMinor && input.manualDiscountMinor > 0) {
@@ -953,6 +965,7 @@ export async function recordManualPayment(input: RecordPaymentInput): Promise<Pa
             data: {
               hotelId: fresh.hotelId,
               type: "RESTAURANT_BILL_PAID",
+              billId: fresh.id,
               status: "QUEUED",
               payload: JSON.stringify({
                 billId: fresh.id,
@@ -1016,12 +1029,6 @@ export async function onBillPaid(billId: string): Promise<void> {
   const bill = await db.bill.findUnique({ where: { id: billId } });
   if (!bill || bill.status !== "PAID") return;
 
-  // Re-entry guard: the durable job row IS the idempotency fence.
-  const existingJob = await db.backgroundJob.findFirst({
-    where: { type: "RESTAURANT_BILL_PAID", payload: { contains: `"billId":"${bill.id}"` }, status: { in: ["QUEUED", "RUNNING", "COMPLETED"] } },
-  });
-  if (existingJob) return;
-
   let customerId = bill.customerId;
   if (!customerId && bill.customerPhone) {
     const existing = await db.customer.findFirst({
@@ -1031,24 +1038,32 @@ export async function onBillPaid(billId: string): Promise<void> {
     customerId = existing?.id ?? null;
   }
 
-  await db.$transaction(async (tx) => {
-    await tx.backgroundJob.create({
-      data: {
-        hotelId: bill.hotelId,
-        type: "RESTAURANT_BILL_PAID",
-        status: "QUEUED",
-        payload: JSON.stringify({
-          billId: bill.id,
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.backgroundJob.create({
+        data: {
           hotelId: bill.hotelId,
-          customerId,
-          totalMinor: bill.totalMinor,
-          currency: bill.currency,
-          billNumber: bill.billNumber,
-        }),
-        createdBy: bill.issuedByUserId,
-      },
+          type: "RESTAURANT_BILL_PAID",
+          billId: bill.id,
+          status: "QUEUED",
+          payload: JSON.stringify({
+            billId: bill.id,
+            hotelId: bill.hotelId,
+            customerId,
+            totalMinor: bill.totalMinor,
+            currency: bill.currency,
+            billNumber: bill.billNumber,
+          }),
+          createdBy: bill.issuedByUserId,
+        },
+      });
     });
-  });
+  } catch (error) {
+    // Concurrent callers race safely on @@unique([type, billId]); the winner
+    // has already committed the durable follow-up job.
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") return;
+    throw error;
+  }
   // NOTE: loyalty + visit aggregates + followups run in the durable job
   // handler (runRestaurantBillPaid) — visit recording internally awards
   // loyalty idempotently, so a separate award here would double-count.
@@ -1314,8 +1329,15 @@ export async function recordGatewayCapture(params: {
   try {
     const outcome = await db.$transaction(
       async (tx) => {
-        const intent = await tx.billPayment.findUnique({ where: { id: params.intentPaymentId } });
-        if (!intent || intent.hotelId !== params.hotelId) {
+        const intent = await tx.billPayment.findFirst({
+          where: {
+            id: params.intentPaymentId,
+            hotelId: params.hotelId,
+            gatewayOrderId: params.gatewayOrderId,
+            gateway: "RAZORPAY",
+          },
+        });
+        if (!intent) {
           return { ok: false as const, reason: "Intent not found." };
         }
         if (intent.status === "CAPTURED") {
@@ -1324,8 +1346,8 @@ export async function recordGatewayCapture(params: {
         if (intent.amountMinor !== params.expectedAmountMinor) {
           return { ok: false as const, reason: "Amount mismatch between intent and verification." };
         }
-        const bill = await tx.bill.findUnique({ where: { id: intent.billId } });
-        if (!bill || bill.hotelId !== params.hotelId) {
+        const bill = await tx.bill.findFirst({ where: { id: intent.billId, hotelId: params.hotelId } });
+        if (!bill) {
           return { ok: false as const, reason: "Bill not found." };
         }
         if (["VOID", "REFUNDED"].includes(bill.status)) {
@@ -1366,6 +1388,7 @@ export async function recordGatewayCapture(params: {
             data: {
               hotelId: bill.hotelId,
               type: "RESTAURANT_BILL_PAID",
+              billId: bill.id,
               status: "QUEUED",
               payload: JSON.stringify({
                 billId: bill.id,

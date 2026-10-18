@@ -42,10 +42,12 @@ const db = {
           pending.push(row);
           return row;
         },
-        findUnique: async ({ where }: any) => ({
+        findFirst: async ({ where }: any) => ({
           id: where.id,
-          hotelId: "h1",
+          hotelId: where.hotelId,
           billId: "b1",
+          gatewayOrderId: where.gatewayOrderId,
+          gateway: where.gateway,
           status: intentStatus,
           amountMinor: 200,
           currency: "INR",

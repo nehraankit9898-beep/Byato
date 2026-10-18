@@ -244,9 +244,8 @@ async function registerFreshHotel(suffix: string) {
     }),
   });
   if (res.status !== 201) throw new Error("fresh hotel registration failed: " + res.status);
-  const body = (await res.json()) as { hotel: { id: string } };
   const session = await login(ADMIN_EMAIL, "OwnerPass123!");
-  return { hotelId: body.hotel.id, session: session.jar };
+  return { hotelId: session.body.user.hotelId as string, session: session.jar };
 }
 
 const fresh = await registerFreshHotel(String(Date.now()));

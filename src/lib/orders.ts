@@ -144,28 +144,53 @@ export async function priceCart(
     throw new CartValidationError("Too many distinct items in one order (max 50).", "QUANTITY_INVALID");
   }
 
+  const quantities = cart.map((line) => Number(line.quantity));
+  for (const quantity of quantities) {
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
+      throw new CartValidationError("Quantity must be between 1 and 50.", "QUANTITY_INVALID");
+    }
+  }
+
+  // Fetch the distinct menu items and their active options once for the whole
+  // cart; query count no longer grows with the number of cart lines.
+  const menuItemIds = [...new Set(cart.map((line) => line.menuItemId))];
+  type CartCatalogItem = {
+    id: string;
+    name: string;
+    priceMinor: number;
+    currency: string;
+    available: boolean;
+    category: { active: boolean } | null;
+    optionGroups: Array<{
+      id: string;
+      name: string;
+      required: boolean;
+      minSelect: number;
+      maxSelect: number;
+      options: Array<{ id: string; name: string; priceDeltaMinor: number }>;
+    }>;
+  };
+  const catalogItems = (await db.menuItem.findMany({
+    where: { id: { in: menuItemIds }, hotelId, active: true },
+    include: {
+      // D07: the item's CATEGORY must also be active — an archived category
+      // must not keep selling through already-loaded clients.
+      category: { select: { active: true } },
+      optionGroups: {
+        where: { active: true },
+        include: { options: { where: { active: true } } },
+      },
+    },
+  })) as CartCatalogItem[];
+  const itemsById = new Map<string, CartCatalogItem>(catalogItems.map((item) => [item.id, item]));
+
   let currency = "INR";
   const lines: PricedLine[] = [];
   let subtotalMinor = 0;
 
-  for (const line of cart) {
-    const quantity = Number(line.quantity);
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
-      throw new CartValidationError("Quantity must be between 1 and 50.", "QUANTITY_INVALID");
-    }
-
-    const item = await db.menuItem.findFirst({
-      where: { id: line.menuItemId, hotelId, active: true },
-      include: {
-        // D07: the item's CATEGORY must also be active — an archived category
-        // must not keep selling through already-loaded clients.
-        category: { select: { active: true } },
-        optionGroups: {
-          where: { active: true },
-          include: { options: { where: { active: true } } },
-        },
-      },
-    });
+  for (const [lineIndex, line] of cart.entries()) {
+    const quantity = quantities[lineIndex];
+    const item = itemsById.get(line.menuItemId);
     if (!item) {
       throw new CartValidationError("One of the items is no longer on the menu.", "ITEM_NOT_FOUND");
     }

@@ -10,11 +10,14 @@ import { createHmac } from "crypto";
 const SECRET = "whsec_test_secret";
 process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET = SECRET;
 
-type Intent = { id: string; hotelId: string; billId: string; amountMinor: number; gatewayOrderId: string; gateway: string; status: string; meta: string | null };
+type Intent = { id: string; hotelId: string; billId: string; amountMinor: number; currency: string; gatewayOrderId: string; gateway: string; status: string; meta: string | null };
+type Integration = { hotelId: string; enabled: boolean; status: string; credentials: string | null };
 const state = {
   intent: null as Intent | null,
+  integrations: new Map<string, Integration>(),
   link: { id: "link1", hotelId: "h1", billId: "b1", status: "ACTIVE", paidAt: null as Date | null, token: "tok", expiresAt: new Date(Date.now() + 3600_000), bill: { status: "OPEN" } },
   events: new Set<string>(),
+  dedupeDeletes: 0,
   linkUpdateFailures: 0,
   captureCalls: 0,
   captureThrows: 0,
@@ -24,16 +27,31 @@ const state = {
 
 mock.module("@/lib/db", () => ({
   db: {
-    integration: { findFirst: async () => null },
+    integration: {
+      findFirst: async ({ where }: { where: { hotelId: string; type: string; enabled: boolean; status: string } }) => {
+        const row = state.integrations.get(where.hotelId);
+        if (!row || row.enabled !== where.enabled || row.status !== where.status || where.type !== "RAZORPAY") return null;
+        return { credentials: row.credentials };
+      },
+    },
     restaurantWebhookEvent: {
       create: async ({ data }: { data: { eventId: string } }) => {
         if (state.events.has(data.eventId)) throw Object.assign(new Error("unique"), { code: "P2002" });
         state.events.add(data.eventId);
       },
-      deleteMany: async ({ where }: { where: { eventId: string } }) => { state.events.delete(where.eventId); },
+      deleteMany: async ({ where }: { where: { eventId: string } }) => {
+        if (state.events.delete(where.eventId)) state.dedupeDeletes++;
+        return { count: 1 };
+      },
       updateMany: async () => ({ count: 1 }),
     },
-    billPayment: { findFirst: async () => state.intent },
+    billPayment: {
+      findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+        const intent = state.intent;
+        if (!intent) return null;
+        return Object.entries(where).every(([key, value]) => intent[key as keyof Intent] === value) ? intent : null;
+      },
+    },
     paymentLink: {
       findUnique: async () => ({ ...state.link }),
       updateMany: async () => {
@@ -43,6 +61,9 @@ mock.module("@/lib/db", () => ({
       },
     },
   },
+}));
+mock.module("@/lib/crypto", () => ({
+  decryptCredentials: (_context: unknown, credentials: string) => JSON.parse(credentials),
 }));
 mock.module("@/lib/billing", () => ({
   verifyGatewaySignature: (o: string, p: string, sig: string, secret: string) =>
@@ -66,12 +87,26 @@ mock.module("@/lib/api-helpers", () => ({
 const webhook = await import("@/app/api/webhooks/razorpay-restaurant/route");
 const verify = await import("@/app/api/pay/[token]/verify/route");
 
-function webhookReq(paymentId = "pay_1") {
+function webhookReq(
+  paymentId = "pay_1",
+  secret = SECRET,
+  options: { orderId?: string; amount?: number; currency?: string; notes?: Record<string, string> } = {},
+) {
   const body = JSON.stringify({
     event: "payment.captured",
-    payload: { payment: { entity: { id: paymentId, order_id: "order_1", amount: 50000, notes: { hotelId: "h1", billId: "b1" } } } },
+    payload: {
+      payment: {
+        entity: {
+          id: paymentId,
+          order_id: options.orderId ?? "order_1",
+          amount: options.amount ?? 50000,
+          currency: options.currency ?? "INR",
+          notes: options.notes ?? { hotelId: "h1", billId: "b1" },
+        },
+      },
+    },
   });
-  const sig = createHmac("sha256", SECRET).update(body).digest("hex");
+  const sig = createHmac("sha256", secret).update(body).digest("hex");
   return new Request("http://x/api/webhooks/razorpay-restaurant", { method: "POST", headers: { "x-razorpay-signature": sig }, body });
 }
 function verifyReq(paymentId = "pay_1") {
@@ -84,9 +119,11 @@ function verifyReq(paymentId = "pay_1") {
 const ctx = { params: Promise.resolve({ token: "tok" }) };
 
 beforeEach(() => {
-  state.intent = { id: "i1", hotelId: "h1", billId: "b1", amountMinor: 50000, gatewayOrderId: "order_1", gateway: "RAZORPAY", status: "FAILED", meta: JSON.stringify({ kind: "LINK_INTENT", paymentLinkId: "link1" }) };
+  state.intent = { id: "i1", hotelId: "h1", billId: "b1", amountMinor: 50000, currency: "INR", gatewayOrderId: "order_1", gateway: "RAZORPAY", status: "FAILED", meta: JSON.stringify({ kind: "LINK_INTENT", paymentLinkId: "link1" }) };
+  state.integrations.clear();
+  state.integrations.set("h1", { hotelId: "h1", enabled: true, status: "CONNECTED", credentials: null });
   state.link.status = "ACTIVE"; state.link.paidAt = null;
-  state.events.clear(); state.linkUpdateFailures = 0; state.captureCalls = 0; state.captureThrows = 0; state.captured = false; state.audit = [];
+  state.events.clear(); state.dedupeDeletes = 0; state.linkUpdateFailures = 0; state.captureCalls = 0; state.captureThrows = 0; state.captured = false; state.audit = [];
 });
 
 describe("Razorpay webhook settles the payment link (customer never returns)", () => {
@@ -130,9 +167,62 @@ describe("Razorpay webhook settles the payment link (customer never returns)", (
   });
 
   test("bad signature is rejected before any DB write", async () => {
-    const req = new Request("http://x/w", { method: "POST", headers: { "x-razorpay-signature": "deadbeef" }, body: "{\"event\":\"payment.captured\"}" });
-    expect((await webhook.POST(req)).status).toBe(401);
+    expect((await webhook.POST(webhookReq("pay_bad", "wrong-secret"))).status).toBe(401);
     expect(state.events.size).toBe(0);
+  });
+
+  test("tenant A's signature and notes cannot affect tenant B's bill", async () => {
+    const tenantASecret = "tenant-a-webhook-secret";
+    const tenantBSecret = "tenant-b-webhook-secret";
+    state.intent = {
+      ...state.intent!,
+      id: "intent-b",
+      hotelId: "hotel-b",
+      billId: "bill-b",
+      gatewayOrderId: "order-b",
+    };
+    state.integrations.set("hotel-a", {
+      hotelId: "hotel-a", enabled: true, status: "CONNECTED",
+      credentials: JSON.stringify({ webhook_secret: tenantASecret }),
+    });
+    state.integrations.set("hotel-b", {
+      hotelId: "hotel-b", enabled: true, status: "CONNECTED",
+      credentials: JSON.stringify({ webhook_secret: tenantBSecret }),
+    });
+    const platformSecret = process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET;
+    delete process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET;
+    try {
+      const res = await webhook.POST(webhookReq("pay_cross_tenant", tenantASecret, {
+        orderId: "order-b",
+        notes: { hotelId: "hotel-a", billId: "bill-a" },
+      }));
+      expect(res.status).toBe(401);
+      expect(state.captureCalls).toBe(0);
+      expect(state.events.size).toBe(0);
+      expect(state.link.status).toBe("ACTIVE");
+    } finally {
+      if (platformSecret === undefined) delete process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET;
+      else process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET = platformSecret;
+    }
+  });
+
+  test("amount mismatch releases the dedupe fence for a corrected retry", async () => {
+    const mismatch = await webhook.POST(webhookReq("pay_mismatch", SECRET, { amount: 49999 }));
+    expect(mismatch.status).toBe(422);
+    expect((await mismatch.json()).error.code).toBe("AMOUNT_MISMATCH");
+    expect(state.events.size).toBe(0);
+    expect(state.dedupeDeletes).toBe(1);
+    const corrected = await webhook.POST(webhookReq("pay_mismatch"));
+    expect(corrected.status).toBe(200);
+    expect(state.captureCalls).toBe(1);
+  });
+
+  test("currency mismatch does not allocate or retain the dedupe fence", async () => {
+    const mismatch = await webhook.POST(webhookReq("pay_currency", SECRET, { currency: "USD" }));
+    expect(mismatch.status).toBe(422);
+    expect((await mismatch.json()).error.code).toBe("CURRENCY_MISMATCH");
+    expect(state.events.size).toBe(0);
+    expect(state.captureCalls).toBe(0);
   });
 });
 

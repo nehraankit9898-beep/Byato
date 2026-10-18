@@ -12,9 +12,9 @@ type Ctx = { params: Promise<{ token: string }> };
  * to the link; allocation idempotent via gatewayPaymentId fence.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const limited = await limitPaymentLinkRequest(req, "verify");
-  if (limited) return limited;
   const { token } = await ctx.params;
+  const limited = await limitPaymentLinkRequest(req, "verify", token);
+  if (limited) return limited;
   const body = await readJson(req);
   const gatewayOrderId = typeof body?.gatewayOrderId === "string" ? body.gatewayOrderId : "";
   const gatewayPaymentId = typeof body?.gatewayPaymentId === "string" ? body.gatewayPaymentId : "";

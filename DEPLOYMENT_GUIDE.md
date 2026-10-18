@@ -63,6 +63,7 @@
 | `EMAIL_PROVIDER` + (`SMTP_URL` or `RESEND_API_KEY` or `SENDGRID_API_KEY`) + `EMAIL_FROM` | Any transactional email (verification, password reset). Required if `REQUIRE_EMAIL_VERIFICATION=true`. |
 | `REDIS_URL` | Multi-instance production (distributed rate limiting + queue coordination). Optional for a single instance. |
 | `ADMIN_BOOTSTRAP_SECRET` | Only while creating the first Super Admin (§7); unset afterwards. |
+| `TRUSTED_PROXY_HOPS` | Set to `1` for the standard Netlify Runner X-Forwarded-For value. If another CDN/proxy is added in front, inspect the function's XFF chain and set the number of entries from the right to the real client IP. |
 | `TRUSTED_ORIGINS`, `EMBED_FRAME_ANCESTORS`, `BOOKING_LINK`, `COST_PER_MESSAGE` | Optional — see `.env.example` for the full annotated list. |
 
 Full variable reference with safe placeholders: **`.env.example`** (never commit real values).

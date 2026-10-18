@@ -67,6 +67,7 @@ readable via the test-only endpoint); production reports `unconfigured` in
 | Variable | Default | Purpose |
 |---|---|---|
 | `APP_ORIGIN` / `FRONTEND_URL` | dev: `http://localhost:3000` | public origin for verification/reset/QR links |
+| `TRUSTED_PROXY_HOPS` | `1` | Selects the client IP from the right side of `X-Forwarded-For`. Caddy: `1` (bundled Caddy overwrites XFF with the peer IP); standard Netlify Runner: `1`. Recalculate after adding another proxy/CDN. |
 | `TRUSTED_ORIGINS` | empty (same-origin only) | CORS allowlist for `/api/*` (exact origins; never wildcards) |
 | `EMBED_FRAME_ANCESTORS` | `'self'` in production, `*` in dev | CSP frame-ancestors allowlist for trusted embedding |
 | `LOG_LEVEL` | `info` (prod) | `debug\|info\|warn\|error` |

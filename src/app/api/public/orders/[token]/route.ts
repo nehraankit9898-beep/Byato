@@ -16,8 +16,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
   try {
     const { token } = await ctx.params;
 
-    const burst = await checkRateLimit(`public-track:${requestIp(req)}`, 120, 60 * 1000);
-    if (!burst.allowed) {
+    const tokenBucket = /^[A-Za-z0-9_-]{16,64}$/.test(token) ? token : "invalid";
+    const [tokenBurst, ipBackstop] = await Promise.all([
+      checkRateLimit(`public-track:token:${tokenBucket}`, 120, 60 * 1000),
+      checkRateLimit(`public-track:ip:${requestIp(req)}`, 1_200, 60 * 1000),
+    ]);
+    if (!tokenBurst.allowed || !ipBackstop.allowed) {
       return jsonError("Too many requests. Please wait a moment.", 429, "RATE_LIMITED");
     }
 

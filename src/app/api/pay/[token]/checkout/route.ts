@@ -12,9 +12,9 @@ type Ctx = { params: Promise<{ token: string }> };
  * honest 423 (never a fake "paid" path).
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const limited = await limitPaymentLinkRequest(req, "checkout");
-  if (limited) return limited;
   const { token } = await ctx.params;
+  const limited = await limitPaymentLinkRequest(req, "checkout", token);
+  if (limited) return limited;
   const body = await readJson(req).catch(() => ({}));
   void body;
 

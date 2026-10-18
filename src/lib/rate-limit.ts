@@ -225,10 +225,15 @@ export async function checkRateLimit(
  *  - Default: use the LAST XFF entry (added by the closest trusted proxy —
  *    not client-controllable when a trusted proxy fronts the app).
  *  - TRUSTED_PROXY_HOPS=<n> (multi-proxy chains): use the entry n hops from
- *    the right (1 = last, 2 = second-to-last, …). Out-of-range → last.
+ *    the right (1 = last, 2 = second-to-last, …). Invalid/out-of-range → last.
+ *  - Caddy deployment: set TRUSTED_PROXY_HOPS=1; the bundled Caddyfile replaces
+ *    XFF with the immediate client address before forwarding to the app.
+ *  - Netlify Runner: set TRUSTED_PROXY_HOPS=1 for the standard single client-IP
+ *    XFF value; if another CDN/proxy is added, inspect the function's XFF chain
+ *    and set n to select the true client address from the right.
  *  - No XFF → x-real-ip (also set by the reverse proxy, never by browsers).
- *  - Neither header → "unknown" (all such callers share one bucket — fails
- *    CLOSED for the limiter instead of trusting a spoofable value).
+ *  - Neither header → "unknown" (all such callers share a low, fail-closed
+ *    login bucket rather than trusting a spoofable value).
  */
 export function clientIp(req: Request): string {
   const xff = req.headers.get("x-forwarded-for");
@@ -238,8 +243,9 @@ export function clientIp(req: Request): string {
       .map((s) => s.trim())
       .filter(Boolean);
     if (entries.length > 0) {
-      const hops = Math.max(1, Number(process.env.TRUSTED_PROXY_HOPS ?? 1) || 1);
-      const idx = Math.max(0, entries.length - hops);
+      const configuredHops = Number(process.env.TRUSTED_PROXY_HOPS ?? 1);
+      const hops = Number.isInteger(configuredHops) && configuredHops > 0 ? configuredHops : 1;
+      const idx = hops > entries.length ? entries.length - 1 : entries.length - hops;
       return entries[idx];
     }
   }

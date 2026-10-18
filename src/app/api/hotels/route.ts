@@ -10,6 +10,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { issueSecurityToken } from "@/lib/security-tokens";
 import { sendAccountExistsEmail, sendVerificationEmail } from "@/lib/auth-emails";
 import { logger } from "@/lib/logger";
+import { isProduction } from "@/lib/config";
 
 /**
  * POST /api/hotels — SaaS onboarding: register a new hotel with its first admin.
@@ -21,6 +22,25 @@ import { logger } from "@/lib/logger";
 /** Same wording for new and already-registered emails (enumeration fix). */
 const REGISTER_GENERIC_MESSAGE =
   "If this email is new to StayLoop, check your inbox to verify it, then sign in. If you already have an account, sign in instead.";
+const REGISTRATION_MIN_RESPONSE_MS = 1_000;
+
+async function waitForRegistrationResponseFloor(startedAt: number): Promise<void> {
+  const remaining = REGISTRATION_MIN_RESPONSE_MS - (Date.now() - startedAt);
+  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+}
+
+function registrationAcceptedResponse(devUrl: string | null = null): Response {
+  return Response.json(
+    {
+      ok: true,
+      message: REGISTER_GENERIC_MESSAGE,
+      // Keep this response identical for registered and unregistered addresses.
+      // The one-time link is returned only in development/test, never production.
+      emailVerification: isProduction() ? {} : { devUrl },
+    },
+    { status: 201 },
+  );
+}
 
 export async function POST(req: Request) {
   try {
@@ -52,20 +72,22 @@ export async function POST(req: Request) {
       hotelPhoneNormalized = p.normalized!;
     }
 
+    // Both the existing- and new-address paths perform the same expensive
+    // password KDF before branching. A response-time floor below also covers
+    // the small DB-work difference between the paths.
+    const responseStartedAt = Date.now();
+    const passwordHash = await hashPasswordAsync(password);
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {
-      // ENUMERATION FIX: the response must not reveal whether an address is
-      // registered. The real owner gets a notice email; the requester gets the
-      // same 201 shape as a fresh registration (no hotel id, no account hint).
+      // The real owner gets a notice email; the requester always gets the same
+      // generic body as a fresh registration.
       await sendAccountExistsEmail(email).catch((err) =>
         logger.warn("register.account_exists_email_failed", {
           error: err instanceof Error ? err.message : String(err),
         }),
       );
-      return Response.json(
-        { ok: true, message: REGISTER_GENERIC_MESSAGE, emailVerification: { sent: false } },
-        { status: 201 },
-      );
+      await waitForRegistrationResponseFloor(responseStartedAt);
+      return registrationAcceptedResponse();
     }
 
     const result = await db.$transaction(async (tx) => {
@@ -82,7 +104,7 @@ export async function POST(req: Request) {
           hotelId: hotel.id,
           name: adminName,
           email,
-          passwordHash: await hashPasswordAsync(password),
+          passwordHash,
           role: "HOTEL_ADMIN",
         },
       });
@@ -140,11 +162,11 @@ export async function POST(req: Request) {
     // Phase 7 (spec §6) — email verification: create a one-time hashed token
     // and email the link. Registration itself still succeeds; whether login is
     // gated on verification is controlled by REQUIRE_EMAIL_VERIFICATION.
-    let verification: { sent: boolean; devUrl?: string } = { sent: false };
+    let verificationUrl: string | null = null;
     try {
       const token = await issueSecurityToken(result.user.id, "EMAIL_VERIFICATION");
       const delivered = await sendVerificationEmail(email, token);
-      verification = { sent: delivered.ok, devUrl: delivered.url || undefined };
+      verificationUrl = delivered.url || null;
       await logAudit({
         req,
         hotelId: result.hotel.id,
@@ -162,15 +184,8 @@ export async function POST(req: Request) {
       });
     }
 
-    return Response.json(
-      {
-        ok: true,
-        message: REGISTER_GENERIC_MESSAGE,
-        hotel: { id: result.hotel.id, name: result.hotel.name },
-        emailVerification: verification,
-      },
-      { status: 201 },
-    );
+    await waitForRegistrationResponseFloor(responseStartedAt);
+    return registrationAcceptedResponse(verificationUrl);
   } catch (err) {
     return serverError(err, "Could not register your hotel right now. Please try again.");
   }

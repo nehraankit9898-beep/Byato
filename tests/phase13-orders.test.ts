@@ -41,8 +41,8 @@ async function registerFreshHotel(suffix: string) {
     }),
   });
   if (res.status !== 201) throw new Error("fresh hotel registration failed: " + res.status);
-  const body = (await res.json()) as { hotel: { id: string } };
-  return { hotelId: body.hotel.id, session: await login(email, "FreshOwner123!") };
+  const session = await login(email, "FreshOwner123!");
+  return { hotelId: session.body.user.hotelId as string, session };
 }
 
 const fresh = await registerFreshHotel(String(Date.now()));
@@ -106,12 +106,24 @@ async function inviteAndActivate(
     body: { name: `Staff ${unique}`, email: `${role.toLowerCase()}-${unique}@test-restroloop.com`, role },
   });
   if (invite.status !== 201) return null;
-  const token = new URL(invite.body.invitation.url as string).searchParams.get("token")!;
-  const activate = await apiCall("POST", "/api/auth/activate", {
-    body: { token, password },
-  });
-  if (activate.status !== 200) return null;
-  const session = await login(`${role.toLowerCase()}-${unique}@test-restroloop.com`, password);
+  const email = `${role.toLowerCase()}-${unique}@test-restroloop.com`;
+  const fixtureDb = testDb();
+  try {
+    const invitedUser = await fixtureDb.user.findUnique({ where: { email }, select: { emailVerified: true } });
+    expect(invitedUser?.emailVerified).toBeTruthy();
+
+    const token = new URL(invite.body.invitation.url as string).searchParams.get("token")!;
+    const activate = await apiCall("POST", "/api/auth/activate", {
+      body: { token, password },
+    });
+    if (activate.status !== 200) return null;
+
+    const activatedUser = await fixtureDb.user.findUnique({ where: { email }, select: { emailVerified: true } });
+    expect(activatedUser?.emailVerified).toBeTruthy();
+  } finally {
+    await fixtureDb.$disconnect();
+  }
+  const session = await login(email, password);
   return session.jar;
 }
 

@@ -11,17 +11,39 @@ import { settlePaymentLinkForIntent } from "@/lib/payment-link-settle";
  * SEPARATE from the SaaS subscription webhook (/api/webhooks/billing).
  *
  * Security model (documented, provider-accurate):
- *  - `x-razorpay-signature` = HMAC-SHA256(rawBody, webhookSecret) where the
- *    secret is RAZORPAY_RESTAURANT_WEBHOOK_SECRET (platform env) or the
- *    tenant's stored webhook_secret integration credential.
+ *  - Resolve the provider order to our persisted BillPayment first. The tenant
+ *    id and tenant webhook secret always come from our database, never notes.
+ *  - Verify `x-razorpay-signature` = HMAC-SHA256(rawBody, webhookSecret), using
+ *    the connected tenant's webhook_secret or the platform webhook secret.
  *  - Duplicate event ids are recorded and answered 200 without re-allocating
  *    (RestaurantWebhookEvent unique fence) — replay protection.
  *  - Amount/currency binding: only `payment.captured` events for our own
- *    order ids allocate money, and only after the amount matches the intent.
+ *    order ids allocate money, and only after both values match the intent.
  */
+
+type RazorpayEntity = {
+  id?: string;
+  order_id?: string;
+  amount?: number;
+  currency?: string;
+};
+
+type RazorpayPayload = {
+  event?: string;
+  payload?: { payment?: { entity?: RazorpayEntity } };
+};
 
 function isUniqueViolation(err: unknown): boolean {
   return typeof err === "object" && err !== null && "code" in err && (err as { code?: string }).code === "P2002";
+}
+
+function hasValidSignature(raw: string, signature: string, secrets: string[]): boolean {
+  return secrets.some((secret) => {
+    const expected = Buffer.from(createHmac("sha256", secret).update(raw).digest("hex"));
+    const provided = Buffer.from(signature);
+    if (expected.length !== provided.length || provided.length === 0) return false;
+    return timingSafeEqual(expected, provided);
+  });
 }
 
 export async function POST(req: Request) {
@@ -29,77 +51,94 @@ export async function POST(req: Request) {
   if (raw === null) return Response.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large." } }, { status: 413 });
   const signature = req.headers.get("x-razorpay-signature") ?? "";
 
-  // Resolve the verifying secret: platform env first, then tenant integration.
-  const secretCandidates: string[] = [];
-  if (process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET) {
-    secretCandidates.push(process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET);
-  }
-  // Parse the payload (no trust — signature is verified before allocation).
-  let payload: {
-    event?: string;
-    payload?: { payment?: { entity?: { id?: string; order_id?: string; amount?: number; notes?: { hotelId?: string; billId?: string } } } };
-  } = {};
+  let payload: RazorpayPayload;
   try {
-    payload = JSON.parse(raw);
+    payload = JSON.parse(raw) as RazorpayPayload;
   } catch {
     return jsonError("Invalid JSON payload.", 400, "BAD_REQUEST");
   }
 
-  const hotelIdFromNotes = payload.payload?.payment?.entity?.notes?.hotelId;
-  if (hotelIdFromNotes) {
-    // Tenant webhook secrets live on the integration row.
-    const integration = await db.integration.findFirst({
-      where: { hotelId: hotelIdFromNotes, type: "RAZORPAY", enabled: true },
-      select: { credentials: true },
-    });
-    if (integration?.credentials) {
-      try {
-        const { decryptCredentials } = await import("@/lib/crypto");
-        const decrypted = decryptCredentials({ hotelId: hotelIdFromNotes, integrationType: "RAZORPAY" }, integration.credentials) as Record<string, unknown>;
-        const ws = decrypted.webhook_secret ?? decrypted.webhookSecret;
-        if (typeof ws === "string" && ws) secretCandidates.push(ws);
-      } catch {
-        /* decrypt failure falls through to env candidates */
-      }
+  const entity = payload.payload?.payment?.entity;
+  const gatewayOrderId = typeof entity?.order_id === "string" ? entity.order_id : "";
+  const gatewayPaymentId = typeof entity?.id === "string" ? entity.id : "";
+  if (!entity || !gatewayOrderId || !gatewayPaymentId || !payload.event) {
+    return jsonError("Unrecognized webhook payload.", 400, "BAD_REQUEST");
+  }
+
+  // The provider order is the only untrusted value used to resolve a tenant.
+  // Do not use entity.notes.hotelId (or any other payload tenant binding).
+  const resolvedIntent = await db.billPayment.findFirst({
+    where: { gatewayOrderId, gateway: "RAZORPAY" },
+    select: { id: true, hotelId: true },
+  });
+
+  // Unknown orders cannot be associated with a tenant secret. The platform
+  // secret can authenticate and safely ignore them, but they never allocate.
+  if (!resolvedIntent) {
+    const platformSecret = process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET;
+    if (!platformSecret || !hasValidSignature(raw, signature, [platformSecret])) {
+      return jsonError("Signature verification failed.", 401, "SIGNATURE_INVALID");
+    }
+    return Response.json({ ok: true, ignored: "unknown order intent" });
+  }
+
+  const hotelId = resolvedIntent.hotelId;
+  const integration = await db.integration.findFirst({
+    where: { hotelId, type: "RAZORPAY", enabled: true, status: "CONNECTED" },
+    select: { credentials: true },
+  });
+  if (!integration) {
+    return jsonError("Razorpay integration is not connected.", 503, "WEBHOOK_NOT_CONFIGURED");
+  }
+
+  const secretCandidates: string[] = [];
+  const platformSecret = process.env.RAZORPAY_RESTAURANT_WEBHOOK_SECRET;
+  if (platformSecret) secretCandidates.push(platformSecret);
+  if (integration.credentials) {
+    try {
+      const { decryptCredentials } = await import("@/lib/crypto");
+      const decrypted = decryptCredentials({ hotelId, integrationType: "RAZORPAY" }, integration.credentials) as Record<string, unknown>;
+      const tenantSecret = decrypted.webhook_secret ?? decrypted.webhookSecret;
+      if (typeof tenantSecret === "string" && tenantSecret) secretCandidates.push(tenantSecret);
+    } catch {
+      /* A decryption failure falls through to the platform secret, if set. */
     }
   }
 
   if (secretCandidates.length === 0) {
     return jsonError("Webhook secret not configured; cannot verify.", 503, "WEBHOOK_NOT_CONFIGURED");
   }
-
-  const valid = secretCandidates.some((secret) => {
-    const expected = Buffer.from(createHmac("sha256", secret).update(raw).digest("hex"));
-    const provided = Buffer.from(signature);
-    if (expected.length !== provided.length || provided.length === 0) return false;
-    return timingSafeEqual(expected, provided);
-  });
-  if (!valid) {
+  if (!hasValidSignature(raw, signature, secretCandidates)) {
     return jsonError("Signature verification failed.", 401, "SIGNATURE_INVALID");
   }
 
-  // Verified — record the event for dedupe.
-  const eventId =
-    (payload.payload?.payment?.entity?.id ?? "") + ":" + (payload.event ?? "") + ":" + (payload.payload?.payment?.entity?.order_id ?? "");
-  if (!eventId || eventId === "::") {
-    return jsonError("Unrecognized webhook payload.", 400, "BAD_REQUEST");
+  // Re-read the complete intent with the database-resolved tenant bound into
+  // the predicate. This also closes the gap if the order mapping changes while
+  // the signature is being checked.
+  const intent = await db.billPayment.findFirst({
+    where: { id: resolvedIntent.id, hotelId, gatewayOrderId, gateway: "RAZORPAY" },
+  });
+  if (!intent) {
+    return Response.json({ ok: true, ignored: "unknown order intent" });
   }
+
+  // Namespace the local dedupe key by tenant so identical provider identifiers
+  // from separate merchant accounts cannot suppress one another.
+  const eventId = `${hotelId}:${gatewayPaymentId}:${payload.event}:${gatewayOrderId}`;
   try {
     await db.restaurantWebhookEvent.create({
       data: {
-        hotelId: hotelIdFromNotes ?? null,
+        hotelId,
         provider: "RAZORPAY",
         eventId,
-        type: payload.event ?? null,
+        type: payload.event,
         payload: raw.slice(0, 8000),
         status: "PROCESSED",
       },
     });
   } catch (err) {
-    // SECURITY/CORRECTNESS FIX: only a UNIQUE violation means "replay". Any other
-    // DB error (timeout, connection loss) used to be answered 200 "duplicate",
-    // so Razorpay never retried and a captured payment was silently dropped.
-    // Other errors now surface as 500 so the provider re-delivers.
+    // Only a UNIQUE violation means "replay". Other DB failures must surface so
+    // Razorpay retries rather than silently dropping a captured payment.
     if (isUniqueViolation(err)) {
       return Response.json({ ok: true, duplicate: true });
     }
@@ -110,59 +149,37 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, ignored: payload.event });
   }
 
-  const entity = payload.payload?.payment?.entity;
-  const gatewayOrderId = entity?.order_id ?? "";
-  const gatewayPaymentId = entity?.id ?? "";
-  const amount = entity?.amount ?? -1;
-  const billId = entity?.notes?.billId;
-  if (!gatewayOrderId || !gatewayPaymentId || !billId) {
-    return Response.json({ ok: true, ignored: "missing binding fields" });
-  }
-
-  const intent = await db.billPayment.findFirst({
-    where: { gatewayOrderId, gateway: "RAZORPAY", billId },
-  });
-  if (!intent) {
-    return Response.json({ ok: true, ignored: "unknown order intent" });
-  }
-  if (intent.amountMinor !== amount) {
-    // Amount mismatch → never allocate; surface for reconciliation.
-    await db.restaurantWebhookEvent.updateMany({
-      where: { provider: "RAZORPAY", eventId },
-      data: { status: "FAILED" },
-    });
+  const releaseDedupeFence = () =>
+    db.restaurantWebhookEvent.deleteMany({ where: { hotelId, provider: "RAZORPAY", eventId } });
+  if (intent.amountMinor !== entity.amount) {
+    // A mismatched delivery must not block a later corrected delivery.
+    await releaseDedupeFence();
     return jsonError("Webhook amount does not match the intent.", 422, "AMOUNT_MISMATCH");
   }
+  if (typeof entity.currency !== "string" || entity.currency.toUpperCase() !== intent.currency.toUpperCase()) {
+    await releaseDedupeFence();
+    return jsonError("Webhook currency does not match the intent.", 422, "CURRENCY_MISMATCH");
+  }
 
-  // AUDIT FIX (FIN-001): recordGatewayCapture THROWS on non-unique DB errors
-  // (timeouts, "bill changed during capture" conflicts). Without this guard the
-  // dedupe row survived, every provider retry was answered "duplicate", and the
-  // captured payment was never allocated. Release the fence and re-throw so the
-  // provider re-delivers (allocation stays exactly-once via the gatewayPaymentId fence).
+  // Release the dedupe fence on transient allocation errors so Razorpay can
+  // retry. recordGatewayCapture also binds its intent and bill reads to hotelId.
   let result: Awaited<ReturnType<typeof recordGatewayCapture>>;
   try {
     result = await recordGatewayCapture({
-      hotelId: intent.hotelId,
+      hotelId,
       intentPaymentId: intent.id,
       gatewayOrderId,
       gatewayPaymentId,
       expectedAmountMinor: intent.amountMinor,
     });
   } catch (err) {
-    await db.restaurantWebhookEvent.deleteMany({ where: { provider: "RAZORPAY", eventId } });
+    await releaseDedupeFence();
     throw err;
   }
   if (!result.ok) {
-    // AUDIT FIX (P14-WBH-1): the dedupe row was committed BEFORE allocation,
-    // so a transient failure here answered every provider retry with
-    // "duplicate" forever — captured money was never allocated. The event row
-    // is REMOVED so Razorpay's retry can reprocess; the gatewayPaymentId
-    // unique fence inside recordGatewayCapture keeps a successful allocation
-    // exactly-once (at-least-once delivery + idempotent allocation). The
-    // failed attempt stays visible in the audit log.
-    await db.restaurantWebhookEvent.deleteMany({ where: { provider: "RAZORPAY", eventId } });
+    await releaseDedupeFence();
     await logAudit({
-      hotelId: intent.hotelId,
+      hotelId,
       action: "RESTAURANT_WEBHOOK_ALLOCATION_FAILED",
       entityType: "BillPayment",
       entityId: intent.id,
@@ -177,7 +194,7 @@ export async function POST(req: Request) {
   // and answer 503 — Razorpay re-delivers and only the link update is retried.
   const linkSettled = await settlePaymentLinkForIntent(intent);
   if (!linkSettled) {
-    await db.restaurantWebhookEvent.deleteMany({ where: { provider: "RAZORPAY", eventId } });
+    await releaseDedupeFence();
     return jsonError("Payment allocated; payment link settlement failed, please retry.", 503, "LINK_SETTLE_PENDING");
   }
   return Response.json({ ok: true });

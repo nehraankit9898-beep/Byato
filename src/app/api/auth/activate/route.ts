@@ -120,6 +120,7 @@ export async function POST(req: Request) {
       data: {
         passwordHash: await hashPasswordAsync(password),
         status: "ACTIVE",
+        emailVerified: new Date(), // possession of the one-time invite verifies the address
         mustChangePassword: false,
         tokenVersion: { increment: 1 }, // invalidate anything issued pre-activation
       },

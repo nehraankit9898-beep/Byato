@@ -10,9 +10,9 @@ type Ctx = { params: Promise<{ token: string }> };
  * bills, never customer personal data. Public read-only and cheap.
  */
 export async function GET(req: Request, ctx: Ctx) {
-  const limited = await limitPaymentLinkRequest(req, "read");
-  if (limited) return limited;
   const { token } = await ctx.params;
+  const limited = await limitPaymentLinkRequest(req, "read", token);
+  if (limited) return limited;
   const link = await db.paymentLink.findUnique({
     where: { token },
     include: {

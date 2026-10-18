@@ -17,7 +17,7 @@ import { getAuthSecret } from "@/lib/config";
  * drift tolerance) plus:
  *  - base32-encoded secrets (compatible with Google Authenticator / Authy)
  *  - otpauth:// provisioning URI + QR code (via the `qrcode` package)
- *  - 10 single-use backup codes stored as sha256 HASHES (never plaintext)
+ *  - 10 single-use backup codes stored as keyed HMAC-SHA256 hashes (never plaintext)
  *  - a short-lived signed "MFA pending" login token so the password step and
  *    the code step never share the full session.
  *
@@ -156,10 +156,9 @@ function hashBackupCode(code: string): string {
   return createHmac("sha256", mfaKey()).update(code).digest("hex");
 }
 
-/** Legacy (pre-fix) unkeyed hash — still accepted so existing codes keep working. */
-function legacyHashBackupCode(code: string): string {
-  return createHash("sha256").update(code).digest("hex");
-}
+// Pre-keying SHA-256 hashes are intentionally not accepted. Users with legacy
+// codes must authenticate with TOTP and regenerate them; this prevents offline
+// guesses of those low-entropy codes from being useful after a database leak.
 
 function generateBackupCodes(): { plain: string[]; hashes: string[] } {
   const plain: string[] = [];
@@ -378,9 +377,7 @@ async function consumeCodeForUser(
     return false;
   }
   const normalized = code.trim().toUpperCase();
-  const idx = hashes.findIndex(
-    (h) => h === hashBackupCode(normalized) || h === legacyHashBackupCode(normalized),
-  );
+  const idx = hashes.findIndex((h) => h === hashBackupCode(normalized));
   if (idx === -1) return false;
   if (!consume) return true;
   const remaining = hashes.filter((_, i) => i !== idx);

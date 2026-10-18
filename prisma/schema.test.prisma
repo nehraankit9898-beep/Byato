@@ -1883,6 +1883,8 @@ model BackgroundJob {
   hotelId     String?
   hotel       Hotel?              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   type        BackgroundJobType
+  // Non-null only for bill-paid jobs; forms the database idempotency fence.
+  billId      String?
   status      BackgroundJobStatus @default(QUEUED)
   // JSON payload (job input). Never contains secrets.
   payload     String
@@ -1900,6 +1902,7 @@ model BackgroundJob {
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
+  @@unique([type, billId])
   @@index([status, runAt])
   @@index([hotelId])
   @@index([type])

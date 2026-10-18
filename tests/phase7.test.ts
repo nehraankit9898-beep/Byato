@@ -128,6 +128,16 @@ async function fetchMockEmails(): Promise<any[]> {
   return body.emails ?? [];
 }
 
+async function waitForMockEmail(to: string, kind: string, timeoutMs = 10_000): Promise<any | undefined> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const match = (await fetchMockEmails()).find((email) => email.to === to && email.kind === kind);
+    if (match) return match;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return undefined;
+}
+
 describe("Phase 7 — email verification", () => {
   test("registration issues a verification token and emails the link", async () => {
     const email = `verify-${Date.now()}@test-hotels.com`;
@@ -231,8 +241,7 @@ describe("Phase 7 — password reset", () => {
     expect(reqBody.ok).toBe(true);
 
     // grab the reset link from the mock outbox (base64url token alphabet only)
-    const emails = await fetchMockEmails();
-    const match = emails.find((e) => e.to === email && e.kind === "password_reset");
+    const match = await waitForMockEmail(email, "password_reset");
     expect(match).toBeDefined();
     const resetToken = match.html.match(/\/reset-password\?token=([A-Za-z0-9_-]+)/)![1];
 

@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
  * POST /api/public/menu/[code]/voice { transcript }
  *
  * Guarantees:
- *  - Rate-limited per IP (stricter than the catalog: 20/min).
+ *  - Rate-limited per QR code (20/min) with a 10x per-IP abuse backstop.
  *  - Only works when the tenant explicitly enabled voice AND the QR is valid.
  *  - Returns a cart PROPOSAL only — submission still requires the standard
  *    session flow with explicit user confirmation. Voice can never place an
@@ -26,8 +26,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   try {
     const { code } = await ctx.params;
 
-    const burst = await checkRateLimit(`public-voice:${requestIp(req)}`, 20, 60 * 1000);
-    if (!burst.allowed) {
+    const codeBucket = /^[A-Za-z0-9_-]{16,64}$/.test(code) ? code : "invalid";
+    const [codeBurst, ipBackstop] = await Promise.all([
+      checkRateLimit(`public-voice:code:${codeBucket}`, 20, 60 * 1000),
+      checkRateLimit(`public-voice:ip:${requestIp(req)}`, 200, 60 * 1000),
+    ]);
+    if (!codeBurst.allowed || !ipBackstop.allowed) {
       return jsonError("Too many requests. Please wait a moment.", 429, "RATE_LIMITED");
     }
 

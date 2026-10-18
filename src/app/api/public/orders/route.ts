@@ -22,7 +22,7 @@ import { db } from "@/lib/db";
  *    submitted cart carries ids and quantities only.
  *  - IDEMPOTENT: the same idempotencyKey returns the original order. A mobile
  *    network timeout + user retry never creates a duplicate order.
- *  - Rate-limited per IP (an unattended QR must not enable spam ordering).
+ *  - Rate-limited per table session, with a much higher per-IP backstop.
  *  - Guest identity (name/phone) is OPTIONAL and separate from marketing —
  *    no consent is implied by ordering (product policy, Phase 13 §2).
  */
@@ -35,13 +35,6 @@ export async function POST(req: Request) {
       return jsonError(csrf.message ?? "Request blocked.", csrf.status, csrf.code);
     }
 
-    // Anti-spam: a static QR in the wild must not enable unlimited unattended
-    // ordering. 12 submits/10 min/IP is generous for a human table.
-    const burst = await checkRateLimit(`public-order:${requestIp(req)}`, 12, 10 * 60 * 1000);
-    if (!burst.allowed) {
-      return jsonError("Too many orders from this device. Please ask our staff for help.", 429, "RATE_LIMITED");
-    }
-
     const body = await readJson(req);
     if (!body) return jsonError("Invalid request. Please try again.");
 
@@ -49,6 +42,17 @@ export async function POST(req: Request) {
       typeof body.sessionToken === "string" ? body.sessionToken.trim() : "";
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(sessionToken)) {
       return jsonError("Your table session is no longer valid. Please scan the table QR again.", 403, "SESSION_INVALID");
+    }
+
+    // A shared venue IP can represent many legitimate diners. Key the primary
+    // order budget on the table-session capability and retain a 10x IP ceiling
+    // only as a shared-abuse backstop.
+    const [sessionBurst, ipBackstop] = await Promise.all([
+      checkRateLimit(`public-order:session:${sessionToken}`, 12, 10 * 60 * 1000),
+      checkRateLimit(`public-order:ip:${requestIp(req)}`, 120, 10 * 60 * 1000),
+    ]);
+    if (!sessionBurst.allowed || !ipBackstop.allowed) {
+      return jsonError("Too many orders from this device. Please ask our staff for help.", 429, "RATE_LIMITED");
     }
     const session = await db.tableSession.findUnique({
       where: { publicToken: sessionToken },

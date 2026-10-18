@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { readJsonCapped } from "@/lib/body";
 import { db } from "@/lib/db";
 import { jsonError, serverError } from "@/lib/api-helpers";
@@ -47,28 +48,39 @@ export async function POST(req: Request) {
     );
     if (!emailRl.allowed) return genericOk();
 
-    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await db.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { id: true, email: true, hotelId: true, status: true },
+    });
 
     if (user && user.status === "ACTIVE") {
-      const token = await issueSecurityToken(user.id, "PASSWORD_RESET");
-      const delivered = await sendPasswordResetEmail(user.email, token);
+      // Register all user-specific work for after the generic response. This
+      // keeps request latency independent of token issuance and email delivery
+      // while Next's request lifecycle keeps the background task alive.
+      after(async () => {
+        try {
+          const token = await issueSecurityToken(user.id, "PASSWORD_RESET");
+          const delivered = await sendPasswordResetEmail(user.email, token);
 
-      await logAudit({
-        req,
-        hotelId: user.hotelId,
-        userId: user.id,
-        action: AUDIT_ACTIONS.PASSWORD_RESET_REQUESTED,
-        entityType: "user",
-        entityId: user.id,
-        metadata: { delivered: delivered.ok },
+          await logAudit({
+            req,
+            hotelId: user.hotelId,
+            userId: user.id,
+            action: AUDIT_ACTIONS.PASSWORD_RESET_REQUESTED,
+            entityType: "user",
+            entityId: user.id,
+            metadata: { delivered: delivered.ok },
+          });
+          if (!delivered.ok) {
+            logger.warn("auth.password_reset_email_failed", {
+              userId: user.id,
+              error: delivered.error,
+            });
+          }
+        } catch {
+          logger.error("auth.password_reset_background_failed", { userId: user.id });
+        }
       });
-      if (!delivered.ok) {
-        // Delivery failure is logged server-side; the user response stays generic.
-        logger.warn("auth.password_reset_email_failed", {
-          userId: user.id,
-          error: delivered.error,
-        });
-      }
     }
 
     return genericOk();

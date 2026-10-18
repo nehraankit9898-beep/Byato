@@ -138,6 +138,7 @@ export async function POST(req: Request) {
           passwordHash: await hashPasswordAsync(randomBytes(32).toString("hex")),
           role,
           status: "PENDING",
+          emailVerified: new Date(), // admin-issued invitation validates this staff email
           mustChangePassword: false, // activation flow sets the FIRST password
         },
         select: { id: true, name: true, email: true, role: true, status: true },
