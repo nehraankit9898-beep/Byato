@@ -1,0 +1,15 @@
+1
+00:00:00,300 --> 00:00:07,120
+Meet Byato — a unified platform designed to simplify hotel and restaurant management.
+
+2
+00:00:07,720 --> 00:00:12,220
+Role-based access control is enforced on the server for every request.
+
+3
+00:00:12,620 --> 00:00:20,230
+Byato's access-control design aims to keep customer information private and limit access to authorized users.
+
+4
+00:00:21,030 --> 00:00:28,490
+Byato — bringing hospitality operations together with clarity, control, and a focus on security.

@@ -1,0 +1,27 @@
+1
+00:00:01,810 --> 00:00:08,630
+Meet Byato — a unified platform designed to simplify hotel and restaurant management.
+
+2
+00:00:12,090 --> 00:00:20,060
+Manage your hospitality operations through one centralized workspace, with visibility into the features available to your role.
+
+3
+00:00:26,670 --> 00:00:34,970
+Platform administrators can manage authorized platform-level settings, while access controls help protect sensitive operations.
+
+4
+00:00:49,010 --> 00:00:56,670
+Hotel and restaurant teams can work within their authorized areas, keeping their operational data separate from other businesses.
+
+5
+00:01:11,220 --> 00:01:25,070
+Role-based access control is enforced on the server for every request. Platform settings stay with platform administrators, pricing changes stay with managers, and one business can never read another business's customer records.
+
+6
+00:01:36,960 --> 00:01:44,570
+Byato's access-control design aims to keep customer information private and limit access to authorized users.
+
+7
+00:01:45,410 --> 00:01:52,870
+Byato — bringing hospitality operations together with clarity, control, and a focus on security.

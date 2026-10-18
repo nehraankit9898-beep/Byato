@@ -52,3 +52,10 @@ worklog.md
 
 # Skills (platform-specific)
 skills/
+
+# Demo video assets (local only — 25 MB emoji font used by the demo recorder)
+/public/demo-assets/
+demo/frames/
+demo/out/
+demo/audio/
+demo/*.mp4

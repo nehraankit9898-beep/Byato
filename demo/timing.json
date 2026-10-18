@@ -1,0 +1,275 @@
+{
+  "generatedAt": "2026-10-18T11:09:01.113Z",
+  "base": "http://localhost:3000",
+  "duration": 112.4,
+  "captureT0": 1792321628714,
+  "scenes": [
+    {
+      "id": "s1",
+      "title": "Introduction",
+      "start": 0,
+      "end": 9.8,
+      "vo": "s1"
+    },
+    {
+      "id": "s2",
+      "title": "Dashboard overview",
+      "start": 9.8,
+      "end": 26.32,
+      "vo": "s2"
+    },
+    {
+      "id": "s3",
+      "title": "Super Admin",
+      "start": 26.32,
+      "end": 48.66,
+      "vo": "s3"
+    },
+    {
+      "id": "s4",
+      "title": "Hotel & restaurant operations",
+      "start": 48.66,
+      "end": 70.87,
+      "vo": "s4"
+    },
+    {
+      "id": "s5",
+      "title": "Role permissions & security",
+      "start": 70.87,
+      "end": 88.66,
+      "vo": "s5"
+    },
+    {
+      "id": "s6",
+      "title": "Customer privacy",
+      "start": 88.66,
+      "end": 105.06,
+      "vo": "s6"
+    },
+    {
+      "id": "s7",
+      "title": "Closing",
+      "start": 105.06,
+      "end": 112.3,
+      "vo": "s7"
+    }
+  ],
+  "cues": [
+    {
+      "start": 1.46,
+      "end": 8.46,
+      "text": "Meet Byato — a unified platform designed to simplify hotel and restaurant management."
+    },
+    {
+      "start": 11.74,
+      "end": 22.24,
+      "text": "Manage your hospitality operations through one centralized workspace, with visibility into the features available to your role."
+    },
+    {
+      "start": 26.32,
+      "end": 35.82,
+      "text": "Platform administrators can manage authorized platform-level settings, while access controls help protect sensitive operations."
+    },
+    {
+      "start": 48.66,
+      "end": 58.16,
+      "text": "Hotel and restaurant teams can work within their authorized areas, keeping their operational data separate from other businesses."
+    },
+    {
+      "start": 70.87,
+      "end": 84.37,
+      "text": "Role-based access control is enforced on the server for every request. Platform settings stay with platform administrators, pricing changes stay with managers, and one business can never read another business's customer records."
+    },
+    {
+      "start": 96.61,
+      "end": 105.61,
+      "text": "Byato's access-control design aims to keep customer information private and limit access to authorized users."
+    },
+    {
+      "start": 105.06,
+      "end": 112.56,
+      "text": "Byato — bringing hospitality operations together with clarity, control, and a focus on security."
+    }
+  ],
+  "timeline": [
+    {
+      "t": 0,
+      "label": "scene s1 — Introduction"
+    },
+    {
+      "t": 1.53,
+      "label": "brand card in"
+    },
+    {
+      "t": 4.84,
+      "label": "brand card out"
+    },
+    {
+      "t": 9.8,
+      "label": "scene s2 — Dashboard overview"
+    },
+    {
+      "t": 9.84,
+      "label": "signed in"
+    },
+    {
+      "t": 17.19,
+      "label": "customers view"
+    },
+    {
+      "t": 21.14,
+      "label": "visits view"
+    },
+    {
+      "t": 23.38,
+      "label": "analytics view"
+    },
+    {
+      "t": 26.32,
+      "label": "scene s3 — Super Admin"
+    },
+    {
+      "t": 27.39,
+      "label": "signed out"
+    },
+    {
+      "t": 29.5,
+      "label": "platform tab"
+    },
+    {
+      "t": 33.96,
+      "label": "submitted super admin sign-in"
+    },
+    {
+      "t": 39.38,
+      "label": "MFA completed → platform console"
+    },
+    {
+      "t": 42.7,
+      "label": "security centre"
+    },
+    {
+      "t": 47.16,
+      "label": "platform settings"
+    },
+    {
+      "t": 48.66,
+      "label": "scene s4 — Hotel & restaurant operations"
+    },
+    {
+      "t": 55.11,
+      "label": "signed in as restaurant manager"
+    },
+    {
+      "t": 61.19,
+      "label": "kitchen display"
+    },
+    {
+      "t": 65.37,
+      "label": "orders"
+    },
+    {
+      "t": 67.33,
+      "label": "digital menu"
+    },
+    {
+      "t": 69.47,
+      "label": "pos terminal"
+    },
+    {
+      "t": 70.87,
+      "label": "scene s5 — Role permissions & security"
+    },
+    {
+      "t": 71.99,
+      "label": "check 1 → HTTP 200 (AUTHORIZED)"
+    },
+    {
+      "t": 74.58,
+      "label": "check 2 → HTTP 403 (ACCESS DENIED)"
+    },
+    {
+      "t": 77.13,
+      "label": "check 3 → HTTP 403 (ACCESS DENIED)"
+    },
+    {
+      "t": 80.14,
+      "label": "check 4 → HTTP 404 (ACCESS DENIED)"
+    },
+    {
+      "t": 82.69,
+      "label": "check 5 → HTTP 202 (ACCESS DENIED)"
+    },
+    {
+      "t": 88.66,
+      "label": "scene s6 — Customer privacy"
+    },
+    {
+      "t": 95.01,
+      "label": "signed in as hotel admin"
+    },
+    {
+      "t": 97.84,
+      "label": "customers view"
+    },
+    {
+      "t": 101.89,
+      "label": "customer profile"
+    },
+    {
+      "t": 105.06,
+      "label": "scene s7 — Closing"
+    },
+    {
+      "t": 106.19,
+      "label": "dashboard"
+    },
+    {
+      "t": 107.82,
+      "label": "closing card"
+    }
+  ],
+  "securityChecks": [
+    {
+      "who": "Platform Operator",
+      "role": "demo.superadmin@byato.test · SUPER_ADMIN",
+      "method": "GET",
+      "path": "/api/super-admin/settings",
+      "status": "HTTP 200",
+      "verdict": "AUTHORIZED"
+    },
+    {
+      "who": "Hotel Admin",
+      "role": "demo.hoteladmin@byato.test · HOTEL_ADMIN",
+      "method": "GET",
+      "path": "/api/super-admin/settings",
+      "status": "HTTP 403",
+      "verdict": "ACCESS DENIED"
+    },
+    {
+      "who": "Waiter",
+      "role": "demo.waiter@byato.test · WAITER",
+      "method": "PATCH",
+      "path": "/api/menu/items/… price",
+      "status": "HTTP 403",
+      "verdict": "ACCESS DENIED"
+    },
+    {
+      "who": "Hotel Admin (other tenant)",
+      "role": "demo.otheradmin@byato.test · Sea View Resort",
+      "method": "GET",
+      "path": "/api/customers/… (foreign id)",
+      "status": "HTTP 404",
+      "verdict": "ACCESS DENIED"
+    },
+    {
+      "who": "Anonymous visitor",
+      "role": "No session · public QR sign-up",
+      "method": "POST",
+      "path": "/api/public/join (member phone)",
+      "status": "HTTP 202",
+      "verdict": "ACCESS DENIED"
+    }
+  ],
+  "frames": 2064
+}
