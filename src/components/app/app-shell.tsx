@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { AnimatePresence, motion } from "framer-motion";
@@ -45,6 +45,7 @@ import {
   MoonStar,
   UserCog,
   ChevronRight,
+  ChevronDown,
   // Phase 3-6 icons
   Ticket,
   Bot,
@@ -102,6 +103,12 @@ const NAV_MAIN: NavItem[] = [
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "import", label: "Import Data", icon: Upload },
 ];
+
+// Keep the five everyday owner/manager tasks visible; specialist tools stay
+// available under "More tools" so the sidebar is less overwhelming.
+const NAV_PRIMARY: NavItem[] = NAV_MAIN.filter((item) =>
+  ["dashboard", "customers", "visits", "campaigns", "analytics"].includes(item.id),
+);
 
 const NAV_INTELLIGENCE: NavItem[] = [
   // Phase 3
@@ -384,6 +391,12 @@ function SidebarNav({
   user: SessionUser;
   onLogout: () => void;
 }) {
+  const [moreOpen, setMoreOpen] = useState(!NAV_PRIMARY.some((item) => item.id === view));
+
+  useEffect(() => {
+    if (!NAV_PRIMARY.some((item) => item.id === view)) setMoreOpen(true);
+  }, [view]);
+
   function renderGroup(items: NavItem[], heading?: string) {
     return (
       <div className="px-3">
@@ -449,16 +462,34 @@ function SidebarNav({
           </>
         ) : (
           <>
-            {renderGroup(NAV_MAIN)}
-            {renderGroup(NAV_INTELLIGENCE, "Intelligence & Growth")}
-            {renderGroup(NAV_GROWTH, "Growth")}
-            {renderGroup(NAV_RESTAURANT, "Restaurant")}
-            {renderGroup(operationsNavFor(user.role), "Restaurant Operations")}
-            {renderGroup(posNavFor(user.role), "POS & Billing")}
-            {renderGroup(retentionNavFor(user.role), "Retention & Marketing")}
-            {renderGroup(ops16NavFor(user.role), "Operations")}
-            {renderGroup(aiNavFor(user.role), "AI Assistant")}
-            {renderGroup(adminNavFor(user.role), "Administration")}
+            {renderGroup(NAV_PRIMARY)}
+            <div className="px-3">
+              <button
+                type="button"
+                aria-expanded={moreOpen}
+                aria-controls="owner-more-tools"
+                onClick={() => setMoreOpen((open) => !open)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <LayoutGrid className="h-[18px] w-[18px] opacity-80" />
+                <span className="flex-1 text-left">More tools</span>
+                <ChevronDown className={cn("h-4 w-4 transition-transform", moreOpen && "rotate-180")} />
+              </button>
+            </div>
+            {moreOpen && (
+              <div id="owner-more-tools" className="space-y-5">
+                {renderGroup(NAV_MAIN.filter((item) => !NAV_PRIMARY.some((primary) => primary.id === item.id)), "More")}
+                {renderGroup(NAV_INTELLIGENCE, "Intelligence & Growth")}
+                {renderGroup(NAV_GROWTH, "Loyalty & Growth")}
+                {renderGroup(NAV_RESTAURANT, "Restaurant")}
+                {renderGroup(operationsNavFor(user.role), "Restaurant Operations")}
+                {renderGroup(posNavFor(user.role), "POS & Billing")}
+                {renderGroup(retentionNavFor(user.role), "Retention & Marketing")}
+                {renderGroup(ops16NavFor(user.role), "Operations")}
+                {renderGroup(aiNavFor(user.role), "AI Assistant")}
+                {renderGroup(adminNavFor(user.role), "Administration")}
+              </div>
+            )}
           </>
         )}
       </div>
