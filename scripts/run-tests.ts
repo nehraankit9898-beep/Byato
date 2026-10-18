@@ -317,6 +317,10 @@ async function main() {
       "tests/crypto-rotation.test.ts",
       "tests/billing-outbox.test.ts",
       "tests/export-quota.test.ts",
+      // CSV export inline-size policy (EXPORT_INLINE_MAX_ROWS boundary) —
+      // DB-free unit suite; was present in tests/ but never registered
+      // here, so `bun run test` silently skipped it.
+      "tests/export-policy.test.ts",
       "tests/backup-schedule.test.ts",
       "tests/bootstrap-atomicity.test.ts",
       // RECHECK REGRESSION: the F01–F18 audit-fix suite was previously MISSING

@@ -58,6 +58,15 @@ async function main() {
     }
   }
 
+  // Wallet passes are a fail-closed tenant opt-in. Make the check
+  // deterministic regardless of prior probe runs: explicitly disable,
+  // assert denial, then enable for the positive-path checks below.
+  await call("PATCH", "/api/ai/settings", { walletEnabled: false });
+  const walletDisabled = await call("POST", "/api/wallet/passes", { customerId: "00000000-0000-0000-0000-000000000000" });
+  check("wallet", "wallet pass issuance denied while feature disabled (fail-closed)", walletDisabled.status === 403, `status=${walletDisabled.status}`);
+  const enableFlags = await call("PATCH", "/api/ai/settings", { voiceEnabled: true, walletEnabled: true });
+  check("ai", "owner can enable voice + wallet passes", enableFlags.status === 200, `status=${enableFlags.status} ${JSON.stringify(enableFlags.body).slice(0, 120)}`);
+
   // ---------- Loyalty adjust / redeem ----------
   const customers = await call("GET", "/api/customers?limit=3");
   const customerId = customers.body?.customers?.[0]?.id;
@@ -82,10 +91,6 @@ async function main() {
   check("referrals", "referral program readable", refs.status === 200, `status=${refs.status}`);
   const refPut = await call("PUT", "/api/referrals", { active: true, referrerRewardValue: 100 });
   check("referrals", "referral program update", refPut.status === 200, `status=${refPut.status}`);
-
-  // Enable the opt-in AI features for this tenant so the endpoints can be exercised.
-  const enableFlags = await call("PATCH", "/api/ai/settings", { voiceEnabled: true, walletEnabled: true });
-  check("ai", "owner can enable voice + wallet passes", enableFlags.status === 200, `status=${enableFlags.status} ${JSON.stringify(enableFlags.body).slice(0, 120)}`);
 
   // ---------- AI actions ----------
   const recs = await call("GET", "/api/ai/recommendations");
