@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
-import { requireAuth, serverError } from "@/lib/api-helpers";
+import { requireAuth, serverError, jsonError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
-import { isValidTimeZone, zonedDayBounds } from "@/lib/timezone";
+import { isValidDateKey, isValidTimeZone, zonedDayBounds, zonedDayKey } from "@/lib/timezone";
 
 /**
  * Phase 14 — POS day summary (MVP report #6).
@@ -19,26 +19,46 @@ export async function GET(req: Request) {
     if (denied) return denied;
 
     const url = new URL(req.url);
-    const hotel = await db.hotel.findUnique({ where: { id: auth.user.hotelId }, select: { timezone: true } });
+    const hotel = await db.hotel.findUnique({
+      where: { id: auth.user.hotelId },
+      select: { timezone: true },
+    });
     const tz = url.searchParams.get("tz") || hotel?.timezone || "Asia/Kolkata";
     if (!isValidTimeZone(tz)) {
-      return Response.json({ error: "tz must be a valid IANA timezone" }, { status: 422 });
+      return jsonError("tz must be a valid IANA timezone", 422, "INVALID_TIMEZONE");
     }
     // Default: today in the tenant timezone.
-    const todayLocal = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+    const todayLocal = zonedDayKey(new Date(), tz);
     const dateStr = url.searchParams.get("date") || todayLocal;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return Response.json({ error: "date must be YYYY-MM-DD" }, { status: 422 });
+    if (!isValidDateKey(dateStr)) {
+      return jsonError("date must be a real YYYY-MM-DD calendar date", 422, "INVALID_DATE");
     }
     const { start, end } = zonedDayBounds(dateStr, tz);
 
     const [bills, payments, refunds] = await Promise.all([
       db.bill.findMany({
-        where: { hotelId: auth.user.hotelId, issuedAt: { gte: start, lt: end }, status: { not: "VOID" } },
-        select: { subtotalMinor: true, discountMinor: true, taxMinor: true, totalMinor: true, status: true, series: true, billNumber: true, issuedAt: true },
+        where: {
+          hotelId: auth.user.hotelId,
+          issuedAt: { gte: start, lt: end },
+          status: { not: "VOID" },
+        },
+        select: {
+          subtotalMinor: true,
+          discountMinor: true,
+          taxMinor: true,
+          totalMinor: true,
+          status: true,
+          series: true,
+          billNumber: true,
+          issuedAt: true,
+        },
       }),
       db.billPayment.findMany({
-        where: { hotelId: auth.user.hotelId, paidAt: { gte: start, lt: end }, status: { in: ["RECORDED", "CAPTURED"] } },
+        where: {
+          hotelId: auth.user.hotelId,
+          paidAt: { gte: start, lt: end },
+          status: { in: ["RECORDED", "CAPTURED"] },
+        },
         select: { method: true, amountMinor: true, source: true },
       }),
       db.billRefund.findMany({
@@ -66,7 +86,14 @@ export async function GET(req: Request) {
       date: dateStr,
       timezone: tz,
       window: { startUtc: start.toISOString(), endUtc: end.toISOString() },
-      bills: { count: bills.length, grossMinor, discountMinor, netSalesMinor, taxMinor, refundMinor },
+      bills: {
+        count: bills.length,
+        grossMinor,
+        discountMinor,
+        netSalesMinor,
+        taxMinor,
+        refundMinor,
+      },
       payments: { byMethod, bySource },
     });
   } catch (err) {

@@ -138,9 +138,12 @@ export function daysUntilNextYearly(date: Date, today = new Date()): number {
 }
 
 /** Load a hotel's customers with aggregated visit intelligence. */
-export async function loadCustomerIntelligence(hotelId: string): Promise<CustomerIntelligence[]> {
+export async function loadCustomerIntelligence(
+  hotelId: string,
+  status?: "ACTIVE" | "INACTIVE",
+): Promise<CustomerIntelligence[]> {
   const customers = await db.customer.findMany({
-    where: { hotelId },
+    where: { hotelId, ...(status ? { status } : {}) },
     select: {
       id: true,
       name: true,

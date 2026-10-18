@@ -39,6 +39,28 @@ export function formatNumber(n: number): string {
   return n.toLocaleString("en-IN");
 }
 
+/**
+ * Format an API date key without parsing it in the browser's local timezone.
+ * Date-only strings are calendar labels, not UTC instants.
+ */
+export function formatDateKey(dateKey: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return dateKey;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return dateKey;
+  }
+  return date.toLocaleDateString("en-IN", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+  });
+}
+
 /** Indian-style currency formatting: ₹1,234.56 */
 export function formatCurrency(n: number): string {
   return new Intl.NumberFormat("en-IN", {

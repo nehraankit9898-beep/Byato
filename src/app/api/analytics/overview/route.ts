@@ -50,10 +50,15 @@ export async function GET(req: Request) {
       .sort((a, b) => b.revenue - a.revenue || b.sent - a.sent)
       .slice(0, 8);
 
-    // Segment sizes (live evaluation)
-    const intel = await loadCustomerIntelligence(hotelId);
+    // Segment sizes (live evaluation). Inactive customer rows are retained for
+    // history, but they are not current campaign/CRM reach, so analytics uses
+    // the same active-customer population as the main dashboard.
+    const intel = await loadCustomerIntelligence(hotelId, "ACTIVE");
+    // Keep the invariant explicit at the response boundary as well as in the
+    // query predicate, so a future loader change cannot widen this population.
+    const activeIntel = intel.filter((customer) => customer.status === "ACTIVE");
     const segmentSizes = SYSTEM_SEGMENTS.map((def) => {
-      const count = intel.filter((c) => {
+      const count = activeIntel.filter((c) => {
         // inline rule evaluation for the overview
         const rule = def.rule;
         const DAY = 24 * 60 * 60 * 1000;
@@ -103,9 +108,9 @@ export async function GET(req: Request) {
     });
 
     // Consent health
-    const totalCustomers = intel.length;
-    const optedIn = intel.filter((c) => c.marketingConsent && !c.optOut).length;
-    const optedOut = intel.filter((c) => c.optOut).length;
+    const totalCustomers = activeIntel.length;
+    const optedIn = activeIntel.filter((c) => c.marketingConsent && !c.optOut).length;
+    const optedOut = activeIntel.filter((c) => c.optOut).length;
 
     return Response.json({
       stats,

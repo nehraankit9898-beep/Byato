@@ -15,7 +15,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell } from "recharts";
-import { formatRelative, formatNumber } from "@/lib/format";
+import { formatDateKey, formatRelative, formatNumber } from "@/lib/format";
 import type { SubscriptionView } from "@/lib/types";
 import {
   Users,
@@ -129,7 +129,7 @@ export function DashboardView({
     .slice(0, 8);
 
   const trendChartData = visitsTrend.map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+    date: formatDateKey(d.date),
     visits: d.count,
   }));
 
@@ -184,7 +184,7 @@ export function DashboardView({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold tracking-tight">
-              {greeting()}, {user.name.split(" ")[0]} 👋
+              Welcome back, {user.name.split(" ")[0]} 👋
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Here&apos;s what&apos;s happening at{" "}
@@ -435,13 +435,6 @@ export function DashboardView({
       </Card>
     </div>
   );
-}
-
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
 }
 
 function pct(part: number, total: number): number {
