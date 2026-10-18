@@ -285,6 +285,7 @@ async function main() {
     };
     const TEST_FILES = [
       "tests/mfa-enrollment-regression.test.ts",
+      "tests/dashboard-regressions.test.ts",
       "tests/build-mode-contract.test.ts",
       "tests/audit-current-regressions.test.ts",
       "tests/auth.test.ts",
@@ -390,7 +391,9 @@ async function main() {
       .map((f) => `tests/${f}`)
       .filter((f) => !TEST_FILES.includes(f));
     if (unregistered.length > 0) {
-      console.error(`\n✗ Test files missing from TEST_FILES (scripts/run-tests.ts): ${unregistered.join(", ")}`);
+      console.error(
+        `\n✗ Test files missing from TEST_FILES (scripts/run-tests.ts): ${unregistered.join(", ")}`,
+      );
       failures += 1;
     }
     for (const file of TEST_FILES) {

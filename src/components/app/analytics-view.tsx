@@ -5,6 +5,7 @@ import { api } from "@/lib/api-client";
 import type { AnalyticsOverview } from "@/lib/types";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { EmptyState, SectionHeading } from "@/components/app/shared-ui";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -33,7 +34,7 @@ const SEGMENT_BAR_COLORS: Record<string, string> = {
 };
 
 export function AnalyticsView() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ["analytics-overview"],
     queryFn: () => api.get<AnalyticsOverview>("/api/analytics/overview"),
   });
@@ -51,12 +52,17 @@ export function AnalyticsView() {
     );
   }
 
-  if (!data) {
+  if (isError || !data) {
     return (
       <EmptyState
         icon={BarChart3}
         title="Analytics unavailable"
-        description="Please refresh the page."
+        description="We couldn't fetch campaign analytics right now. This is usually temporary."
+        action={
+          <Button onClick={() => refetch()} disabled={isRefetching}>
+            {isRefetching ? "Retrying…" : "Try again"}
+          </Button>
+        }
       />
     );
   }

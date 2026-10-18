@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { requireAuth, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
+import { buildVisitTrend, dashboardConsentStatsFromCounts } from "@/lib/dashboard";
+import { DEFAULT_TIMEZONE, isValidTimeZone, recentZonedDays } from "@/lib/timezone";
 
 /**
  * GET /api/dashboard/stats — ALL numbers computed live from the database.
@@ -14,47 +16,51 @@ export async function GET(req: Request) {
     if (denied) return denied;
     const { hotelId } = auth.user;
 
+    const hotel = await db.hotel.findUnique({
+      where: { id: hotelId },
+      select: { timezone: true },
+    });
+    const timezone = isValidTimeZone(hotel?.timezone) ? hotel.timezone : DEFAULT_TIMEZONE;
+    const now = new Date();
+    const trendDays = recentZonedDays(now, timezone, 14);
+
     const [totalCustomers, marketingOptIn, optedOut, totalVisits, visitGroups] = await Promise.all([
       db.customer.count({ where: { hotelId, status: "ACTIVE" } }),
       db.customer.count({
         where: { hotelId, marketingConsent: true, optOut: false, status: "ACTIVE" },
       }),
-      db.customer.count({ where: { hotelId, optOut: true } }),
+      db.customer.count({ where: { hotelId, optOut: true, status: "ACTIVE" } }),
       db.visit.count({ where: { hotelId } }),
       db.visit.groupBy({ by: ["customerId"], where: { hotelId }, _count: { _all: true } }),
     ]);
 
+    const consent = dashboardConsentStatsFromCounts(totalCustomers, marketingOptIn, optedOut);
     const uniqueVisitors = visitGroups.length;
     const repeatCustomers = visitGroups.filter((g) => g._count._all >= 2).length;
 
-    // Visits over the last 14 days (for trend chart)
-    const since = new Date();
-    since.setHours(0, 0, 0, 0);
-    since.setDate(since.getDate() - 13);
+    // Visits over the last 14 hotel-local calendar days (for trend chart).
     const recentVisits = await db.visit.findMany({
-      where: { hotelId, checkin: { gte: since } },
+      where: {
+        hotelId,
+        checkin: {
+          gte: trendDays[0].start,
+          lt: trendDays[trendDays.length - 1].end,
+        },
+      },
       select: { checkin: true },
       orderBy: { checkin: "asc" },
     });
-    const byDay = new Map<string, number>();
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(since);
-      d.setDate(d.getDate() + i);
-      byDay.set(d.toISOString().slice(0, 10), 0);
-    }
-    for (const v of recentVisits) {
-      const key = new Date(v.checkin).toISOString().slice(0, 10);
-      if (byDay.has(key)) byDay.set(key, (byDay.get(key) || 0) + 1);
-    }
-    const visitsTrend = Array.from(byDay.entries()).map(([date, count]) => ({ date, count }));
+    const visitsTrend = buildVisitTrend(recentVisits, now, timezone, 14);
 
     // Recent activity
     const [recentCustomers, recentVisitRows] = await Promise.all([
       db.customer.findMany({
-        where: { hotelId },
+        where: { hotelId, status: "ACTIVE" },
         orderBy: { createdAt: "desc" },
         take: 5,
-        select: { id: true, name: true, phone: true, createdAt: true, marketingConsent: true },
+        // The dashboard only renders id/name/time; do not send phone or
+        // consent fields to the browser when they are not needed.
+        select: { id: true, name: true, createdAt: true },
       }),
       db.visit.findMany({
         where: { hotelId },
@@ -69,15 +75,9 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    // New customers vs repeat trend (last 6 weeks) — repeat potential
-    const noConsent = Math.max(0, totalCustomers - marketingOptIn - optedOut);
-
     return Response.json({
       stats: {
-        totalCustomers,
-        marketingOptIn,
-        optedOut,
-        noConsent,
+        ...consent,
         totalVisits,
         uniqueVisitors,
         repeatCustomers,

@@ -156,9 +156,7 @@ export interface DashboardData {
   recentCustomers: {
     id: string;
     name: string;
-    phone: string;
     createdAt: string;
-    marketingConsent: boolean;
   }[];
   recentVisits: {
     id: string;
