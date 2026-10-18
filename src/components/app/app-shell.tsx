@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { AnimatePresence, motion } from "framer-motion";
@@ -393,9 +393,11 @@ function SidebarNav({
 }) {
   const [moreOpen, setMoreOpen] = useState(!NAV_PRIMARY.some((item) => item.id === view));
 
-  useEffect(() => {
-    if (!NAV_PRIMARY.some((item) => item.id === view)) setMoreOpen(true);
-  }, [view]);
+  // Keep the active non-primary destination visible without synchronously
+  // setting state in an effect. The More section cannot be collapsed while
+  // it contains the active destination.
+  const hasActiveMoreView = !NAV_PRIMARY.some((item) => item.id === view);
+  const moreExpanded = moreOpen || hasActiveMoreView;
 
   function renderGroup(items: NavItem[], heading?: string) {
     return (
@@ -466,17 +468,17 @@ function SidebarNav({
             <div className="px-3">
               <button
                 type="button"
-                aria-expanded={moreOpen}
+                aria-expanded={moreExpanded}
                 aria-controls="owner-more-tools"
-                onClick={() => setMoreOpen((open) => !open)}
+                onClick={() => setMoreOpen((open) => (hasActiveMoreView ? true : !open))}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
                 <LayoutGrid className="h-[18px] w-[18px] opacity-80" />
                 <span className="flex-1 text-left">More tools</span>
-                <ChevronDown className={cn("h-4 w-4 transition-transform", moreOpen && "rotate-180")} />
+                <ChevronDown className={cn("h-4 w-4 transition-transform", moreExpanded && "rotate-180")} />
               </button>
             </div>
-            {moreOpen && (
+            {moreExpanded && (
               <div id="owner-more-tools" className="space-y-5">
                 {renderGroup(NAV_MAIN.filter((item) => !NAV_PRIMARY.some((primary) => primary.id === item.id)), "More")}
                 {renderGroup(NAV_INTELLIGENCE, "Intelligence & Growth")}
