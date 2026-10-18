@@ -152,7 +152,7 @@ export function LoginScreen({
               { icon: Repeat, text: "Automatic visit tracking & guest history" },
               { icon: BellRing, text: "Consent-first marketing (GDPR-friendly)" },
               { icon: BarChart3, text: "Real retention insights, live from your data" },
-              { icon: ShieldCheck, text: "Bank-grade security, per-hotel privacy" },
+              { icon: ShieldCheck, text: "Role-based access and tenant-level privacy" },
             ].map((f, i) => (
               <motion.div
                 key={f.text}
@@ -190,7 +190,7 @@ export function LoginScreen({
             </div>
             <div className="text-center">
               <h1 className="text-2xl font-bold tracking-tight">Beyto</h1>
-              <p className="text-xs text-muted-foreground">Hotel Customer Retention</p>
+              <p className="text-xs text-muted-foreground">Restaurant CRM & Guest Loyalty</p>
             </div>
           </div>
 
@@ -201,7 +201,7 @@ export function LoginScreen({
             <p className="mt-1.5 text-sm text-muted-foreground">
               {mode === "platform"
                 ? "Sign in to the multi-hotel platform control centre."
-                : "Sign in to manage your hotel's guests and visits."}
+                : "Sign in to manage your restaurant's guests and visits."}
             </p>
           </div>
 
@@ -366,14 +366,14 @@ export function LoginScreen({
 
           {mode === "hotel" && (
             <p className="mt-6 text-center text-sm text-muted-foreground">
-              New hotel?{" "}
+              New restaurant?{" "}
               <button
                 type="button"
                 onClick={onGoRegister}
                 className="font-semibold text-primary hover:underline underline-offset-4"
               >
                 <Building2 className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
-                Register your hotel
+                Register your restaurant
               </button>
             </p>
           )}
