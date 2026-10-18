@@ -14,7 +14,7 @@
  * Usage: bun run test
  */
 import { spawn, spawnSync } from "child_process";
-import { mkdtempSync, readdirSync, rmSync } from "fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
@@ -163,6 +163,24 @@ async function main() {
     PORT: String(PORT),
     ...TEST_SECRETS,
   };
+
+  // BUG FIX (2026-10, reproduced in a network-restricted sandbox): the Prisma
+  // CLI preflight for `db push` checks that a NATIVE query-engine binary
+  // (libquery_engine…so.node) exists and, if missing, downloads it from
+  // binaries.prisma.sh — a host that is unreachable in restricted CI/sandbox
+  // environments, so a fresh `npm ci` makes every CLI command fail with a TLS
+  // download error BEFORE the schema is even parsed. In this environment the
+  // engine is never actually executed: the client is generated with
+  // engineType="client" (pure-JS/WASM query engine) and a driver adapter
+  // (prisma.config.ts + src/lib/db.ts), so the preflight only needs the FILE
+  // to exist (an existsSync check). Point PRISMA_QUERY_ENGINE_LIBRARY at a
+  // stub file in the temp dir to short-circuit the download.
+  const engineStub = join(tmp, "prisma-engine-stub.so.node");
+  writeFileSync(
+    engineStub,
+    "stub: satisfies prisma CLI preflight existence check only; never loaded (engineType=client + driver adapter path uses pure JS/WASM)\n",
+  );
+  env.PRISMA_QUERY_ENGINE_LIBRARY = engineStub;
 
   // Push schema to the fresh DB.
   //
@@ -356,6 +374,12 @@ async function main() {
       // (session-expired-after-login, GCM backup round-trip failures,
       // BLOCKED tenant integrations). See the suite header for the full map.
       "tests/config-secret-stability.test.ts",
+      // 2026-10 master RBAC & tenant-isolation regression suite: custom-role
+      // mass-assignment/reserved-permission/inactive-revocation, staff
+      // owner-boundary + self-escalation, super-admin boundary, session
+      // revocation/tampering, cross-tenant nested + franchise capture,
+      // export/financial permission boundaries.
+      "tests/rbac-security-master.test.ts",
     ];
     const unregistered = readdirSync(join(ROOT, "tests"))
       .filter((f) => f.endsWith(".test.ts"))
@@ -374,7 +398,16 @@ async function main() {
       // phase11-scheduler additionally spawns the Prisma CLI (`prisma db
       // push`) inside its own test, which alone takes ~60 s on a cold cache —
       // past Bun's 30 s default, so it flaked with "(unnamed) [30015ms]".
-      const longFiles = ["phase11", "phase14", "phase15", "phase16", "phase17"];
+      const longFiles = [
+        "phase11",
+        "phase14",
+        "phase15",
+        "phase16",
+        "phase17",
+        // Many logins (argon2 + MFA-free) + first-hit dev compilation of
+        // several brand-new routes → needs the same headroom as the phases.
+        "rbac-security-master",
+      ];
       const timeout = longFiles.some((f) => file.includes(f)) ? "120000" : "30000";
       failures += await runInherited("bun", ["test", file, "--timeout", timeout], testEnv);
       await ensureServerHealthy(`after ${file}`);

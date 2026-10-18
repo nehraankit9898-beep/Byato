@@ -19,8 +19,7 @@
  *   §22 API security: 401/403/422/429 deny-matrix for every new endpoint
  */
 import { describe, test, expect, beforeAll } from "bun:test";
-import { PrismaClient } from "@prisma/client";
-import { apiCall, jarFromResponse, login, ADMIN_PASSWORD, HOTEL_B_ADMIN } from "./helpers";
+import { apiCall, jarFromResponse, login, ADMIN_PASSWORD, HOTEL_B_ADMIN, testDb } from "./helpers";
 import { generateTotp } from "../src/lib/mfa";
 import { createHmac } from "crypto";
 
@@ -29,7 +28,7 @@ const BOOTSTRAP_SECRET =
 const SA_EMAIL = "phase10-admin@stayloop.test";
 const SA_PASSWORD = "Phase10Admin123!";
 
-const db = new PrismaClient();
+const db = testDb();
 
 let saJar: { cookie: string; csrf: string } | null = null;
 let hotelAId = "";

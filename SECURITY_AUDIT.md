@@ -87,3 +87,50 @@ No exploit was attempted outside the repository. No secrets were copied into rep
 production accounts changed and no external service calls were used to send messages or money.
 Urgent next step: validate these MFA fixes against disposable PostgreSQL and real session-bound
 HTTP requests before a release, then run the full denied/allowed cross-tenant regression suite.
+
+---
+
+# Master RBAC / tenant-isolation review — 2026-10-17 (addendum)
+
+Companion report: **SECURITY_MASTER_AUDIT_2026-10.md** (findings table, route→role→permission
+matrix, test results, deploy steps, remaining risks, branch refs).
+
+Defects found, fixed, and regression-tested in this pass:
+
+- **FRANCH-01 (P1, cross-tenant read):** `src/lib/franchise.ts → addBranchToFranchise` accepted a
+  client-supplied `hotelId` without verifying it against the caller's tenant scope. A franchise
+  org-admin could attach ANY hotel on the platform and then read that tenant's aggregated
+  sales/customer/low-stock data via `GET /api/franchise/[id]`. Fixed: add allowed only for the
+  caller's own hotel, an already-shared `BranchGroup` sibling, or an idempotent re-attach to the
+  same org; `409` if the hotel is bound to a different org; `403` otherwise.
+- **FRANCH-02 (P3, error disclosure):** `createFranchise` leaked raw ORM error text to API
+  callers. Fixed: generic 500 + server-side `console.error`.
+- **TEST-INFRA-01 (P2, CI reliability):** 14/47 security suites never executed — test code built a
+  raw `new PrismaClient()` with no driver adapter under the harness's pure-JS client-engine
+  config (P2038 at module load), so 13 suites crashed before any test ran and 1 failed a real
+  assertion. App code was not implicated. Fixed via a shared `tests/helpers.ts → testDb()`
+  (adapter-wired under `STAYLOOP_TEST`+SQLite, plain client otherwise).
+- **TEST-INFRA-02 (P3, CI reliability):** the batch migration misplaced `testDb` into the
+  `bun:test` import in 6 suites (caught loudly by the per-file harness isolation); corrected to a
+  `./helpers` import.
+- **BUILD-01 (P2, production build):** a prior `db.ts` change passed `adapter: undefined` on the
+  classic-engine path; Prisma 6.19 rejects that (`"adapter" property must not be undefined`),
+  which broke `next build` (page-data collection) and non-test dev. Fixed by omitting the key
+  when no adapter applies. Both paths verified: test (adapter) and production (classic, PG).
+
+New coverage: **tests/rbac-security-master.test.ts** (26 tests, ~102 assertions) — custom-role
+mass-assignment, all 15 reserved permissions, unknown identifiers, inactive-role + deactivation
+revocation, cross-hotel both directions, self-assignment no-escalation (incl. a non-admin
+baseline delta check), staff owner-boundary (demote/suspend/revoke/re-invite the owner denied),
+self-privilege-escalation denied, no SUPER_ADMIN/HOTEL_OWNER minting (invite + PATCH), manager
+cannot mint admins, super-admin boundary (public registration ⇒ HOTEL_ADMIN only; platform
+endpoints 401 anon / 403 hotel), `revokeSessions` + tampered-token 401, cross-tenant nested
+visits/bill-refund/job-status denied with data untouched, and the FRANCH-01 capture regression.
+
+Verification (disposable SQLite DB via driver adapter; live dev server): full `bun run test`
+harness — 48 bun suites + 3 acceptance scripts, all passing; `bun run typecheck` clean;
+`bun run build` succeeds (with a Postgres `DATABASE_URL`, as on the deploy target).
+
+Verification limits carried over from the prior addendum still apply: no live PostgreSQL/Neon
+run, no live payment providers, no real browser CSP/XSS. Recommend one full harness run against a
+disposable Neon DB before release.

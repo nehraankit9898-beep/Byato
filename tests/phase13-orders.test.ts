@@ -14,7 +14,7 @@
  *   6. staff lifecycle: invite → activate → last-admin guard
  */
 import { describe, test, expect } from "bun:test";
-import { apiCall, login, HOTEL_A_ADMIN, HOTEL_B_ADMIN, ADMIN_PASSWORD } from "./helpers";
+import { apiCall, login, HOTEL_A_ADMIN, HOTEL_B_ADMIN, ADMIN_PASSWORD, testDb } from "./helpers";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3100";
 
@@ -54,10 +54,7 @@ const freshA = fresh.session;
 // platform's documented "no plan = unlimited" semantics for legacy tenants).
 // This is a fixture on the test tenant only — production limits are untouched.
 {
-  const { PrismaClient } = await import("@prisma/client");
-  const fixtureDb = new PrismaClient({
-    datasources: { db: { url: `${process.env.DATABASE_URL}?connection_limit=1` } },
-  });
+  const fixtureDb = testDb();
   await fixtureDb.hotel.update({ where: { id: fresh.hotelId }, data: { planId: null } });
   await fixtureDb.$disconnect();
 }

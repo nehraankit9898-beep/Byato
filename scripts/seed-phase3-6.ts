@@ -7,13 +7,13 @@
  *
  * Idempotent: safe to re-run.
  */
-import { PrismaClient } from "@prisma/client";
+import { createScriptPrismaClient } from "./prisma-client";
 import { randomBytes, scryptSync } from "crypto";
 import { ensurePlansSeed, ensureDefaultFeatureFlags, PLAN_DEFS } from "../src/lib/super-admin";
 import { assertDevOnlyScript } from "./dev-only-guard";
 assertDevOnlyScript("seed-phase3-6");
 
-const db = new PrismaClient();
+const db = createScriptPrismaClient();
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");

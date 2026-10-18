@@ -5,12 +5,12 @@
  *
  * Run: bun run scripts/seed.ts
  */
-import { PrismaClient } from "@prisma/client";
+import { createScriptPrismaClient } from "./prisma-client";
 import { randomBytes, scryptSync } from "crypto";
 import { assertDevOnlyScript } from "./dev-only-guard";
 assertDevOnlyScript("seed");
 
-const db = new PrismaClient();
+const db = createScriptPrismaClient();
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
