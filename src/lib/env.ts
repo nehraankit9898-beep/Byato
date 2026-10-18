@@ -15,6 +15,16 @@
  */
 
 import { z } from "zod";
+import { frameAncestors } from "./frame-policy";
+
+const frameAncestorsSchema = z.string().refine((value) => {
+  try {
+    frameAncestors(value, isProduction());
+    return true;
+  } catch {
+    return false;
+  }
+}, { message: "must contain explicit HTTPS origins, 'self', or standalone 'none'; wildcards are forbidden in production" });
 import { isProduction, isTest, MIN_SECRET_LENGTH, ConfigValidationError } from "./config";
 
 /* ------------------------------------------------------------------ */
@@ -147,7 +157,7 @@ const OPTIONAL_VARS: OptionalSpec[] = [
   },
   {
     name: "EMBED_FRAME_ANCESTORS",
-    schema: originListSchema,
+    schema: frameAncestorsSchema,
     purpose: "CSP frame-ancestors allowlist for trusted embedding",
   },
   {

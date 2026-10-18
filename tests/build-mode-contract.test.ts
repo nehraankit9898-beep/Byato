@@ -23,3 +23,13 @@ test("PostgreSQL integration CI builds the standalone artifact its runner requir
   const job = workflow.split("  postgres-integration:")[1].split("  docker:")[0];
   expect(job).toContain("run: bun run build:standalone");
 });
+
+test("BUG-18 frozen Bun workspace declarations match package.json", () => {
+  // Bun's text lockfile is JSON with trailing commas, not executable JS.
+  const lock = JSON.parse(
+    readFileSync(resolve(root, "bun.lock"), "utf8").replace(/,(\s*[}\]])/g, "$1"),
+  );
+  for (const section of ["dependencies", "devDependencies"] as const) {
+    expect(lock.workspaces[""][section]).toEqual(pkg[section]);
+  }
+});

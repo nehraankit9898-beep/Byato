@@ -927,7 +927,11 @@ export async function recordManualPayment(input: RecordPaymentInput): Promise<Pa
         const paidMinor = fresh.paidMinor + input.amountMinor;
         const newStatus: "PARTIALLY_PAID" | "PAID" = paidMinor >= fresh.totalMinor ? "PAID" : "PARTIALLY_PAID";
         const updated = await tx.bill.updateMany({
-          where: { id: fresh.id, status: fresh.status }, // conditional flip — stale writers lose
+          where: {
+            id: fresh.id, hotelId: input.hotelId,
+            status: fresh.status, paidMinor: fresh.paidMinor,
+            refundMinor: fresh.refundMinor, totalMinor: fresh.totalMinor,
+          }, // compare balances too: partial allocations may not change status — stale writers lose
           data: { paidMinor, status: newStatus, ...(newStatus === "PAID" ? { paidAt: new Date() } : {}) },
         });
         if (updated.count !== 1) {
@@ -1094,7 +1098,11 @@ export async function refundOrVoidBill(input: RefundInput): Promise<{ ok: boolea
       await db.$transaction(
         async (tx) => {
           const updated = await tx.bill.updateMany({
-            where: { id: bill.id, status: bill.status }, // conditional flip
+            where: {
+              id: bill.id, hotelId: input.hotelId,
+              status: bill.status, paidMinor: bill.paidMinor,
+              refundMinor: bill.refundMinor, totalMinor: bill.totalMinor,
+            }, // compare balances too: partial allocations may not change status
             data: { status: "VOID", voidedAt: new Date(), voidReason: input.reason },
           });
           if (updated.count !== 1) throw new BillValidationError("Bill changed during void — please retry.", "CONFLICT");
@@ -1149,7 +1157,11 @@ export async function refundOrVoidBill(input: RefundInput): Promise<{ ok: boolea
         const refundMinor = fresh.refundMinor + amount;
         const status: "PARTIALLY_REFUNDED" | "REFUNDED" = refundMinor >= fresh.paidMinor ? "REFUNDED" : "PARTIALLY_REFUNDED";
         const updated = await tx.bill.updateMany({
-          where: { id: bill.id, status: fresh.status }, // conditional flip
+          where: {
+            id: bill.id, hotelId: input.hotelId,
+            status: fresh.status, paidMinor: fresh.paidMinor,
+            refundMinor: fresh.refundMinor, totalMinor: fresh.totalMinor,
+          }, // a second partial refund may leave status unchanged
           data: { refundMinor, status },
         });
         if (updated.count !== 1) throw new BillValidationError("Bill changed during refund — please retry.", "CONFLICT");
@@ -1338,7 +1350,11 @@ export async function recordGatewayCapture(params: {
         const paidMinor = bill.paidMinor + intent.amountMinor;
         const status: "PARTIALLY_PAID" | "PAID" = paidMinor >= bill.totalMinor ? "PAID" : "PARTIALLY_PAID";
         const billFlip = await tx.bill.updateMany({
-          where: { id: bill.id, status: bill.status }, // conditional flip — a concurrent manual pay wins instead
+          where: {
+            id: bill.id, hotelId: params.hotelId,
+            status: bill.status, paidMinor: bill.paidMinor,
+            refundMinor: bill.refundMinor, totalMinor: bill.totalMinor,
+          }, // compare balances too: partial allocations may not change status — a concurrent manual pay wins instead
           data: { paidMinor, status, ...(status === "PAID" ? { paidAt: new Date() } : {}) },
         });
         if (billFlip.count !== 1) {

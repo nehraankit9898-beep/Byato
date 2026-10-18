@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json().catch(() => null);
+    const body = await readJsonCapped(req);
     const parsed = parseWith(loginSchema, body);
     if (!parsed.ok || !parsed.data) {
       return jsonError(parsed.error ?? "Please enter both email and password.");

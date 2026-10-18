@@ -380,6 +380,10 @@ async function main() {
       // revocation/tampering, cross-tenant nested + franchise capture,
       // export/financial permission boundaries.
       "tests/rbac-security-master.test.ts",
+      "tests/production-frame-policy.test.ts",
+      "tests/bill-balance-concurrency.test.ts",
+      "tests/privacy-delete-atomicity.test.ts",
+      "tests/body-cap-route-coverage.test.ts",
     ];
     const unregistered = readdirSync(join(ROOT, "tests"))
       .filter((f) => f.endsWith(".test.ts"))

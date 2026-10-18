@@ -1,3 +1,13 @@
+> Final 2026-10-18 verification: `bun run test` **PASS** (587 Bun tests in 52 files; functional 93/93 + 79/79 + 62/62), lint/typecheck/frozen install **PASS**. Native production build **BLOCKED** before compilation. See the deep-hunt report and evidence JSON for the initial failed run and remaining release gates.
+
+# Current risk update — 2026-10-18
+
+[Deep hunt and verification](DEEP_BUG_HUNT_2026-10-18.md) supersedes older blanket assurances only for its reviewed scope. Five new defects BUG-14–18 are fixed and regression-tested. Remaining: native production build/binary access; real PostgreSQL 16 locking/drift/restore; provider payments/refunds and distributed Redis; browser behavior/accessibility; unpatched dev-tool braces advisory; comprehensive legally reviewed privacy/related-record cleanup. Privacy archival still retains related histories, financial snapshots, staff/provider/storage data and backups. No universal security or compliance certification is claimed.
+
+The first full test run failed in phase2 with ECONNRESET; final-code rerun result is tracked in the deep-hunt report. Production audit returned no advisories for 265 locked production-reachable package names, but the full tree is not clean. No migration is added.
+
+---
+
 > **Historical snapshot (2026-10-11).** For this checkout, see [FINAL_VERIFICATION_REPORT.md](FINAL_VERIFICATION_REPORT.md), [REPAIR_CHANGELOG.md](REPAIR_CHANGELOG.md) and [REMAINING_BLOCKERS.md](REMAINING_BLOCKERS.md). Statements below describe the earlier audit, not the post-repair result.
 
 # Remaining Risks and Limitations — StayLoop audit (2026-10-11)

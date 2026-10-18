@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireSuperAdminSession } from "@/lib/api-helpers";
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
         { status: 400 },
       );
 
-    const body = await req.json().catch(() => ({}));
+    const body = (await readJsonCapped(req)) ?? {};
     const parsed = parseWith(supportAccessSchema, body);
     if (!parsed.ok || !parsed.data) {
       return NextResponse.json(

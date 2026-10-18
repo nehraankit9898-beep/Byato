@@ -1,0 +1,149 @@
+{
+  "next_16.4.0_affects_query": [],
+  "october_package_queries": [
+    {
+      "ghsa_id": "GHSA-3w37-wq28-93x7",
+      "html_url": "https://github.com/advisories/GHSA-3w37-wq28-93x7",
+      "summary": "Next.js: Pending `use cache` fill can leak Draft Mode content into regular responses and persisted pages",
+      "published_at": "2026-10-07T20:32:13Z",
+      "severity": "medium",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "next"
+          },
+          "vulnerable_version_range": ">= 16.3.0, < 16.3.8",
+          "first_patched_version": "16.3.8",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-4jqv-mc3x-m676",
+      "html_url": "https://github.com/advisories/GHSA-4jqv-mc3x-m676",
+      "summary": "Next.js has cache poisoning of SSG and ISR pages in self-hosted applications",
+      "published_at": "2026-10-07T20:32:06Z",
+      "severity": "medium",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "next"
+          },
+          "vulnerable_version_range": ">= 15.0.0, < 15.5.27",
+          "first_patched_version": "15.5.27",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "next"
+          },
+          "vulnerable_version_range": ">= 16.0.0, < 16.3.8",
+          "first_patched_version": "16.3.8",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-39w2-rjm5-chcv",
+      "html_url": "https://github.com/advisories/GHSA-39w2-rjm5-chcv",
+      "summary": "Next.js has information disclosure in development server's Model Context Protocol endpoint",
+      "published_at": "2026-10-07T20:31:51Z",
+      "severity": "low",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "next"
+          },
+          "vulnerable_version_range": ">= 16.0.0, < 16.3.8",
+          "first_patched_version": "16.3.8",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-f87g-xv8r-7p7x",
+      "html_url": "https://github.com/advisories/GHSA-f87g-xv8r-7p7x",
+      "summary": "Next.js has information disclosure in App Router metadata image routes via dynamicParams bypass",
+      "published_at": "2026-10-07T20:31:33Z",
+      "severity": "medium",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "next"
+          },
+          "vulnerable_version_range": ">= 16.0.0, < 16.3.8",
+          "first_patched_version": "16.3.8",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-mcj8-r9mp-w47p",
+      "html_url": "https://github.com/advisories/GHSA-mcj8-r9mp-w47p",
+      "summary": "Next.js has cache poisoning in SSG/ISR rendering that leads to cross-user content substitution and persistent denial of service",
+      "published_at": "2026-10-07T20:31:13Z",
+      "severity": "medium",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "next"
+          },
+          "vulnerable_version_range": ">= 16.0.0, < 16.3.8",
+          "first_patched_version": "16.3.8",
+          "vulnerable_functions": []
+        },
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "next"
+          },
+          "vulnerable_version_range": ">= 15.0.0, < 15.5.27",
+          "first_patched_version": "15.5.27",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-cjq9-62q9-8jv4",
+      "html_url": "https://github.com/advisories/GHSA-cjq9-62q9-8jv4",
+      "summary": "Next.js has Server-Side Request Forgery in Image Optimization",
+      "published_at": "2026-10-07T20:30:55Z",
+      "severity": "high",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "next"
+          },
+          "vulnerable_version_range": ">= 16.0.0, < 16.3.8",
+          "first_patched_version": "16.3.8",
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "ghsa_id": "GHSA-wq5f-xc86-pv6w",
+      "html_url": "https://github.com/advisories/GHSA-wq5f-xc86-pv6w",
+      "summary": "sharp : Vulnerability in librsvg dependency CVE-2026-96889",
+      "published_at": "2026-10-06T13:43:57Z",
+      "severity": "high",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "sharp"
+          },
+          "vulnerable_version_range": "< 0.35.5",
+          "first_patched_version": "0.35.5",
+          "vulnerable_functions": []
+        }
+      ]
+    }
+  ]
+}

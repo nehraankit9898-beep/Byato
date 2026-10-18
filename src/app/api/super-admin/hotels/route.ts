@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireSuperAdminSession } from "@/lib/api-helpers";
@@ -85,7 +86,7 @@ export async function POST(req: Request) {
 
   try {
     await ensurePlansSeed();
-    const body = await req.json().catch(() => null);
+    const body = await readJsonCapped(req);
     const parsed = parseWith(createHotelSchema, body);
     if (!parsed.ok || !parsed.data) {
       return NextResponse.json(

@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { NextResponse } from "next/server";
 import { requireSuperAdminSession } from "@/lib/api-helpers";
 import { suspendHotel } from "@/lib/super-admin";
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
         { status: 400 },
       );
 
-    const body = await req.json().catch(() => ({}));
+    const body = (await readJsonCapped(req)) ?? {};
     const parsed = suspendSchema.safeParse(body);
     const reason = parsed.success
       ? (parsed.data.reason ?? "Suspended by super admin")

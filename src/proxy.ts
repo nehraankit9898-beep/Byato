@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { frameAncestors } from "./lib/frame-policy";
 
 /**
  * Phase 7 — edge middleware: request correlation + strict CORS (spec §30, §33).
@@ -72,7 +73,14 @@ function generateNonce(): string {
  */
 function buildPageCsp(nonce: string): string {
   // Embedding policy: explicit origins only in production (never a blind wildcard).
-  const frameAncestors = process.env.EMBED_FRAME_ANCESTORS?.trim() || (IS_DEV ? "*" : "'self'");
+  let ancestors: string;
+  try {
+    ancestors = frameAncestors(process.env.EMBED_FRAME_ANCESTORS, !IS_DEV);
+  } catch {
+    // Startup rejects this configuration. If validation was bypassed, do not
+    // emit untrusted policy text or disable clickjacking protection.
+    ancestors = "'self'";
+  }
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${IS_DEV ? " 'unsafe-eval'" : ""} ${RAZORPAY_CSP.script}`,
@@ -84,7 +92,7 @@ function buildPageCsp(nonce: string): string {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    `frame-ancestors ${frameAncestors}`,
+    `frame-ancestors ${ancestors}`,
   ].join("; ");
 }
 

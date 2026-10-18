@@ -1,3 +1,5 @@
+> 2026-10-18 recheck: **204 route files**, no route additions/removals in this patch. The full disposable-SQLite suite now executes (see `DEEP_BUG_HUNT_2026-10-18.md`); the older "runtime access tests blocked" statement below is historical, not the current suite result. Real PostgreSQL/provider/browser authorization coverage is still not universal.
+
 # Current route discovery — 2026-10-17
 
 204 route files. Static discovery only: a guard name is not proof of authorization, and hotelId text is not proof of isolation. Delegated guards must be read in their helpers. Runtime access tests remain blocked. Historical audit files are not fresh evidence.

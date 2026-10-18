@@ -1,3 +1,13 @@
+> Final 2026-10-18 verification: `bun run test` **PASS** (587 Bun tests in 52 files; functional 93/93 + 79/79 + 62/62), lint/typecheck/frozen install **PASS**. Native production build **BLOCKED** before compilation. See the deep-hunt report and evidence JSON for the initial failed run and remaining release gates.
+
+# Verification follow-up — 2026-10-18
+
+Current authoritative command/result table: [DEEP_BUG_HUNT_2026-10-18.md](DEEP_BUG_HUNT_2026-10-18.md). New regressions: frame policy 10 PASS; bill interleavings 4 PASS; privacy real DB 3 PASS; capped route bodies 5 PASS; build-mode 4 PASS (one new lock test). Lint and typecheck PASS. Production native build BLOCKED/FAIL at Prisma download. Full-tree audit FAIL (one dev advisory); actual locked production inventory audit PASS. Migration smoke PASS only on PostgreSQL/WASM, not PostgreSQL 16/Neon.
+
+Initial full suite had one phase2 ECONNRESET failure; final-code rerun is recorded in the deep-hunt report. Do not copy any older all-green statement below as the result of this pass.
+
+---
+
 # Test Results — StayLoop audit (2026-10-11)
 
 Status legend: **PASS** executed and passed · **FAIL** executed and failed · **BLOCKED** could not execute

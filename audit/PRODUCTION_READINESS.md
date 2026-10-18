@@ -1,3 +1,13 @@
+> Final 2026-10-18 verification: `bun run test` **PASS** (587 Bun tests in 52 files; functional 93/93 + 79/79 + 62/62), lint/typecheck/frozen install **PASS**. Native production build **BLOCKED** before compilation. See the deep-hunt report and evidence JSON for the initial failed run and remaining release gates.
+
+# Latest readiness review — 2026-10-18
+
+**NOT READY for unconditional real-customer deployment.** See [DEEP_BUG_HUNT_2026-10-18.md](DEEP_BUG_HUNT_2026-10-18.md), including exact commands and current suite results. BUG-14–18 have code/regression fixes; frozen install works on Bun 1.3.14/1.4.3; lint/typecheck pass; the actual locked production dependency graph has no returned advisories. All 14 migrations applied on disposable PostgreSQL/WASM, not production PostgreSQL 16/Neon.
+
+Release still requires a native clean production build (blocked before compilation by Prisma download), PostgreSQL concurrency/drift/restore, real provider/Redis tests and browser verification. Full-tree dependency audit still reports one high dev-tool braces advisory. Privacy completion means profile anonymization/tenant archival, not comprehensive erasure. Historical tables below are snapshots, not current test results.
+
+---
+
 > **Historical snapshot (2026-10-11).** For this checkout, see [FINAL_VERIFICATION_REPORT.md](FINAL_VERIFICATION_REPORT.md), [REPAIR_CHANGELOG.md](REPAIR_CHANGELOG.md) and [REMAINING_BLOCKERS.md](REMAINING_BLOCKERS.md). Statements below describe the earlier audit, not the post-repair result.
 
 # Production Readiness and Release Verdict — StayLoop (2026-10-11)

@@ -1,0 +1,332 @@
+{
+  "date": "2026-10-18",
+  "node": "22.22.3",
+  "bun": "1.4.3",
+  "initial_full_suite": {
+    "exit": 1,
+    "bun_pass": 578,
+    "bun_fail": 0,
+    "cause": "scripts/test-phase2.ts ECONNRESET on initial login; suite crashed"
+  },
+  "final_full_suite": {
+    "command": "bun run test",
+    "exit": 0,
+    "bun_pass": 587,
+    "bun_fail": 0,
+    "files": [
+      {
+        "file": "tests/mfa-enrollment-regression.test.ts",
+        "pass": 5,
+        "fail": 0
+      },
+      {
+        "file": "tests/build-mode-contract.test.ts",
+        "pass": 4,
+        "fail": 0
+      },
+      {
+        "file": "tests/audit-current-regressions.test.ts",
+        "pass": 4,
+        "fail": 0
+      },
+      {
+        "file": "tests/auth.test.ts",
+        "pass": 8,
+        "fail": 0
+      },
+      {
+        "file": "tests/lockout.test.ts",
+        "pass": 1,
+        "fail": 0
+      },
+      {
+        "file": "tests/navigation-rbac.test.ts",
+        "pass": 12,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase64.test.ts",
+        "pass": 15,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase7.test.ts",
+        "pass": 13,
+        "fail": 0
+      },
+      {
+        "file": "tests/privacy-phone.test.ts",
+        "pass": 14,
+        "fail": 0
+      },
+      {
+        "file": "tests/rbac-tenant.test.ts",
+        "pass": 13,
+        "fail": 0
+      },
+      {
+        "file": "tests/security.test.ts",
+        "pass": 18,
+        "fail": 0
+      },
+      {
+        "file": "tests/super-admin-platform.test.ts",
+        "pass": 13,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase10-saas.test.ts",
+        "pass": 29,
+        "fail": 0
+      },
+      {
+        "file": "tests/unit.test.ts",
+        "pass": 27,
+        "fail": 0
+      },
+      {
+        "file": "tests/qr-injection-regression.test.ts",
+        "pass": 16,
+        "fail": 0
+      },
+      {
+        "file": "tests/queue-reliability.test.ts",
+        "pass": 9,
+        "fail": 0
+      },
+      {
+        "file": "tests/ops-reliability.test.ts",
+        "pass": 10,
+        "fail": 0
+      },
+      {
+        "file": "tests/deployment-config.test.ts",
+        "pass": 16,
+        "fail": 0
+      },
+      {
+        "file": "tests/restore-args.test.ts",
+        "pass": 8,
+        "fail": 0
+      },
+      {
+        "file": "tests/crypto-rotation.test.ts",
+        "pass": 11,
+        "fail": 0
+      },
+      {
+        "file": "tests/billing-outbox.test.ts",
+        "pass": 10,
+        "fail": 0
+      },
+      {
+        "file": "tests/export-quota.test.ts",
+        "pass": 6,
+        "fail": 0
+      },
+      {
+        "file": "tests/backup-schedule.test.ts",
+        "pass": 8,
+        "fail": 0
+      },
+      {
+        "file": "tests/bootstrap-atomicity.test.ts",
+        "pass": 4,
+        "fail": 0
+      },
+      {
+        "file": "tests/audit-fixes.test.ts",
+        "pass": 18,
+        "fail": 0
+      },
+      {
+        "file": "tests/recheck-fixes.test.ts",
+        "pass": 9,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase11-scheduler.test.ts",
+        "pass": 4,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase12-menu.test.ts",
+        "pass": 10,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase13-orders.test.ts",
+        "pass": 16,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase14-billing.test.ts",
+        "pass": 22,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase15-retention.test.ts",
+        "pass": 13,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase16-operations.test.ts",
+        "pass": 13,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase17-enterprise.test.ts",
+        "pass": 12,
+        "fail": 0
+      },
+      {
+        "file": "tests/phase18-ai.test.ts",
+        "pass": 37,
+        "fail": 0
+      },
+      {
+        "file": "tests/audit-2026-regressions.test.ts",
+        "pass": 13,
+        "fail": 0
+      },
+      {
+        "file": "tests/security-hardening.test.ts",
+        "pass": 10,
+        "fail": 0
+      },
+      {
+        "file": "tests/bugfix-regressions-2026-10.test.ts",
+        "pass": 24,
+        "fail": 0
+      },
+      {
+        "file": "tests/custom-role-resolution.test.ts",
+        "pass": 3,
+        "fail": 0
+      },
+      {
+        "file": "tests/custom-role-api.test.ts",
+        "pass": 1,
+        "fail": 0
+      },
+      {
+        "file": "tests/payment-link-limit.test.ts",
+        "pass": 1,
+        "fail": 0
+      },
+      {
+        "file": "tests/payment-link-settle.test.ts",
+        "pass": 4,
+        "fail": 0
+      },
+      {
+        "file": "tests/payment-callback-routes.test.ts",
+        "pass": 10,
+        "fail": 0
+      },
+      {
+        "file": "tests/import-cycle-regression.test.ts",
+        "pass": 4,
+        "fail": 0
+      },
+      {
+        "file": "tests/bootstrap-endpoint.test.ts",
+        "pass": 26,
+        "fail": 0
+      },
+      {
+        "file": "tests/super-admin-hotel-errors.test.ts",
+        "pass": 5,
+        "fail": 0
+      },
+      {
+        "file": "tests/dev-script-guard.test.ts",
+        "pass": 5,
+        "fail": 0
+      },
+      {
+        "file": "tests/config-secret-stability.test.ts",
+        "pass": 5,
+        "fail": 0
+      },
+      {
+        "file": "tests/rbac-security-master.test.ts",
+        "pass": 26,
+        "fail": 0
+      },
+      {
+        "file": "tests/production-frame-policy.test.ts",
+        "pass": 10,
+        "fail": 0
+      },
+      {
+        "file": "tests/bill-balance-concurrency.test.ts",
+        "pass": 4,
+        "fail": 0
+      },
+      {
+        "file": "tests/privacy-delete-atomicity.test.ts",
+        "pass": 3,
+        "fail": 0
+      },
+      {
+        "file": "tests/body-cap-route-coverage.test.ts",
+        "pass": 5,
+        "fail": 0
+      }
+    ],
+    "functional": [
+      {
+        "suite": "scripts/test-phase1.ts",
+        "pass": 93,
+        "fail": 0
+      },
+      {
+        "suite": "scripts/test-phase2.ts",
+        "pass": 79,
+        "fail": 0
+      },
+      {
+        "suite": "scripts/test-phase63.ts",
+        "pass": 62,
+        "fail": 0
+      }
+    ]
+  },
+  "typecheck": {
+    "exit": 0
+  },
+  "lint": {
+    "exit": 0
+  },
+  "frozen_install_ignore_scripts": {
+    "bun_1.4.3": 0,
+    "bun_1.3.14": 0
+  },
+  "production_build": {
+    "command": "rm -rf .next && bun run build (with no running dev server)",
+    "exit": 1,
+    "phase": "prisma generate --schema prisma/schema.postgres.prisma",
+    "reason": "binaries.prisma.sh schema engine download blocked; Next build never started"
+  },
+  "full_tree_dependency_audit": {
+    "exit": 1,
+    "high": 1,
+    "package": "braces@3.0.3",
+    "scope": "development tooling"
+  },
+  "locked_production_audit": {
+    "exit": 0,
+    "package_names": 265,
+    "advisories": {}
+  },
+  "migration_smoke": {
+    "engine": "PostgreSQL 18.6 WASM / PGlite 0.5.10",
+    "migration_count": 14,
+    "exit": 0,
+    "postgres_16_neon_verified": false
+  },
+  "diff_check": {
+    "exit": 0
+  }
+}

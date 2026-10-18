@@ -2,8 +2,9 @@
  * Phase 17 — Privacy / data subject request workflow.
  *
  * Tenant hard-delete / privacy request flow. Owner authorization required,
- * retention/legal checks enforced, dependencies/provider/storage cleanup
- * performed, deletion audit recorded with minimal non-personal evidence.
+ * retention/legal gates enforced, customer profiles anonymized and tenant
+ * archived atomically. Related records, provider data and storage are retained
+ * and require a separate operator-reviewed cleanup/retention procedure.
  *
  * Independent legal review required; no blanket DPDP/GDPR certification
  * claim is made by this module. It provides the technical scaffold for the
@@ -13,10 +14,11 @@
  *  PENDING      → owner has submitted a request
  *  APPROVED     → legal review complete, retention hold expired
  *  IN_PROGRESS  → cleanup running
- *  COMPLETED    → audit recorded, no PII remains
+ *  COMPLETED    → customer profiles anonymized, tenant archived; related records retained
  *  REJECTED     → documented reason
  */
 import { db } from "@/lib/db";
+import { randomUUID } from "node:crypto";
 import { logAudit } from "@/lib/audit";
 import type { AuthedUser } from "@/lib/api-helpers";
 
@@ -118,8 +120,8 @@ export async function approvePrivacyRequest(
  *  - retention hold has expired (retentionExpiresAt < now)
  *  - legal review is recorded
  *
- * Cleanup performed (best-effort, in order):
- *  1. Anonymize customer PII (name/phone/email set to "[DELETED]")
+ * Database cleanup performed atomically:
+ *  1. Anonymize customer profile fields (unique non-phone tombstones)
  *  2. Revoke all active API keys
  *  3. Revoke all active sessions (tokenVersion bump on all users)
  *  4. Mark the tenant Hotel as ARCHIVED (data preserved for financial
@@ -146,55 +148,71 @@ export async function executeDeleteRequest(
     return { ok: false, error: "Retention hold has not expired yet.", status: 409 };
   }
 
-  await db.privacyRequest.update({
-    where: { id: requestId },
-    data: { status: "IN_PROGRESS" },
-  });
+  if (!req.legalReviewBy?.trim()) {
+    return { ok: false, error: "Legal review must be recorded before deletion.", status: 409 };
+  }
 
-  // Best-effort PII anonymization. The financial/audit records are preserved
-  // (legal compliance) — they retain the customer ID reference but the
-  // customer.name/phone/email are blanked.
-  const anonymizedCustomers = await db.customer.updateMany({
-    where: { hotelId: user.hotelId },
-    data: { name: "[DELETED]", phone: "[DELETED]", email: null, marketingConsent: false },
-  });
-  const revokedKeys = await db.apiKey.updateMany({
-    where: { hotelId: user.hotelId, status: "ACTIVE" },
-    data: { status: "REVOKED", revokedAt: new Date() },
-  });
-  const revokedSessions = await db.user.updateMany({
-    where: { hotelId: user.hotelId },
-    data: { tokenVersion: { increment: 1 } },
-  });
-  // Archive the tenant (NOT delete — financial records must be retained per law).
-  await db.hotel.update({
-    where: { id: user.hotelId },
-    data: { status: "ARCHIVED", suspendedAt: new Date(), suspensionReason: "Privacy delete request" },
-  });
+  // Claim and all database cleanup commit together. A failed operation rolls
+  // back the claim as well, leaving an APPROVED request that can be retried.
+  return db.$transaction(async (tx) => {
+    const claimed = await tx.privacyRequest.updateMany({
+      where: {
+        id: requestId, hotelId: user.hotelId, type: "DELETE", status: "APPROVED",
+        legalReviewBy: req.legalReviewBy, retentionExpiresAt: { lt: new Date() },
+      },
+      data: { status: "IN_PROGRESS" },
+    });
+    if (claimed.count !== 1) {
+      return { ok: false as const, error: "Request changed — reload before retrying.", status: 409 };
+    }
 
-  const summary = JSON.stringify({
-    anonymizedCustomers: anonymizedCustomers.count,
-    revokedApiKeys: revokedKeys.count,
-    revokedSessions: revokedSessions.count,
-    hotelArchived: true,
-    hardDeletePerformed: false, // hard-delete is a separate Super-Admin operation
-  });
-
-  await db.privacyRequest.update({
-    where: { id: requestId },
-    data: { status: "COMPLETED", completedAt: new Date(), auditSummary: summary },
-  });
-
-  await logAudit({
-    hotelId: user.hotelId,
-    userId: user.userId,
-    action: "PRIVACY_REQUEST_EXECUTED",
-    entityType: "PrivacyRequest",
-    entityId: requestId,
-    metadata: JSON.parse(summary),
-  });
-
-  return { ok: true, summary };
+    // (hotelId, phone) is unique. A shared '[DELETED]' value fails for any
+    // tenant with two customers. A random namespace + row ID preserves that
+    // constraint without retaining the original phone. Parameterized SQL uses
+    // concatenation supported by both SQLite and PostgreSQL.
+    const deletedPhonePrefix = `[DELETED]:${randomUUID()}:`;
+    await tx.$executeRaw`UPDATE "Customer" SET "phone" = ${deletedPhonePrefix} || "id" WHERE "hotelId" = ${user.hotelId}`;
+    const anonymizedCustomers = await tx.customer.updateMany({
+      where: { hotelId: user.hotelId },
+      data: {
+        name: "[DELETED]", email: null, birthday: null, anniversary: null,
+        location: null, notes: null, roomPreference: null, foodPreference: null,
+        preferredRoom: null, preferredService: null, source: null,
+        favouriteItems: null, favouriteCategory: null,
+        consentSource: null, consentTimestamp: null,
+        marketingConsent: false, emailOptIn: false, smsOptIn: false,
+        whatsappOptIn: false, optOut: true,
+      },
+    });
+    const revokedKeys = await tx.apiKey.updateMany({
+      where: { hotelId: user.hotelId, status: "ACTIVE" },
+      data: { status: "REVOKED", revokedAt: new Date() },
+    });
+    const revokedSessions = await tx.user.updateMany({
+      where: { hotelId: user.hotelId },
+      data: { tokenVersion: { increment: 1 } },
+    });
+    await tx.hotel.update({
+      where: { id: user.hotelId },
+      data: { status: "ARCHIVED", suspendedAt: new Date(), suspensionReason: "Privacy delete request" },
+    });
+    const summary = JSON.stringify({
+      anonymizedCustomers: anonymizedCustomers.count,
+      revokedApiKeys: revokedKeys.count, revokedSessions: revokedSessions.count,
+      hotelArchived: true, hardDeletePerformed: false,
+      customerProfileAnonymizationOnly: true, relatedRecordsRetained: true,
+    });
+    await tx.privacyRequest.update({
+      where: { id: requestId },
+      data: { status: "COMPLETED", completedAt: new Date(), auditSummary: summary },
+    });
+    await logAudit({
+      hotelId: user.hotelId, userId: user.userId,
+      action: "PRIVACY_REQUEST_EXECUTED", entityType: "PrivacyRequest", entityId: requestId,
+      metadata: JSON.parse(summary), tx,
+    });
+    return { ok: true as const, summary };
+  }, { timeout: 30_000 });
 }
 
 /**

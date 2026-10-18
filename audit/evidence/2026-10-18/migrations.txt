@@ -1,0 +1,20 @@
+PostgreSQL 18.6 (PGlite 0.5.10) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.5 (1db513782be24469589d7cb8a1f1834e9a33f271), 32-bit
+PASS 0001_init
+PASS 0002_phase10_saas
+PASS 0003_payment_confirmed_job_type
+PASS 0004_recheck_release
+PASS 0005_phase11_12_13_restaurant
+PASS 0006_phase13_bugfix
+PASS 0007_phase14_15_16
+PASS 0008_audit_bugfixes
+PASS 0009_phase17_enterprise
+PASS 0010_phase18_ai_innovation
+PASS 0011_security_hardening
+PASS 0012_reservation_active_fence
+PASS 0013_bill_payment_idempotency
+PASS 0014_schema_drift_parity_fix
+PASS existing reservation fence backfill; 110 tables
+PASS reapply 0012_reservation_active_fence
+PASS reapply 0013_bill_payment_idempotency
+PASS reapply 0014_schema_drift_parity_fix
+PASS BUG-16 original uniqueness failure and parameterized tombstone update on PostgreSQL

@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { requireAuth, jsonError, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
 import { executeCampaignSend } from "@/lib/campaigns";
@@ -32,7 +33,7 @@ export async function POST(req: Request, ctx: Ctx) {
     let force = false;
     let inline = false;
     try {
-      const body = (await req.json()) as { force?: boolean; inline?: boolean } | null;
+      const body = (await readJsonCapped(req)) as { force?: boolean; inline?: boolean } | null;
       force = Boolean(body?.force);
       inline = Boolean(body?.inline);
     } catch {

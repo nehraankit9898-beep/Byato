@@ -1,3 +1,4 @@
+import { readJsonCapped } from "@/lib/body";
 import { NextResponse } from "next/server";
 import { timingSafeEqual, createHash } from "crypto";
 import { ConfigValidationError, getAdminBootstrapSecret } from "@/lib/config";
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
 
     // Validate the body before touching the database: a malformed request
     // never costs a query, and the 400 path is independent of DB state.
-    const body = await req.json().catch(() => null);
+    const body = await readJsonCapped(req);
     const parsed = parseWith(bootstrapBodySchema, body);
     if (!parsed.ok || !parsed.data) {
       return NextResponse.json(

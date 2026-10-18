@@ -1,3 +1,4 @@
+import { readBodyCapped, MAX_JSON_BODY_BYTES } from "@/lib/body";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
@@ -57,7 +58,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ provider: stri
     }
 
     const providers = await getProviderSettings();
-    const rawBody = await req.text();
+    const rawBody = await readBodyCapped(req, MAX_JSON_BODY_BYTES);
+    if (rawBody === null) return Response.json({ error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large." } }, { status: 413 });
 
     if (provider === "razorpay") {
       const config = providers.razorpay;
