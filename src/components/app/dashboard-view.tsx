@@ -20,9 +20,7 @@ import type { SubscriptionView } from "@/lib/types";
 import {
   Users,
   BellRing,
-  Ban,
   CalendarCheck,
-  UserCheck,
   Repeat,
   ArrowRight,
   UserPlus,
@@ -179,75 +177,68 @@ export function DashboardView({
           </Button>
         </div>
       )}
-      {/* Welcome strip */}
-      <div className="rounded-xl border bg-[linear-gradient(120deg,oklch(0.98_0.02_85),oklch(0.955_0.035_75))] dark:bg-[linear-gradient(120deg,oklch(0.24_0.03_60),oklch(0.28_0.04_55))] p-5 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
+      {/* Welcome strip: explain the page and make the two common actions obvious. */}
+      <section className="rounded-2xl border bg-[linear-gradient(120deg,oklch(0.98_0.02_85),oklch(0.955_0.035_75))] p-5 shadow-sm dark:bg-[linear-gradient(120deg,oklch(0.24_0.03_60),oklch(0.28_0.04_55))] sm:p-6">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="min-w-0">
             <h2 className="text-lg font-bold tracking-tight">
               Welcome back, {user.name.split(" ")[0]} 👋
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Here&apos;s what&apos;s happening at{" "}
-              <span className="font-medium text-foreground">{user.hotelName}</span> today.
+              Here&apos;s your restaurant&apos;s customer activity for today.
             </p>
+            <p className="mt-1 text-sm font-medium text-foreground">{user.hotelName}</p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="bg-background/60"
-              onClick={() => setView("customers")}
-            >
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button className="w-full sm:w-auto" onClick={() => setView("customers")}>
               <UserPlus className="h-4 w-4" /> Add customer
             </Button>
-            <Button size="sm" onClick={() => setView("import")}>
-              Import CSV <ArrowRight className="h-4 w-4" />
+            <Button
+              className="w-full sm:w-auto"
+              variant="outline"
+              onClick={() => setView("visits")}
+            >
+              <CalendarCheck className="h-4 w-4" /> Record a visit
             </Button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* Four owner-friendly numbers; detailed consent breakdown stays in the chart below. */}
+      <section aria-label="Restaurant summary" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
-          title="Total Customers"
+          title="Customers"
           value={stats.totalCustomers}
+          hint="Active customer records"
           icon={Users}
           tone="default"
           delay={0}
         />
         <StatCard
-          title="Marketing Opt-in"
-          value={stats.marketingOptIn}
-          hint={`${pct(stats.marketingOptIn, stats.totalCustomers)}% of customers`}
-          icon={BellRing}
+          title="Repeat customers"
+          value={stats.repeatCustomers}
+          hint={`${stats.repeatRate}% have returned`}
+          icon={Repeat}
           tone="emerald"
           delay={0.05}
         />
-        <StatCard title="Opted Out" value={stats.optedOut} icon={Ban} tone="rose" delay={0.1} />
         <StatCard
-          title="Total Visits"
+          title="Visits recorded"
           value={stats.totalVisits}
+          hint="All recorded visits"
           icon={CalendarCheck}
           tone="amber"
+          delay={0.1}
+        />
+        <StatCard
+          title="Can receive offers"
+          value={stats.marketingOptIn}
+          hint={`${pct(stats.marketingOptIn, stats.totalCustomers)}% of customers opted in`}
+          icon={BellRing}
+          tone="violet"
           delay={0.15}
         />
-        <StatCard
-          title="Unique Guests"
-          value={stats.uniqueVisitors}
-          icon={UserCheck}
-          tone="violet"
-          delay={0.2}
-        />
-        <StatCard
-          title="Repeat Customers"
-          value={stats.repeatCustomers}
-          hint={`${stats.repeatRate}% repeat rate`}
-          icon={Repeat}
-          tone="emerald"
-          delay={0.25}
-        />
-      </div>
+      </section>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

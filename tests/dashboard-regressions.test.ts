@@ -144,3 +144,29 @@ describe("owner report dashboard resilience", () => {
     expect(route).toContain('jsonError("tz must be a valid IANA timezone"');
   });
 });
+
+describe("owner dashboard usability", () => {
+  test("owner navigation keeps five everyday tasks visible and groups specialist tools", () => {
+    const shell = source("src/components/app/app-shell.tsx");
+    expect(shell).toContain('["dashboard", "customers", "visits", "campaigns", "analytics"]');
+    expect(shell).toContain("More tools");
+    expect(shell).toContain('aria-expanded={moreOpen}');
+    expect(shell).toContain('aria-controls="owner-more-tools"');
+    expect(shell).toContain("if (!NAV_PRIMARY.some((item) => item.id === view)) setMoreOpen(true)");
+  });
+
+  test("dashboard exposes customer and visit actions with four plain-language KPIs", () => {
+    const view = source("src/components/app/dashboard-view.tsx");
+    expect(view).toContain('onClick={() => setView("customers")}');
+    expect(view).toContain("Add customer");
+    expect(view).toContain('onClick={() => setView("visits")}');
+    expect(view).toContain("Record a visit");
+    expect(view).toContain('aria-label="Restaurant summary"');
+    expect(view).toContain('title="Customers"');
+    expect(view).toContain('title="Repeat customers"');
+    expect(view).toContain('title="Visits recorded"');
+    expect(view).toContain('title="Can receive offers"');
+    expect(view).not.toContain('title="Unique Guests"');
+    expect(view).not.toContain('title="Opted Out"');
+  });
+});
