@@ -150,9 +150,10 @@ describe("owner dashboard usability", () => {
     const shell = source("src/components/app/app-shell.tsx");
     expect(shell).toContain('["dashboard", "customers", "visits", "campaigns", "analytics"]');
     expect(shell).toContain("More tools");
-    expect(shell).toContain('aria-expanded={moreOpen}');
+    expect(shell).toContain('aria-expanded={moreExpanded}');
     expect(shell).toContain('aria-controls="owner-more-tools"');
-    expect(shell).toContain("if (!NAV_PRIMARY.some((item) => item.id === view)) setMoreOpen(true)");
+    expect(shell).toContain("const moreExpanded = moreOpen || hasActiveMoreView;");
+    expect(shell).toContain("onClick={() => setMoreOpen((open) => (hasActiveMoreView ? true : !open))");
   });
 
   test("dashboard exposes customer and visit actions with four plain-language KPIs", () => {
