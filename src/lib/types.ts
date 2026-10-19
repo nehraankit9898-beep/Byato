@@ -278,7 +278,9 @@ export type ViewId =
   | "attendance"
   | "branches"
   // Phase 18 — advanced AI & innovation
-  | "ai";
+  | "ai"
+  // First-run setup wizard (hotel owner/admin) — re-openable from the sidebar
+  | "onboarding";
 
 // ---------------- Phase 10 SaaS types ----------------
 

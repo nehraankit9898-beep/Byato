@@ -85,6 +85,7 @@ import {
   Clock,
   Building2,
   Sparkles,
+  Rocket,
 } from "lucide-react";
 
 interface NavItem {
@@ -96,6 +97,7 @@ interface NavItem {
 
 const NAV_MAIN: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "onboarding", label: "Setup Guide", icon: Rocket },
   { id: "customers", label: "Customers", icon: Users },
   { id: "segments", label: "Segments", icon: UsersRound },
   { id: "visits", label: "Visits", icon: CalendarCheck },
@@ -274,6 +276,10 @@ const NAV_PLATFORM_ADMIN: NavItem[] = [
 const NAV_SOON: NavItem[] = [];
 
 const VIEW_TITLES: Record<ViewId, { title: string; subtitle: string }> = {
+  onboarding: {
+    title: "Setup Guide",
+    subtitle: "Get your restaurant running on Beyto in four quick steps",
+  },
   dashboard: { title: "Dashboard", subtitle: "Your restaurant's customer activity at a glance" },
   customers: { title: "Customers", subtitle: "Every guest, one searchable list" },
   segments: { title: "Segments", subtitle: "Smart guest groups, built automatically" },
