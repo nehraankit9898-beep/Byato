@@ -260,11 +260,12 @@ function App() {
           customerId={profileCustomerId}
           onBack={closeCustomer}
           setView={setView}
+          user={user}
         />
       ) : effectiveView === "dashboard" ? (
         <DashboardView user={user} setView={switchView} onOpenCustomer={openCustomer} />
       ) : effectiveView === "customers" ? (
-        <CustomersView onOpenCustomer={openCustomer} setView={switchView} />
+        <CustomersView onOpenCustomer={openCustomer} setView={switchView} user={user} />
       ) : effectiveView === "visits" ? (
         <VisitsView onOpenCustomer={openCustomer} />
       ) : effectiveView === "segments" ? (

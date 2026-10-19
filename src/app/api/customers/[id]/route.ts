@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
   requireAuth,
@@ -9,6 +10,7 @@ import {
 import { requirePermission } from "@/lib/permissions";
 import { normalizePhone } from "@/lib/phone";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
+import { isPhoneUniqueViolation } from "@/lib/customers";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -32,10 +34,56 @@ export async function GET(req: Request, ctx: Ctx) {
       orderBy: { checkin: "desc" },
     });
 
-    const totalVisits = visits.length;
-    const totalSpend = visits.reduce((s, v) => s + (v.amount ?? 0), 0);
-    const firstVisit = totalVisits ? visits[visits.length - 1].checkin : null;
-    const lastVisit = totalVisits ? visits[0].checkin : null;
+    // Restaurant side: one RestaurantVisit row is recorded per PAID bill, so
+    // this is the reliable source for a restaurant's order history and spend.
+    const orders = await db.restaurantVisit.findMany({
+      where: { customerId: id, hotelId: auth.user.hotelId },
+      orderBy: { visitDate: "desc" },
+      select: {
+        id: true,
+        visitDate: true,
+        tableNumber: true,
+        guests: true,
+        orderAmount: true,
+        source: true,
+        notes: true,
+        createdAt: true,
+      },
+    });
+
+    // Loyalty points are only reported when this hotel actually runs a loyalty
+    // account for the guest — never a fabricated balance.
+    const loyaltyAccount = await db.loyaltyAccount.findFirst({
+      where: { customerId: id, hotelId: auth.user.hotelId },
+      select: {
+        points: true,
+        lifetimePoints: true,
+        lifetimeSpend: true,
+        visitsCounted: true,
+        tier: true,
+      },
+    });
+
+    const staySpend = visits.reduce((s, v) => s + (v.amount ?? 0), 0);
+    const dineSpend = orders.reduce((s, v) => s + v.orderAmount, 0);
+
+    // Unified totals: a restaurant guest's visits/spend INCLUDE their paid
+    // bills; the hotel-only view stays available under the hotel* keys.
+    const totalVisits = visits.length + orders.length;
+    const totalSpend = Math.round((staySpend + dineSpend) * 100) / 100;
+
+    const stayFirst = visits.length ? visits[visits.length - 1].checkin : null;
+    const stayLast = visits.length ? visits[0].checkin : null;
+    const dineFirst = orders.length ? orders[orders.length - 1].visitDate : null;
+    const dineLast = orders.length ? orders[0].visitDate : null;
+    const firstVisit =
+      stayFirst && dineFirst
+        ? stayFirst < dineFirst
+          ? stayFirst
+          : dineFirst
+        : (stayFirst ?? dineFirst);
+    const lastVisit =
+      stayLast && dineLast ? (stayLast > dineLast ? stayLast : dineLast) : (stayLast ?? dineLast);
 
     // Activity timeline: created → consent → visits (chronological) → opt-out → campaigns
     const timeline: {
@@ -67,6 +115,22 @@ export async function GET(req: Request, ctx: Ctx) {
         type: "opt_out",
         label: "Marketing opt-out",
         timestamp: customer.updatedAt,
+      });
+    }
+
+    // Restaurant orders (paid bills) appear on the timeline too.
+    for (const o of [...orders].reverse()) {
+      timeline.push({
+        type: "order",
+        label: "Restaurant order",
+        timestamp: o.visitDate,
+        detail: [
+          o.source ? o.source.replace(/_/g, " ").toLowerCase() : "order",
+          o.tableNumber ? `table ${o.tableNumber}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        amount: o.orderAmount ?? undefined,
       });
     }
 
@@ -124,7 +188,44 @@ export async function GET(req: Request, ctx: Ctx) {
         vip: customer.vip,
         totalSpend,
       },
-      stats: { totalVisits, firstVisit, lastVisit, totalSpend },
+      stats: {
+        // Unified (hotel stays + restaurant bills):
+        totalVisits,
+        firstVisit,
+        lastVisit,
+        totalSpend,
+        // Split views:
+        hotelVisits: visits.length,
+        hotelSpend: Math.round(staySpend * 100) / 100,
+        restaurantVisits: orders.length,
+        restaurantSpend: Math.round(dineSpend * 100) / 100,
+        neverVisited: totalVisits === 0,
+        isReturning: totalVisits >= 2,
+        averageOrderValue: orders.length ? Math.round((dineSpend / orders.length) * 100) / 100 : 0,
+      },
+      // Restaurant order history (one row per paid bill). Editable/deleteable
+      // hotel stays remain under `visits` so nothing that works today breaks.
+      orders: orders.map((o) => ({
+        id: o.id,
+        visitDate: o.visitDate,
+        tableNumber: o.tableNumber,
+        guests: o.guests,
+        amount: o.orderAmount,
+        source: o.source,
+        notes: o.notes,
+        createdAt: o.createdAt,
+      })),
+      // Null when the hotel has no loyalty account for this guest — the UI
+      // hides the loyalty card entirely rather than showing a fake 0.
+      loyalty: loyaltyAccount
+        ? {
+            points: loyaltyAccount.points,
+            lifetimePoints: loyaltyAccount.lifetimePoints,
+            lifetimeSpend: loyaltyAccount.lifetimeSpend,
+            visitsCounted: loyaltyAccount.visitsCounted,
+            tier: loyaltyAccount.tier,
+          }
+        : null,
       visits: visits.map((v) => ({
         id: v.id,
         checkin: v.checkin,
@@ -178,12 +279,20 @@ export async function PATCH(req: Request, ctx: Ctx) {
       if (phoneResult.normalized !== customer.phone) {
         const duplicate = await db.customer.findFirst({
           where: { hotelId, phone: phoneResult.normalized!, NOT: { id: customer.id } },
+          select: { id: true, name: true },
         });
         if (duplicate) {
-          return jsonError(
-            "Another customer with this phone number already exists.",
-            409,
-            "DUPLICATE_PHONE",
+          // Same contract as the race path below (and as POST /api/customers):
+          // the client can offer to open the existing profile.
+          return NextResponse.json(
+            {
+              error: {
+                code: "DUPLICATE_PHONE",
+                message: `Another customer (${duplicate.name}) already uses this phone number.`,
+                existing: { id: duplicate.id, name: duplicate.name },
+              },
+            },
+            { status: 409 },
           );
         }
         data.phone = phoneResult.normalized!;
@@ -288,7 +397,38 @@ export async function PATCH(req: Request, ctx: Ctx) {
       return jsonError("Nothing to update.");
     }
 
-    const updated = await db.customer.update({ where: { id: customer.id }, data });
+    let updated;
+    try {
+      updated = await db.customer.update({ where: { id: customer.id }, data });
+    } catch (err) {
+      // Race safety: the pre-check above cannot see a row another request
+      // commits a millisecond later. The database unique constraint is the
+      // real guard — translate it into the same friendly 409 the pre-check
+      // returns, instead of a 500.
+      if (isPhoneUniqueViolation(err)) {
+        const winner = await db.customer.findFirst({
+          where: {
+            hotelId,
+            phone: typeof data.phone === "string" ? data.phone : undefined,
+            NOT: { id: customer.id },
+          },
+          select: { id: true, name: true },
+        });
+        return NextResponse.json(
+          {
+            error: {
+              code: "DUPLICATE_PHONE",
+              message: winner
+                ? `Another customer (${winner.name}) already uses this phone number.`
+                : "Another customer with this phone number already exists.",
+              existing: winner,
+            },
+          },
+          { status: 409 },
+        );
+      }
+      throw err;
+    }
 
     await logAudit({
       req,

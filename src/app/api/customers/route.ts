@@ -1,14 +1,33 @@
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuth, jsonError, readJson, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
 import { normalizePhone } from "@/lib/phone";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
-import { createCustomerWithinLimit } from "@/lib/saas/limits";
+import {
+  parseWithFieldErrors,
+  customerCreateSchema,
+  customerListQuerySchema,
+} from "@/lib/validation";
+import {
+  classifyActivity,
+  createCustomerForTenant,
+  emptySummary,
+  type CustomerSummary,
+} from "@/lib/customers";
 
 /**
  * GET /api/customers — server-side search / filter / sort / pagination.
- * Query: q, consent (all|opted_in|opted_out), status (all|active|inactive),
+ * Query: q (or search), consent (all|opted_in|opted_out), status (all|active|inactive),
+ *        activity (all|new|returning|lapsed|never),
  *        sort (created|name|visits|last_visit), order (asc|desc), page, pageSize
+ *
+ * Every filter is scoped to the session's hotel — a customer from another
+ * restaurant is indistinguishable from one that does not exist.
+ *
+ * The response also carries a `summary` block used by the CRM dashboard cards.
+ * The numbers are computed from real rows (hotel stays + restaurant bills) —
+ * nothing is estimated and nothing is hardcoded.
  */
 export async function GET(req: Request) {
   try {
@@ -19,23 +38,32 @@ export async function GET(req: Request) {
     const { hotelId } = auth.user;
 
     const url = new URL(req.url);
-    const q = (url.searchParams.get("q") || "").trim();
-    const consent = url.searchParams.get("consent") || "all";
-    const status = url.searchParams.get("status") || "all";
-    const sort = url.searchParams.get("sort") || "created";
-    const order = url.searchParams.get("order") === "asc" ? "asc" : "desc";
-    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
-    const pageSize = Math.min(
-      50,
-      Math.max(5, parseInt(url.searchParams.get("pageSize") || "10", 10) || 10),
+    const parsedQuery = customerListQuerySchema.safeParse(
+      Object.fromEntries(url.searchParams.entries()),
     );
+    if (!parsedQuery.success) {
+      return jsonError("Those filters are not valid. Please reset them and try again.");
+    }
+    const { q, search, consent, status, activity, sort, order, page, pageSize } = parsedQuery.data;
+
+    // `search` is accepted as an alias of `q` (older clients use it).
+    const term = (q || search).trim();
 
     const where: Record<string, unknown> = { hotelId };
-    if (q) {
+    if (term) {
+      const digits = term.replace(/[\s\-()+]/g, "");
+      const phoneCandidates = new Set<string>([digits]);
+      // "9876543210" and "+91 98765 43210" must both find the customer, so the
+      // search term is normalized the same way stored numbers are.
+      const normalized = normalizePhone(term);
+      if (normalized.ok && normalized.normalized) {
+        phoneCandidates.add(normalized.normalized);
+        phoneCandidates.add(normalized.normalized.replace(/^\+/, ""));
+      }
       where.OR = [
-        { name: { contains: q } },
-        { phone: { contains: q.replace(/[\s\-()+]/g, "") } },
-        { email: { contains: q } },
+        { name: { contains: term } },
+        { email: { contains: term } },
+        ...[...phoneCandidates].filter(Boolean).map((p) => ({ phone: { contains: p } })),
       ];
     }
     if (consent === "opted_in") where.AND = [{ marketingConsent: true }, { optOut: false }];
@@ -43,153 +71,199 @@ export async function GET(req: Request) {
     if (status === "active") where.status = "ACTIVE";
     else if (status === "inactive") where.status = "INACTIVE";
 
-    const include = {
-      _count: { select: { visits: true, restaurantVisits: true } },
-      visits: { orderBy: { checkin: "desc" as const }, take: 1, select: { checkin: true } },
-    };
-
-    // Phase 2: spend aggregation for the current filter (all matching rows)
-    // AUDIT FIX (F10): restaurant visits count toward customer value. The old
-    // aggregates ONLY read hotel `Visit` rows — a customer with two café bills
-    // showed totalVisits=0 / totalSpend=0 in the CRM list. Hotel-stay and
-    // restaurant metrics are kept BOTH separate (…Restaurant…) AND unified
-    // (totalVisits/lastVisit/totalSpend) so café workspaces see real numbers
-    // while hotel workspaces are unaffected.
-    const spendRows = await db.customer.findMany({
+    // One pass over the matching customers collects every metric the list, the
+    // sort and the summary cards need:
+    //   - hotel stays (Visit) and restaurant bills (RestaurantVisit) BOTH count
+    //     toward visits and spend, so a café workspace sees real numbers while
+    //     a hotel workspace is unaffected (the split stays available under the
+    //     …Restaurant-suffixed fields).
+    const rows = await db.customer.findMany({
       where,
       select: {
         id: true,
-        visits: { select: { amount: true } },
-        restaurantVisits: { select: { orderAmount: true } },
+        name: true,
+        phone: true,
+        email: true,
+        marketingConsent: true,
+        whatsappOptIn: true,
+        smsOptIn: true,
+        emailOptIn: true,
+        optOut: true,
+        consentTimestamp: true,
+        status: true,
+        createdAt: true,
+        vip: true,
+        lastRestaurantVisit: true,
+        totalRestaurantSpend: true,
+        visits: { select: { checkin: true, amount: true } },
+        restaurantVisits: { select: { visitDate: true, orderAmount: true } },
       },
     });
-    const spendMap = new Map<string, number>(
-      spendRows.map((r) => [
-        r.id,
-        Math.round(
-          (r.visits.reduce((s, v) => s + (v.amount ?? 0), 0) +
-            r.restaurantVisits.reduce((s, v) => s + v.orderAmount, 0)) *
-            100,
-        ) / 100,
-      ]),
-    );
 
-    const total = await db.customer.count({ where });
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const skip = (page - 1) * pageSize;
+    const now = new Date();
+    type Row = (typeof rows)[number] & {
+      __visits: number;
+      __spend: number;
+      __first: Date | null;
+      __last: Date | null;
+      __lastStay: Date | null;
+      __new: boolean;
+      __returning: boolean;
+      __lapsed: boolean;
+      __never: boolean;
+    };
 
-    let rows;
-    // For aggregate sorts, the accurate last-visit (incl. restaurant) per id.
-    let lastVisitMap: Map<string, Date | null> | null = null;
+    const computed: Row[] = rows.map((c) => {
+      const stayCount = c.visits.length;
+      const dineCount = c.restaurantVisits.length;
+      const staySpend = c.visits.reduce((s, v) => s + (v.amount ?? 0), 0);
+      const dineSpend = c.restaurantVisits.reduce((s, v) => s + v.orderAmount, 0);
 
-    if (sort === "visits" || sort === "last_visit") {
-      // Aggregate sort: compute per-customer stats, sort, then fetch the page rows
-      const stats = await db.customer.findMany({
-        where,
-        select: {
-          id: true,
-          _count: { select: { visits: true, restaurantVisits: true } },
-          visits: { orderBy: { checkin: "desc" as const }, take: 1, select: { checkin: true } },
-          restaurantVisits: {
-            orderBy: { visitDate: "desc" as const },
-            take: 1,
-            select: { visitDate: true },
-          },
+      let lastStay: Date | null = null;
+      for (const v of c.visits) {
+        if (!lastStay || v.checkin > lastStay) lastStay = v.checkin;
+      }
+      let firstStay: Date | null = null;
+      for (const v of c.visits) {
+        if (!firstStay || v.checkin < firstStay) firstStay = v.checkin;
+      }
+      let lastDine: Date | null = null;
+      let firstDine: Date | null = null;
+      for (const v of c.restaurantVisits) {
+        if (!lastDine || v.visitDate > lastDine) lastDine = v.visitDate;
+        if (!firstDine || v.visitDate < firstDine) firstDine = v.visitDate;
+      }
+
+      const first =
+        firstStay && firstDine
+          ? firstStay < firstDine
+            ? firstStay
+            : firstDine
+          : (firstStay ?? firstDine);
+      const last =
+        lastStay && lastDine ? (lastStay > lastDine ? lastStay : lastDine) : (lastStay ?? lastDine);
+
+      const flags = classifyActivity(
+        {
+          visits: stayCount + dineCount,
+          spend: staySpend + dineSpend,
+          firstVisit: first,
+          lastVisit: last,
         },
-      });
-      stats.sort((a, b) => {
-        if (sort === "visits") {
-          const av = a._count.visits + a._count.restaurantVisits;
-          const bv = b._count.visits + b._count.restaurantVisits;
-          return order === "asc" ? av - bv : bv - av;
-        }
-        const aStay = a.visits[0]?.checkin?.getTime() ?? 0;
-        const aDine = a.restaurantVisits[0]?.visitDate?.getTime() ?? 0;
-        const bStay = b.visits[0]?.checkin?.getTime() ?? 0;
-        const bDine = b.restaurantVisits[0]?.visitDate?.getTime() ?? 0;
-        const av = Math.max(aStay, aDine);
-        const bv = Math.max(bStay, bDine);
-        return order === "asc" ? av - bv : bv - av;
-      });
-      const pageIds = stats.slice(skip, skip + pageSize).map((s) => s.id);
-      const fetched = await db.customer.findMany({ where: { id: { in: pageIds } }, include });
-      const orderMap = new Map(pageIds.map((id, i) => [id, i]));
-      fetched.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
-      rows = fetched;
-      // Preserve the aggregate sort's last-visit semantics (restaurant included)
-      lastVisitMap = new Map(
-        stats.map((s) => {
-          const stay = s.visits[0]?.checkin ?? null;
-          const dine = s.restaurantVisits[0]?.visitDate ?? null;
-          const last = stay && dine ? (stay > dine ? stay : dine) : (stay ?? dine);
-          return [s.id, last];
-        }),
+        now,
       );
+
+      return {
+        ...c,
+        __visits: stayCount + dineCount,
+        __spend: Math.round((staySpend + dineSpend) * 100) / 100,
+        __first: first,
+        __last: last,
+        __lastStay: lastStay,
+        __new: flags.newCustomers === 1,
+        __returning: flags.returningCustomers === 1,
+        __lapsed: flags.lapsedCustomers === 1,
+        __never: flags.neverVisited === 1,
+      };
+    });
+
+    // ---- Summary cards (over everything that matched search/consent/status) ----
+    const summary: CustomerSummary = computed.reduce((acc, c) => {
+      acc.total += 1;
+      acc.newCustomers += c.__new ? 1 : 0;
+      acc.returningCustomers += c.__returning ? 1 : 0;
+      acc.lapsedCustomers += c.__lapsed ? 1 : 0;
+      acc.neverVisited += c.__never ? 1 : 0;
+      return acc;
+    }, emptySummary());
+
+    // ---- Activity filter (applied AFTER the summary so the cards always show
+    //      the full breakdown of the current result set) ----
+    const filtered =
+      activity === "all"
+        ? computed
+        : computed.filter((c) =>
+            activity === "new"
+              ? c.__new
+              : activity === "returning"
+                ? c.__returning
+                : activity === "never"
+                  ? c.__never
+                  : c.__lapsed,
+          );
+
+    const sorted = [...filtered];
+    const dir = order === "asc" ? 1 : -1;
+    if (sort === "name") {
+      sorted.sort((a, b) => dir * a.name.localeCompare(b.name));
+    } else if (sort === "visits") {
+      sorted.sort((a, b) => dir * (a.__visits - b.__visits));
+    } else if (sort === "last_visit") {
+      sorted.sort((a, b) => {
+        const at = a.__last?.getTime() ?? 0;
+        const bt = b.__last?.getTime() ?? 0;
+        return dir * (at - bt);
+      });
     } else {
-      const orderBy =
-        sort === "name"
-          ? { name: order as "asc" | "desc" }
-          : order === "asc"
-            ? { createdAt: "asc" as const }
-            : { createdAt: "desc" as const };
-      rows = await db.customer.findMany({ where, orderBy, skip, take: pageSize, include });
+      sorted.sort((a, b) => dir * (a.createdAt.getTime() - b.createdAt.getTime()));
     }
 
+    const total = sorted.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const skip = (page - 1) * pageSize;
+    const pageRows = sorted.slice(skip, skip + pageSize);
+
     return Response.json({
-      customers: rows.map((c) => {
-        // AUDIT FIX (F10): unified + separated customer metrics. A café
-        // customer's visits/spend now INCLUDE restaurant activity; the
-        // hotel-only view stays available under the …Restaurant-suffixed
-        // fields for mixed hotel+café businesses.
-        const stayCount = c._count.visits;
-        const dineCount = c._count.restaurantVisits;
-        const lastStay = c.visits[0]?.checkin ?? null;
-        const lastDine = c.lastRestaurantVisit ?? null;
-        const lastAny = lastVisitMap
-          ? (lastVisitMap.get(c.id) ?? null)
-          : lastStay && lastDine
-            ? lastStay > lastDine
-              ? lastStay
-              : lastDine
-            : (lastStay ?? lastDine);
-        return {
-          id: c.id,
-          name: c.name,
-          phone: c.phone,
-          email: c.email,
-          marketingConsent: c.marketingConsent,
-          whatsappOptIn: c.whatsappOptIn,
-          smsOptIn: c.smsOptIn,
-          emailOptIn: c.emailOptIn,
-          optOut: c.optOut,
-          consentTimestamp: c.consentTimestamp,
-          status: c.status,
-          createdAt: c.createdAt,
-          // Unified (hotel stays + restaurant bills):
-          totalVisits: stayCount + dineCount,
-          lastVisit: lastAny,
-          campaignEligible: c.marketingConsent && !c.optOut && c.status === "ACTIVE",
-          vip: c.vip,
-          totalSpend: spendMap.get(c.id) ?? 0,
-          // Domain-separated views (hotel stays only / restaurant only):
-          hotelVisits: stayCount,
-          lastHotelVisit: lastStay,
-          restaurantVisits: dineCount,
-          lastRestaurantVisit: lastDine,
-          totalRestaurantSpend: c.totalRestaurantSpend,
-        };
-      }),
+      customers: pageRows.map((c) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        email: c.email,
+        marketingConsent: c.marketingConsent,
+        whatsappOptIn: c.whatsappOptIn,
+        smsOptIn: c.smsOptIn,
+        emailOptIn: c.emailOptIn,
+        optOut: c.optOut,
+        consentTimestamp: c.consentTimestamp,
+        status: c.status,
+        createdAt: c.createdAt,
+        // Unified (hotel stays + restaurant bills):
+        totalVisits: c.__visits,
+        lastVisit: c.__last,
+        campaignEligible: c.marketingConsent && !c.optOut && c.status === "ACTIVE",
+        vip: c.vip,
+        totalSpend: c.__spend,
+        // Domain-separated views (hotel stays only / restaurant only):
+        hotelVisits: c.visits.length,
+        lastHotelVisit: c.__lastStay,
+        restaurantVisits: c.restaurantVisits.length,
+        lastRestaurantVisit: c.lastRestaurantVisit,
+        totalRestaurantSpend: c.totalRestaurantSpend,
+        // Activity buckets (same definitions as the summary cards) — lets the
+        // list render a "New"/"Returning" chip without a second request.
+        isNew: c.__new,
+        isReturning: c.__returning,
+        isLapsed: c.__lapsed,
+        neverVisited: c.__never,
+      })),
       total,
       page,
       pageSize,
       totalPages,
+      summary,
     });
   } catch (err) {
     return serverError(err, "Could not load customers right now. Please refresh the page.");
   }
 }
 
-/** POST /api/customers — create a customer (phone normalized + duplicate check). */
+/**
+ * POST /api/customers — create a customer (phone normalized + duplicate check).
+ *
+ * The tenant is ALWAYS the session's hotel. A `hotelId`/`restaurantId` field in
+ * the body is ignored on purpose — a client can never choose where a customer
+ * is stored.
+ */
 export async function POST(req: Request) {
   try {
     const auth = await requireAuth(req);
@@ -198,96 +272,90 @@ export async function POST(req: Request) {
     if (denied) return denied;
     const { hotelId, userId } = auth.user;
 
-    // RECHECK FIX (I): the plan limit is enforced ATOMICALLY with the create
-    // (a pre-check was not enforcement — concurrent creates bypassed it).
-    // The capacity check happens inside the create transaction; a full
-    // member list returns the same 403 SUBSCRIPTION_LIMIT_REACHED contract.
+    // The plan limit is enforced ATOMICALLY with the create (a pre-check was
+    // not enforcement — concurrent creates bypassed it). See lib/customers.ts.
 
     const body = await readJson(req);
     if (!body) return jsonError("Invalid request. Please try again.");
 
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    const phone = typeof body.phone === "string" ? body.phone : "";
-    const email = typeof body.email === "string" ? body.email.trim() : "";
-    const marketingConsent = body.marketingConsent === true;
-    const consentSource =
-      typeof body.consentSource === "string" && body.consentSource
-        ? body.consentSource
-        : "MANUAL_ENTRY";
-    // Phase 6.4 — channel-level opt-ins: only meaningful WITH marketing consent.
-    const channelOptIns = {
-      whatsapp: marketingConsent && body.whatsappOptIn === true,
-      sms: marketingConsent && body.smsOptIn === true,
-      email: marketingConsent && body.emailOptIn === true,
-    };
-
-    if (name.length < 2) return jsonError("Please enter the customer's full name.");
-    if (name.length > 100) return jsonError("Customer name is too long.");
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return jsonError("Please enter a valid email address.");
+    const parsed = parseWithFieldErrors(customerCreateSchema, body);
+    if (!parsed.ok || !parsed.data) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: parsed.message ?? "Please check the details and try again.",
+            fields: parsed.errors ?? {},
+          },
+        },
+        { status: 400 },
+      );
     }
+    const input = parsed.data;
 
-    const phoneResult = normalizePhone(phone);
-    if (!phoneResult.ok)
-      return jsonError(phoneResult.error || "Please enter a valid phone number.");
-
-    const duplicate = await db.customer.findFirst({
-      where: { hotelId, phone: phoneResult.normalized! },
-    });
-    if (duplicate) {
-      return jsonError(
-        "A customer with this phone number already exists. Please check the existing customer list.",
-        409,
-        "DUPLICATE_PHONE",
+    const phoneResult = normalizePhone(input.phone);
+    if (!phoneResult.ok) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: phoneResult.error || "Please enter a valid phone number.",
+            fields: { phone: phoneResult.error || "Please enter a valid phone number." },
+          },
+        },
+        { status: 400 },
+      );
+    }
+    if (phoneResult.normalized && phoneResult.normalized.length > 20) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Phone number is too long.",
+            fields: { phone: "Phone number is too long." },
+          },
+        },
+        { status: 400 },
       );
     }
 
-    const result = await createCustomerWithinLimit(hotelId, (tx) =>
-      tx.customer.create({
-        data: {
-          hotelId,
-          name,
-          phone: phoneResult.normalized!,
-          email: email || null,
-          marketingConsent,
-          consentTimestamp: marketingConsent ? new Date() : null,
-          consentSource: marketingConsent ? consentSource : null,
-          optOut: false,
-          whatsappOptIn: channelOptIns.whatsapp,
-          smsOptIn: channelOptIns.sms,
-          emailOptIn: channelOptIns.email,
-          // Phase 2 intelligence fields (all optional)
-          roomPreference:
-            typeof body.roomPreference === "string" && body.roomPreference.trim()
-              ? body.roomPreference.trim().slice(0, 60)
-              : null,
-          foodPreference:
-            typeof body.foodPreference === "string" && body.foodPreference.trim()
-              ? body.foodPreference.trim().slice(0, 60)
-              : null,
-          location:
-            typeof body.location === "string" && body.location.trim()
-              ? body.location.trim().slice(0, 80)
-              : null,
-          birthday: parseDateOrNull(body.birthday),
-          anniversary: parseDateOrNull(body.anniversary),
-          source:
-            typeof body.source === "string" &&
-            ["WALK_IN", "BOOKING", "WEBSITE", "REFERRAL", "OTHER"].includes(body.source)
-              ? body.source
-              : null,
-          notes:
-            typeof body.notes === "string" && body.notes.trim()
-              ? body.notes.trim().slice(0, 1000)
-              : null,
-          vip: body.vip === true,
-        },
-      }),
-    );
+    const result = await createCustomerForTenant(hotelId, {
+      name: input.name,
+      phone: input.phone,
+      email: input.email || null,
+      marketingConsent: input.marketingConsent,
+      consentSource: input.consentSource || "MANUAL_ENTRY",
+      whatsappOptIn: input.whatsappOptIn,
+      smsOptIn: input.smsOptIn,
+      emailOptIn: input.emailOptIn,
+      roomPreference: input.roomPreference?.trim() || null,
+      foodPreference: input.foodPreference?.trim() || null,
+      location: input.location?.trim() || null,
+      birthday: parseDateOrNull(input.birthday),
+      anniversary: parseDateOrNull(input.anniversary),
+      source: input.source ?? null,
+      notes: input.notes?.trim() || null,
+      vip: input.vip,
+    });
+
     if (!result.ok) {
-      return jsonError(result.failure.message, 403, result.failure.code);
+      if (result.code === "DUPLICATE_PHONE") {
+        return NextResponse.json(
+          {
+            error: {
+              code: "DUPLICATE_PHONE",
+              message: result.message,
+              // The client offers "open the existing profile" instead of
+              // silently creating a second profile for the same guest.
+              existing: result.existing,
+            },
+          },
+          { status: 409 },
+        );
+      }
+      return jsonError(result.message, 403, "SUBSCRIPTION_LIMIT_REACHED");
     }
-    const customer = result.value;
+    const customer = result.customer;
 
     await logAudit({
       req,
@@ -296,7 +364,13 @@ export async function POST(req: Request) {
       action: AUDIT_ACTIONS.CUSTOMER_CREATED,
       entityType: "customer",
       entityId: customer.id,
-      metadata: { name, phone: customer.phone, consent: marketingConsent },
+      // NOTE: no phone number / email in the audit payload — the row is linked
+      // by entityId, and personal data is never duplicated into logs.
+      metadata: {
+        name: customer.name,
+        consent: input.marketingConsent,
+        source: input.source ?? "MANUAL",
+      },
     });
 
     return Response.json({ customer }, { status: 201 });

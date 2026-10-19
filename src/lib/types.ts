@@ -37,6 +37,12 @@ export interface SessionUser {
   hotelName: string;
   mustChangePassword?: boolean;
   mfaSetupRequired?: boolean;
+  /**
+   * DB-resolved permission set for this session (server-authoritative).
+   * The UI uses it to HIDE actions the server would reject; every route still
+   * enforces permissions independently.
+   */
+  permissions?: readonly string[];
 }
 
 export interface CustomerRow {
@@ -59,6 +65,27 @@ export interface CustomerRow {
   whatsappOptIn?: boolean;
   smsOptIn?: boolean;
   emailOptIn?: boolean;
+  // CRM activity buckets (server-computed; see lib/customers.ts)
+  isNew?: boolean;
+  isReturning?: boolean;
+  isLapsed?: boolean;
+  neverVisited?: boolean;
+  hotelVisits?: number;
+  restaurantVisits?: number;
+}
+
+/**
+ * CRM summary cards. Every number is computed from real rows — the windows
+ * are returned so the UI can label them honestly instead of hardcoding copy.
+ */
+export interface CustomersSummary {
+  total: number;
+  newCustomers: number;
+  returningCustomers: number;
+  lapsedCustomers: number;
+  neverVisited: number;
+  newWindowDays: number;
+  lapsedWindowDays: number;
 }
 
 export interface CustomersResponse {
@@ -67,6 +94,28 @@ export interface CustomersResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+  summary?: CustomersSummary;
+}
+
+/** One paid restaurant bill (RestaurantVisit row) on a customer profile. */
+export interface CustomerOrderRow {
+  id: string;
+  visitDate: string;
+  tableNumber: string | null;
+  guests: number;
+  amount: number;
+  source: string;
+  notes: string | null;
+  createdAt?: string;
+}
+
+/** Loyalty balance — null when the hotel has no loyalty account for the guest. */
+export interface CustomerLoyalty {
+  points: number;
+  lifetimePoints: number;
+  lifetimeSpend: number;
+  visitsCounted: number;
+  tier: string;
 }
 
 export interface CustomerProfile {
@@ -99,8 +148,19 @@ export interface CustomerProfile {
     firstVisit: string | null;
     lastVisit: string | null;
     totalSpend: number;
+    hotelVisits?: number;
+    hotelSpend?: number;
+    restaurantVisits?: number;
+    restaurantSpend?: number;
+    neverVisited?: boolean;
+    isReturning?: boolean;
+    averageOrderValue?: number;
   };
   visits: VisitRow[];
+  /** Restaurant orders (paid bills) — newest first. */
+  orders?: CustomerOrderRow[];
+  /** Null when the hotel runs no loyalty account for this guest. */
+  loyalty?: CustomerLoyalty | null;
   segments: SegmentBadge[];
   timeline: TimelineEvent[];
 }

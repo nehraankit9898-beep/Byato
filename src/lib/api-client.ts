@@ -7,10 +7,19 @@
 export class ApiError extends Error {
   code: string;
   status: number;
-  constructor(message: string, code: string, status: number) {
+  /**
+   * The raw `error` object from the API response. Used for typed extras such
+   * as `fields` (field-level validation messages) and `existing` (the customer
+   * that already owns a phone number — see the duplicate-customer flow).
+   */
+  details?: Record<string, unknown>;
+  constructor(message: string, code: string, status: number, details?: unknown) {
     super(message);
     this.code = code;
     this.status = status;
+    if (details && typeof details === "object") {
+      this.details = details as Record<string, unknown>;
+    }
   }
 }
 
@@ -91,7 +100,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
       (data as { error?: { message?: string } })?.error?.message ||
       "Something went wrong. Please try again.";
     const code = (data as { error?: { code?: string } })?.error?.code || "ERROR";
-    throw new ApiError(message, code, res.status);
+    throw new ApiError(message, code, res.status, (data as { error?: unknown })?.error);
   }
 
   return data as T;
