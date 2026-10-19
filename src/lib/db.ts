@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import path from "path";
 import fs from "fs";
+import { isTest } from "./config";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -34,8 +35,8 @@ export function resolveSqlitePath(raw: string): string {
   let filePath = queryStart >= 0 ? withoutScheme.slice(0, queryStart) : withoutScheme;
   if (filePath && !path.isAbsolute(filePath)) {
     const candidates = [
-      path.resolve(process.cwd(), "prisma", filePath), // documented: relative to prisma/
-      path.resolve(process.cwd(), filePath), // CWD-relative fallback
+      path.resolve(/* turbopackIgnore: true */ process.cwd(), "prisma", filePath), // documented: relative to prisma/
+      path.resolve(/* turbopackIgnore: true */ process.cwd(), filePath), // CWD-relative fallback
     ];
     // The existence probes are marked with `/* turbopackIgnore: true */` so
     // production builds do not trace the whole project through these dynamic
@@ -121,9 +122,18 @@ if (
  *
  * Development and production are UNCHANGED: without STAYLOOP_TEST the client
  * uses the classic engine and the URL from `datasources` as before.
+ *
+ * The gate uses isTest() (not the raw env var) so a STAYLOOP_TEST value
+ * that leaks into a production build can NEVER activate the adapter
+ * there — the same SEC-004 backstop src/lib/config.ts applies to every
+ * other test-only behaviour. Previously, `STAYLOOP_TEST=1` + a file:
+ * URL forced the SQLite/LibSQL adapter onto a PostgreSQL-provider
+ * client during `next build`'s page-data collection and crashed the
+ * build (PrismaClientInitializationError).
  */
 function testDriverAdapter(url: string | undefined) {
-  if (process.env.STAYLOOP_TEST !== "1" || !url?.startsWith("file:")) return undefined;
+  if (!isTest() || process.env.STAYLOOP_TEST !== "1" || !url?.startsWith("file:"))
+    return undefined;
   // Lazy require: keeps @prisma/adapter-libsql out of the module graph (and
   // out of production bundles) unless the test environment is actually on.
   // Test-only synchronous adapter loading keeps this path out of production initialization.
