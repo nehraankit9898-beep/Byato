@@ -150,9 +150,12 @@ describe("owner dashboard usability", () => {
     const shell = source("src/components/app/app-shell.tsx");
     expect(shell).toContain('["dashboard", "customers", "visits", "campaigns", "analytics"]');
     expect(shell).toContain("More tools");
+    // The More section also stays open while a view INSIDE it is active
+    // (hasActiveMoreView → moreExpanded), so the toggle reflects reality.
     expect(shell).toContain('aria-expanded={moreExpanded}');
     expect(shell).toContain('aria-controls="owner-more-tools"');
     expect(shell).toContain("const moreExpanded = moreOpen || hasActiveMoreView;");
+    expect(shell).toContain("const hasActiveMoreView = !NAV_PRIMARY.some((item) => item.id === view);");
     expect(shell).toContain("onClick={() => setMoreOpen((open) => (hasActiveMoreView ? true : !open))");
   });
 
