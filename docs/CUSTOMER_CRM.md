@@ -186,7 +186,17 @@ into the demo tenants would fail them.
 | `npx prettier --check` on every file this branch touches | **0** | clean (`src/lib/billing.ts` is already non-conformant at `HEAD` and is intentionally left untouched — verified against a pristine `HEAD` copy, so reformatting it would add ~900 lines of unrelated diff) |
 | `bun run build` | **1** | Blocked in this sandbox — see below. |
 
-**About `bun run build`:** the compile phase passes (`✓ Compiled successfully`, `✓ Finished TypeScript`), but the *page-data collection* phase fails with `PrismaClientInitializationError: Missing configured driver adapter … at src/lib/db.ts:152` for every API route. Root cause is environmental, not this branch: `bun run build` generates the client from `prisma/schema.postgres.prisma` with the classic binary engine, which downloads from `binaries.prisma.sh` — a host this sandbox cannot reach. The only client that can be generated offline here is the JS/WASM one (`prisma/schema.test.prisma`), and it needs a runtime driver adapter that production code does not supply. **Verified identical on pristine `HEAD`** (same route, same message, `git stash -u` → rebuild → `EXIT=1`), so this is not a regression. CI has unrestricted egress and runs the real build; its result is still pending at the time of writing and must be green before merge.
+**About `bun run build`:** the compile phase passes (`✓ Compiled successfully`, `✓ Finished TypeScript`), but the *page-data collection* phase fails with `PrismaClientInitializationError: Missing configured driver adapter … at src/lib/db.ts:152` for every API route. Root cause is environmental, not this branch: `bun run build` generates the client from `prisma/schema.postgres.prisma` with the classic binary engine, which downloads from `binaries.prisma.sh` — a host this sandbox cannot reach. The only client that can be generated offline here is the JS/WASM one (`prisma/schema.test.prisma`), and it needs a runtime driver adapter that production code does not supply. **Verified identical on pristine `HEAD`** (same route, same message, `git stash -u` → rebuild → `EXIT=1`), so this is not a regression. CI has unrestricted egress and runs the real build.
+
+### CI run 39233437391 (GitHub Actions)
+
+| Job | Conclusion | Notes |
+|---|---|---|
+| `quality-and-security` | ✅ success | install (frozen lockfile) → prisma generate → audit → secret scan → **typecheck** → **lint** → **`bun run test`** → **`bun run build`** — all steps green, which closes the two gates unreachable from the dev sandbox. |
+| `postgres-migrations` | ✅ success | migrations applied to clean PostgreSQL 16, verified against the schema via shadow DB |
+| `postgres-integration` | ✅ success | integration suite against live PostgreSQL 16 + Redis |
+| `docker` | ❌ failure | Fails at **"Set up job"** (runner provisioning, before any code runs). Pre-existing: the last two merged `main` runs (39220571032, 39216975531) fail identically; `gh run rerun --failed` was refused (`workflow file may be broken`). |
+| Vercel preview | ✅ pass | production build + deploy of this branch succeeded |
 
 ## 6. Limitations / follow-ups
 
