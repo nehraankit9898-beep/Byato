@@ -21,6 +21,33 @@ in-stack export download round-trip, and the in-stack pg_dump backup + restore.
 Read those historical ✅ marks in `LAUNCH_CHECKLIST.md` §A as claims, and
 re-tick them from the first fully green run of the fixed job.
 
+## Non-blocking observations found while working CI-001/002/003 (2026-10-19)
+
+- **Naming drift.** The product is `Beyto` in `README.md`, `Byato` in the
+  repository name, and `StayLoop`/`stayloop` in ~81/70 files (package name,
+  docs, `STAYLOOP_*` env vars, `stayloop-web` image and compose service names).
+  `bun.lock`'s root workspace name is a fourth value:
+  `nextjs_tailwind_shadcn_ts`. Cosmetic, but it leaks into operator-facing
+  artefacts (image names, env prefixes, error messages), so pick one brand and
+  do a single deliberate rename pass.
+- **`package-lock.json` is stale** relative to `package.json` (declares
+  `next`/`eslint-config-next` `16.4.0` vs `16.4.2`; ~164 lines of resolution
+  drift). CI regenerates it with `npm install --package-lock-only` before
+  `npm audit`, so nothing breaks today — but the checked-in file does not
+  describe the tree `bun.lock` installs. Either refresh it deliberately or drop
+  it and audit from `bun.lock`.
+- **`README.md` tail is damaged**: a stray literal `"# Byato"` line sits between
+  the documentation list and the "Explicit standalone build mode" section, and
+  that section is orphaned at the very end instead of living under "Scripts" /
+  "Production Deployment".
+- **DEP-002 unchanged**: `npm audit --omit=dev --audit-level=high` is clean
+  (0 vulnerabilities, re-verified 2026-10-19); the full-tree audit still reports
+  5 high, all one dev-only chain `braces * → micromatch → fast-glob →
+  @next/eslint-plugin-next → eslint-config-next` with no patched `braces`
+  upstream. `npm audit fix --force` would downgrade to `eslint-config-next@14`,
+  which is not acceptable — keep the `--omit=dev` gate and re-check when
+  upstream publishes a fix.
+
 ---
 
 > Final 2026-10-18 verification: `bun run test` **PASS** (587 Bun tests in 52 files; functional 93/93 + 79/79 + 62/62), lint/typecheck/frozen install **PASS**. Native production build **BLOCKED** before compilation. See the deep-hunt report and evidence JSON for the initial failed run and remaining release gates.

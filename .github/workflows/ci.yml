@@ -238,25 +238,57 @@ jobs:
       # build log is echoed both to the step log and to an ::error annotation.
       - name: Build web image (--target web)
         run: |
+          # GitHub executes `run:` blocks with `bash -e {0}`, so a failing
+          # `docker build` exits the script BEFORE any diagnostics run — that is
+          # exactly why the first CI-002 attempt still reported only "Process
+          # completed with exit code 1". errexit is disabled explicitly here; the
+          # step still exits with the build's own status, so the gate is intact.
+          set +e
           set -uo pipefail
           docker build --progress=plain --target web -t stayloop-web:ci . > /tmp/build-web.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "----- docker build --target web FAILED (last 80 log lines) -----"
+            echo "----- docker build --target web FAILED (exit $status, last 80 log lines) -----"
             tail -n 80 /tmp/build-web.log
-            echo "::error title=docker build --target web failed::$(tail -n 30 /tmp/build-web.log | awk '{gsub(/%/,"%25"); printf "%s%%0A", $0}' | cut -c1-2000)"
+            # Two extra outlets, because the raw log archive is served from a
+            # different host than the API: an ::error check annotation (readable
+            # through api.github.com) and the job summary (readable in the UI).
+            detail="$(tail -n 30 /tmp/build-web.log | awk '{gsub(/%/,"%25"); gsub(/\r/,"%0D"); printf "%s%%0A", $0}' | cut -c1-2000)"
+            echo "::error title=docker build --target web failed::${detail:-build log was empty}"
+            {
+              echo "### docker build --target web failed (exit $status)"
+              echo '```'
+              tail -n 60 /tmp/build-web.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
           exit "$status"
 
       - name: Build worker image (--target worker)
         run: |
+          # GitHub executes `run:` blocks with `bash -e {0}`, so a failing
+          # `docker build` exits the script BEFORE any diagnostics run — that is
+          # exactly why the first CI-002 attempt still reported only "Process
+          # completed with exit code 1". errexit is disabled explicitly here; the
+          # step still exits with the build's own status, so the gate is intact.
+          set +e
           set -uo pipefail
           docker build --progress=plain --target worker -t stayloop-worker:ci . > /tmp/build-worker.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "----- docker build --target worker FAILED (last 80 log lines) -----"
+            echo "----- docker build --target worker FAILED (exit $status, last 80 log lines) -----"
             tail -n 80 /tmp/build-worker.log
-            echo "::error title=docker build --target worker failed::$(tail -n 30 /tmp/build-worker.log | awk '{gsub(/%/,"%25"); printf "%s%%0A", $0}' | cut -c1-2000)"
+            # Two extra outlets, because the raw log archive is served from a
+            # different host than the API: an ::error check annotation (readable
+            # through api.github.com) and the job summary (readable in the UI).
+            detail="$(tail -n 30 /tmp/build-worker.log | awk '{gsub(/%/,"%25"); gsub(/\r/,"%0D"); printf "%s%%0A", $0}' | cut -c1-2000)"
+            echo "::error title=docker build --target worker failed::${detail:-build log was empty}"
+            {
+              echo "### docker build --target worker failed (exit $status)"
+              echo '```'
+              tail -n 60 /tmp/build-worker.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
           exit "$status"
 

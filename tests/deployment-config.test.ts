@@ -22,6 +22,13 @@
  *      exists upstream — `aquasecurity/trivy-action@0.36.0` (no `v`) made the
  *      whole docker job fail at "Set up job", silently skipping the Docker +
  *      Trivy + compose + backup/restore gate while the other jobs stayed green.
+ *  A6. A failing `docker build` MUST be diagnosable from run metadata: one named
+ *      step per target, plain progress, log captured, tail echoed to the step
+ *      log + an ::error annotation + the job summary, errexit disabled so the
+ *      diagnostics run at all, and the step still exits non-zero.
+ *  A7. The Docker `deps` layer MUST survive package.json's root postinstall —
+ *      it copies only the two manifests, so `node scripts/prisma-generate.mjs`
+ *      died with MODULE_NOT_FOUND and every image build failed in stage 1.
  *
  * These are static invariants (no Docker daemon required). When a compose
  * binary IS available (env DOCKER_COMPOSE_BIN, or `docker compose` on PATH),
@@ -367,5 +374,138 @@ describe("A6 — docker build failures are diagnosable (CI-002)", () => {
   test("the build steps still fail the job (gate not weakened)", () => {
     expect((dockerJob.match(/exit "\$status"/g) ?? []).length).toBe(2);
     expect(dockerJob).not.toMatch(/docker build[^\n]*\|\|\s*true/);
+  });
+
+  test("build steps disable errexit so the diagnostics actually run", () => {
+    // GitHub executes `run:` blocks with `bash -e {0}`. Without an explicit
+    // `set +e` the step dies ON the failing `docker build` line, before the
+    // tail/annotation/summary code runs — which is why the first CI-002 attempt
+    // still surfaced only "Process completed with exit code 1".
+    const blocks = dockerJob.split(/- name: Build (?:web|worker) image/).slice(1);
+    expect(blocks.length).toBe(2);
+    for (const block of blocks) {
+      const plusE = block.indexOf("set +e");
+      const build = block.search(/^\s*docker build\b/m);
+      const capture = block.indexOf("status=$?");
+      expect(plusE).toBeGreaterThan(-1);
+      expect(build).toBeGreaterThan(-1);
+      expect(capture).toBeGreaterThan(-1);
+      expect(plusE).toBeLessThan(build);
+      expect(build).toBeLessThan(capture);
+    }
+  });
+
+  test("the failure text also lands in the job summary", () => {
+    // Second outlet for environments that cannot reach the log-archive host.
+    expect((dockerJob.match(/>> "\$GITHUB_STEP_SUMMARY"/g) ?? []).length).toBe(2);
+  });
+});
+
+/**
+ * A7 — the Docker `deps` layer must survive package.json's root postinstall.
+ *
+ * CI-003 (2026-10-19): once CI-001/CI-002 let the docker job run, `docker build
+ * --target web` died in stage 1. The deps layer copies only `package.json` and
+ * `bun.lock` (that is what makes the layer cacheable), then runs
+ * `bun install --frozen-lockfile` — and bun runs the ROOT package's
+ * `postinstall`, which is `node scripts/prisma-generate.mjs`. That file is not
+ * in the layer, so the install aborted:
+ *
+ *   error: postinstall script from "stayloop" exited with 1
+ *   Error: Cannot find module '/app/scripts/prisma-generate.mjs'
+ *
+ * Reproduced outside Docker (see the last test below) and now fixed by copying
+ * that one script into the layer and letting it stand down for the install
+ * command only — the PostgreSQL client is generated explicitly right after, so
+ * nothing is lost, and dependency lifecycle scripts still run.
+ */
+describe("A7 — Docker deps layer survives the root postinstall (CI-003)", () => {
+  const depsStage = dockerfile.split(/AS deps\b/)[1]?.split(/^FROM /m)[0] ?? "";
+  // Effective (non-comment) lines only — the explanatory comments quote the
+  // broken commands they document, so raw indexOf() would match prose.
+  const effective = depsStage.split(/\r?\n/).filter((l) => !/^\s*#/.test(l));
+  const lineIndex = (pred: (line: string) => boolean) => effective.findIndex(pred);
+
+  test("the deps stage exists and installs with a frozen lockfile", () => {
+    expect(depsStage.length).toBeGreaterThan(0);
+    expect(effective.some((l) => /bun install --frozen-lockfile/.test(l))).toBe(true);
+  });
+
+  test("the postinstall script is copied BEFORE the install runs", () => {
+    const copyAt = lineIndex((l) => l.includes("COPY scripts/prisma-generate.mjs ./scripts/"));
+    const installAt = lineIndex((l) => /bun install --frozen-lockfile/.test(l));
+    expect(copyAt).toBeGreaterThan(-1);
+    expect(installAt).toBeGreaterThan(-1);
+    expect(copyAt).toBeLessThan(installAt);
+  });
+
+  test("the install opts the postinstall out INLINE (never via ENV)", () => {
+    expect(
+      effective.some((l) =>
+        /RUN STAYLOOP_SKIP_PRISMA_GENERATE=1 bun install --frozen-lockfile/.test(l),
+      ),
+    ).toBe(true);
+    // An ENV would leak into the explicit generate below and into later stages,
+    // silently shipping an image with no Prisma client.
+    expect(/^ENV\s+STAYLOOP_SKIP_PRISMA_GENERATE/m.test(dockerfile)).toBe(false);
+    expect((dockerfile.match(/STAYLOOP_SKIP_PRISMA_GENERATE=1/g) ?? []).length).toBe(1);
+  });
+
+  test("the explicit PostgreSQL generate still happens after the schemas land", () => {
+    const schemasAt = lineIndex((l) => l.includes("COPY prisma ./prisma/"));
+    const generateAt = lineIndex((l) => l.includes("--schema prisma/schema.postgres.prisma"));
+    expect(schemasAt).toBeGreaterThan(-1);
+    expect(generateAt).toBeGreaterThan(schemasAt);
+  });
+
+  /** Run the REAL script in a directory shaped like the deps layer. */
+  function runScriptInDepsLayer(opts: { withScript: boolean; skip: boolean }) {
+    const tmp = mkdtempSync(join(tmpdir(), "stayloop-deps-layer-"));
+    try {
+      if (opts.withScript) {
+        mkdirSync(join(tmp, "scripts"), { recursive: true });
+        writeFileSync(
+          join(tmp, "scripts", "prisma-generate.mjs"),
+          read("scripts/prisma-generate.mjs"),
+        );
+      }
+      const env: NodeJS.ProcessEnv = { ...process.env };
+      if (opts.skip) env.STAYLOOP_SKIP_PRISMA_GENERATE = "1";
+      else delete env.STAYLOOP_SKIP_PRISMA_GENERATE;
+      return spawnSync(process.execPath, [join("scripts", "prisma-generate.mjs")], {
+        cwd: tmp,
+        encoding: "utf8",
+        timeout: 30_000,
+        env,
+      });
+    } finally {
+      try {
+        rmSync(tmp, { recursive: true, force: true });
+      } catch {
+        /* best effort */
+      }
+    }
+  }
+
+  test("with the script present + the flag set, the postinstall exits 0 (the fixed layer)", () => {
+    const res = runScriptInDepsLayer({ withScript: true, skip: true });
+    expect(res.status).toBe(0);
+    expect(`${res.stdout}${res.stderr}`).toContain("skipping");
+  });
+
+  test("without the flag the same layer still fails loudly (the opt-out is not a blanket skip)", () => {
+    // No prisma/ directory in the deps layer → the script must refuse, not
+    // silently pretend it generated a client.
+    const res = runScriptInDepsLayer({ withScript: true, skip: false });
+    expect(res.status).toBe(1);
+    expect(`${res.stdout}${res.stderr}`).toContain("schema not found");
+  });
+
+  test("the original defect is real: no script in the layer → module-not-found, exit != 0", () => {
+    const res = runScriptInDepsLayer({ withScript: false, skip: true });
+    expect(res.status).not.toBe(0);
+    expect(`${res.stdout}${res.stderr}`).toMatch(
+      /Cannot find module|Module not found|MODULE_NOT_FOUND/i,
+    );
   });
 });

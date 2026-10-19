@@ -117,3 +117,70 @@ gh api repos/nehraankit9898-beep/Byato/check-runs/<docker-job-id>/annotations \
 
 The actual image-build defect this exposes is diagnosed and fixed in the commits
 that follow on this branch.
+
+---
+
+# Fix Log — CI-002b + CI-003 (2026-10-19, same branch)
+
+CI-001 let the docker job run its steps for the first time ever (`0.28.0` was
+already unresolvable in the initial import commit `29b6bbf`, so **no** run in the
+repository's 50-run history executed a single docker step). Two more defects
+followed immediately.
+
+## CI-002b — GitHub runs `run:` blocks with `bash -e`, so the CI-002 diagnostics never ran
+
+Run `39248107695` failed in the new per-target step `Build web image (--target
+web)` — which correctly identified the broken target — but the only failure
+annotation was still `Process completed with exit code 1.` and no `::error` text
+appeared.
+
+Cause: GitHub executes run steps as `bash -e {0}`. `set -uo pipefail` does not
+disable errexit, so the failing `docker build` line ended the script before the
+`tail` / annotation code. Fix: explicit `set +e` (each step still ends with
+`exit "$status"`, so the gate is unchanged), and the log tail is now also written
+to `$GITHUB_STEP_SUMMARY`.
+
+Verified by extracting the exact run block from the workflow with `js-yaml` and
+executing it under `bash -e` with a stub `docker` that fails: the annotated
+`::error` line, the summary block and exit status 1 all appear.
+`tests/deployment-config.test.ts` › A6 now asserts the `set +e` → `docker build`
+→ `status=$?` order and the two summary writes (2 new tests, both fail against
+the previous workflow).
+
+## CI-003 — the Docker `deps` layer cannot satisfy package.json's root postinstall
+
+| Finding | Files changed | Change | Regression test | Result |
+|---|---|---|---|---|
+| CI-003 — `docker build` died in stage 1 because the root `postinstall` needs a file that is not in the layer | `Dockerfile`, `scripts/prisma-generate.mjs`, `tests/deployment-config.test.ts` | `deps` copies `scripts/prisma-generate.mjs` and runs `STAYLOOP_SKIP_PRISMA_GENERATE=1 bun install --frozen-lockfile` (inline, never an ENV); the script honours that flag with a logged `exit 0`. Dependency lifecycle scripts still run, `--frozen-lockfile` still applies, and the explicit PostgreSQL `prisma generate` on the next RUN still produces the client every production stage needs | `deployment-config` › A7 (7 tests: 4 static + 3 that execute the real script in a temp dir shaped like the deps layer) | 2 static tests fail against the original Dockerfile; the file is now 34 pass / 0 fail (16 on `main`) |
+
+Reproduction **outside** Docker (this sandbox has no Docker daemon) — a directory
+holding only the two manifests, exactly like the deps layer:
+
+```
+$ mkdir /tmp/deps-sim && cd /tmp/deps-sim
+$ cp $REPO/package.json $REPO/bun.lock . && bun install --frozen-lockfile
+bun install v1.4.3
+$ node scripts/prisma-generate.mjs
+Error: Cannot find module '/tmp/deps-sim/scripts/prisma-generate.mjs'
+error: postinstall script from "nextjs_tailwind_shadcn_ts" exited with 1
+exit 1
+```
+
+Why the flag and not `--ignore-scripts`: `--ignore-scripts` would also skip every
+dependency's lifecycle script (`@prisma/engines`, `@prisma/client`, `prisma`
+preinstall, `unrs-resolver`'s napi check). The targeted opt-out keeps those
+intact and keeps the failure loud elsewhere — without the flag the same layer
+still exits 1 with `schema not found` (asserted by A7).
+
+Note: `oven/bun` images ship a `node` → `bun` fallback symlink
+(`/usr/local/bun-node-fallback-bin/node`, both `debian` and `debian-slim`
+variants, verified in `oven-sh/bun@dockerhub/*/Dockerfile`), so the `node
+scripts/…` postinstall command does resolve inside the image.
+
+## Observation (not fixed here)
+
+`bun.lock`'s root workspace name is still `nextjs_tailwind_shadcn_ts` while
+`package.json` says `stayloop` (and the product is Beyto/Byato — see the
+naming inconsistency note in `audit/REMAINING_BLOCKERS.md`). Cosmetic: frozen
+installs pass, and BUG-18's `build-mode-contract` test compares the dependency
+maps, not the workspace name. Left alone to keep this diff about CI.
