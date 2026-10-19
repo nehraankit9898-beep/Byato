@@ -1839,6 +1839,11 @@ model HotelSettings {
   openingHoursGating      Boolean  @default(false)
   // Phase 14/15/16 — billing, reputation, reservations & social
   reviewUrl               String? // legitimate public review URL (verified by owner)
+  // India compliance + reputation: 14-digit FSSAI licence number shown on
+  // the public digital menu (display required for Indian food businesses).
+  // reviewUrl is the owner-verified public review link (Google Business
+  // Profile etc.) offered to guests who leave 4-5 star QR feedback.
+  fssaiNumber             String? // 14-digit FSSAI licence/registration number
   feedbackAlertThreshold  Int? // 1..5; low-rating alert threshold (null = off)
   reservationMaxPartySize Int      @default(20)
   reservationLeadMinutes  Int      @default(0)

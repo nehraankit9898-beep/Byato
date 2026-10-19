@@ -57,6 +57,9 @@ interface MenuResponse {
   table: { id: string; number: string; zone: string | null } | null;
   session: { id: string; publicToken: string } | null;
   orderingEnabled: boolean;
+  // India compliance: FSSAI licence number shown in the menu footer
+  // (optional — older deployments / non-Indian tenants omit it).
+  fssaiNumber?: string | null;
   categories: PublicCategory[];
   // Phase 18 — display-safe AI features (optional; older deployments omit them)
   voiceEnabled?: boolean;
@@ -323,6 +326,14 @@ export function PublicMenuClient({ code }: { code: string }) {
             </div>
           </section>
         ))}
+
+        {/* India food-business compliance: FSSAI licence number on the menu
+            (required display — small, footer-style, unobtrusive). */}
+        {data.fssaiNumber && (
+          <p className="border-t pt-3 text-center text-[10px] tracking-wide text-muted-foreground">
+            FSSAI Lic. No. {data.fssaiNumber}
+          </p>
+        )}
       </div>
 
       {/* Phase 18 — self-reported sustainability badges (labelled as such) */}

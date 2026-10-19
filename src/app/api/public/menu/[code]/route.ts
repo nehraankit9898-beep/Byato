@@ -66,11 +66,21 @@ export async function GET(req: Request, ctx: { params: Promise<{ code: string }>
         })
       : [];
 
+    // FSSAI licence number for the public menu footer (display required for
+    // Indian food businesses). Display-safe public info, deliberately exposed.
+    const compliance = await db.hotelSettings
+      .findUnique({
+        where: { hotelId: menu.restaurant.id },
+        select: { fssaiNumber: true },
+      })
+      .catch(() => null);
+
     return Response.json(
       {
         restaurant: menu.restaurant,
         table: menu.table,
         session,
+        fssaiNumber: compliance?.fssaiNumber ?? null,
         // Medium fix (item 5): `orderingEnabled` no longer LIES. It used to be
         // `menu.table !== null` — true even when the session bootstrap failed
         // or the table was archived, showing a cart that could never submit.
