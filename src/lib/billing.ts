@@ -24,6 +24,7 @@ import { createHash, createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { logAudit, AUDIT_ACTIONS } from "@/lib/audit";
 import { normalizeCouponCode, validateCoupon, computeDiscount } from "@/lib/coupons";
+import { linkOrCreateCustomerFromOrder } from "@/lib/customers";
 import type { Prisma } from "@prisma/client";
 
 /* ------------------------------------------------------------------ */
@@ -971,14 +972,36 @@ export async function recordManualPayment(input: RecordPaymentInput): Promise<Pa
       { timeout: 30_000, maxWait: 10_000 },
     );
 
-    return {
-      ok: true,
+    const out = {
+      ok: true as const,
       billId: input.billId,
       status: result.payment.status,
       paidMinor: result.paidMinor,
       billStatus: result.newStatus,
       paymentId: result.payment.id,
     };
+
+    // CRM hook (never fails the payment): the follow-up job was created inside
+    // the payment transaction above, before the guest could be resolved.
+    // onBillPaid backfills the customer id onto the QUEUED job — and, for a
+    // walk-in whose phone is not on file, links (or creates) the profile so the
+    // visit, loyalty and spend aggregates are attributed to them.
+    if (result.newStatus === "PAID") {
+      try {
+        await onBillPaid(input.billId);
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            scope: "billing.on_bill_paid",
+            billId: input.billId,
+            message: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
+    return out;
   } catch (err) {
     if (
       paymentIdempotencyKey &&
@@ -1004,6 +1027,14 @@ export async function recordManualPayment(input: RecordPaymentInput): Promise<Pa
 /* Bill-paid side effects (exactly once)                               */
 /* ------------------------------------------------------------------ */
 
+/** How the CRM customer for a paid bill was resolved (audit trail). */
+export type BillCustomerResolution =
+  | "attached"
+  | "reused"
+  | "created"
+  | "none"
+  | "limit_reached";
+
 /**
  * Run the bill-completion side effects exactly once:
  *  1. Customer resolution (phone-based) + loyalty award (idempotent
@@ -1012,6 +1043,90 @@ export async function recordManualPayment(input: RecordPaymentInput): Promise<Pa
  *  3. Durable RESTAURANT_BILL_PAID outbox job — followups (thank-you/review
  *     invites, automations, stock deduction policy hooks) run in the worker.
  */
+/**
+ * Resolve the CRM customer for a PAID bill.
+ *
+ * Two fixes here:
+ *  1. The old lookup compared the RAW phone typed at the till with the
+ *     normalized value stored on the customer row — "+91 98765 43210" never
+ *     matched "+919876543210", so a repeat guest silently lost the visit,
+ *     the loyalty points and the spend aggregate.
+ *  2. A phone that is not on file at all is now LINKED by creating a minimal
+ *     profile (only when the bill carries a real name AND a valid number), so
+ *     the restaurant's CRM keeps the visit. Guest checkout is preserved: no
+ *     usable identity means nothing is created and the flow is unchanged.
+ *
+ * Runs AFTER the bill is paid (never during checkout) and never throws: a CRM
+ * problem must not fail or roll back a payment.
+ */
+async function resolveBillCustomer(bill: {
+  id: string;
+  hotelId: string;
+  customerId: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  tableId: string | null;
+}): Promise<{ customerId: string | null; resolution: BillCustomerResolution }> {
+  if (bill.customerId) return { customerId: bill.customerId, resolution: "attached" };
+  if (!bill.customerPhone) return { customerId: null, resolution: "none" };
+  try {
+    const outcome = await linkOrCreateCustomerFromOrder({
+      hotelId: bill.hotelId,
+      name: bill.customerName,
+      phone: bill.customerPhone,
+      source: bill.tableId ? "QR_MENU" : "BILL",
+    });
+    if (outcome.customer) {
+      return {
+        customerId: outcome.customer.id,
+        resolution: outcome.created ? "created" : "reused",
+      };
+    }
+    return {
+      customerId: null,
+      resolution: outcome.reason === "limit_reached" ? "limit_reached" : "none",
+    };
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        scope: "billing.customer_resolution",
+        billId: bill.id,
+        hotelId: bill.hotelId,
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return { customerId: null, resolution: "none" };
+  }
+}
+
+/**
+ * Manual (CASH/UPI/CARD) payments create the follow-up job INSIDE the payment
+ * transaction, before the CRM can resolve the guest. This backfills the
+ * resolved id onto a job that is still QUEUED, so the worker records the visit
+ * and awards loyalty for walk-in guests too.
+ */
+async function backfillPaidBillCustomer(
+  job: { id: string; status: string; payload: string },
+  bill: Parameters<typeof resolveBillCustomer>[0],
+): Promise<void> {
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(job.payload) as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  if (payload.customerId) return; // already resolved
+  if (job.status !== "QUEUED") return; // the worker already consumed it
+  const { customerId, resolution } = await resolveBillCustomer(bill);
+  if (!customerId) return;
+  // Conditional update: a worker that claimed the row in the meantime wins.
+  await db.backgroundJob.updateMany({
+    where: { id: job.id, status: "QUEUED" },
+    data: { payload: JSON.stringify({ ...payload, customerId, customerResolution: resolution }) },
+  });
+}
+
 export async function onBillPaid(billId: string): Promise<void> {
   const bill = await db.bill.findUnique({ where: { id: billId } });
   if (!bill || bill.status !== "PAID") return;
@@ -1020,16 +1135,14 @@ export async function onBillPaid(billId: string): Promise<void> {
   const existingJob = await db.backgroundJob.findFirst({
     where: { type: "RESTAURANT_BILL_PAID", payload: { contains: `"billId":"${bill.id}"` }, status: { in: ["QUEUED", "RUNNING", "COMPLETED"] } },
   });
-  if (existingJob) return;
-
-  let customerId = bill.customerId;
-  if (!customerId && bill.customerPhone) {
-    const existing = await db.customer.findFirst({
-      where: { hotelId: bill.hotelId, phone: bill.customerPhone },
-      select: { id: true },
-    });
-    customerId = existing?.id ?? null;
+  if (existingJob) {
+    // The outbox row already exists (manual-payment path): backfill the guest
+    // so the worker can attribute the visit.
+    await backfillPaidBillCustomer(existingJob, bill);
+    return;
   }
+
+  const { customerId, resolution: customerResolution } = await resolveBillCustomer(bill);
 
   await db.$transaction(async (tx) => {
     await tx.backgroundJob.create({
@@ -1044,6 +1157,7 @@ export async function onBillPaid(billId: string): Promise<void> {
           totalMinor: bill.totalMinor,
           currency: bill.currency,
           billNumber: bill.billNumber,
+          customerResolution,
         }),
         createdBy: bill.issuedByUserId,
       },

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
-import type { CustomersResponse, CustomerRow, ViewId } from "@/lib/types";
+import type { CustomersResponse, CustomerRow, ViewId, SessionUser } from "@/lib/types";
 import { CustomerDialog } from "./customer-dialog";
 import { VisitDialog } from "./visit-dialog";
 import { EmptyState } from "./shared-ui";
@@ -66,6 +66,8 @@ import {
   Loader2,
   Crown,
   Download,
+  UserCheck,
+  Clock3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, initials, maskPhoneDisplay, phoneDisplay, formatNumber } from "@/lib/format";
@@ -132,12 +134,13 @@ async function triggerCustomersExport(): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `stayloop-customers-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 type SortField = "created" | "name" | "visits" | "last_visit";
+type ActivityFilter = "all" | "new" | "returning" | "lapsed" | "never";
 
 function SortIcon({
   field,
@@ -152,12 +155,24 @@ function SortIcon({
   return order === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
 }
 
+/**
+ * Client-side visibility helper. Hiding is UX only — every route re-checks the
+ * permission server-side. When the session payload does not carry a permission
+ * set (older caches) we do NOT hide the control: the server remains the guard.
+ */
+function can(user: SessionUser | null | undefined, permission: string): boolean {
+  if (!user?.permissions) return true;
+  return user.permissions.includes(permission);
+}
+
 export function CustomersView({
   onOpenCustomer,
   setView,
+  user,
 }: {
   onOpenCustomer: (id: string) => void;
   setView: (v: ViewId) => void;
+  user?: SessionUser | null;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -167,9 +182,11 @@ export function CustomersView({
   const [search, setSearch] = useState("");
   const [consent, setConsent] = useState("all");
   const [status, setStatus] = useState("all");
+  const [activity, setActivity] = useState<ActivityFilter>("all");
   const [sort, setSort] = useState<SortField>("created");
   const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [showPhones, setShowPhones] = useState(false);
 
   // --- Dialogs ---
@@ -183,6 +200,12 @@ export function CustomersView({
     mode: "opt_in" | "opt_out";
   } | null>(null);
   const [exporting, setExporting] = useState(false);
+
+  // Permissions (server-authoritative; used only to hide controls)
+  const canCreate = can(user, "CUSTOMER_CREATE");
+  const canUpdate = can(user, "CUSTOMER_UPDATE");
+  const canDelete = can(user, "CUSTOMER_DELETE");
+  const canExport = can(user, "CUSTOMER_READ");
 
   // Debounce search
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -198,8 +221,9 @@ export function CustomersView({
   }, [searchInput]);
 
   const queryKey = useMemo(
-    () => ["customers", { search, consent, status, sort, order, page }] as const,
-    [search, consent, status, sort, order, page],
+    () =>
+      ["customers", { search, consent, status, activity, sort, order, page, pageSize }] as const,
+    [search, consent, status, activity, sort, order, page, pageSize],
   );
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
@@ -209,10 +233,11 @@ export function CustomersView({
         q: search,
         consent,
         status,
+        activity,
         sort,
         order,
         page: String(page),
-        pageSize: "10",
+        pageSize: String(pageSize),
       });
       return api.get<CustomersResponse>(`/api/customers?${params.toString()}`);
     },
@@ -228,10 +253,15 @@ export function CustomersView({
     setStatus(v);
     setPage(1);
   }
+  function changeActivity(v: ActivityFilter) {
+    setActivity(v);
+    setPage(1);
+  }
   function clearFilters() {
     setSearchInput("");
     setConsent("all");
     setStatus("all");
+    setActivity("all");
     setPage(1);
   }
 
@@ -309,22 +339,80 @@ export function CustomersView({
   const customers = data?.customers ?? [];
   const total = data?.total ?? 0;
   const totalPages = data?.totalPages ?? 1;
+  const summary = data?.summary;
+  const filtersActive = !!search || consent !== "all" || status !== "all" || activity !== "all";
 
   return (
     <div className="space-y-4">
+      {/* Summary cards — real counts computed server-side from this tenant's rows */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {isLoading && !summary ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[92px] rounded-xl" />
+          ))
+        ) : (
+          <>
+            <SummaryTile
+              icon={Users}
+              title="Total customers"
+              value={summary?.total ?? 0}
+              hint="Everyone in your list"
+              active={activity === "all"}
+              onClick={() => changeActivity("all")}
+            />
+            <SummaryTile
+              icon={UserPlus}
+              title="New customers"
+              value={summary?.newCustomers ?? 0}
+              hint={`First visit in the last ${summary?.newWindowDays ?? 30} days`}
+              active={activity === "new"}
+              onClick={() => changeActivity("new")}
+            />
+            <SummaryTile
+              icon={UserCheck}
+              title="Returning customers"
+              value={summary?.returningCustomers ?? 0}
+              hint="2 or more visits/orders"
+              active={activity === "returning"}
+              onClick={() => changeActivity("returning")}
+            />
+            <SummaryTile
+              icon={Clock3}
+              title="Not visited recently"
+              value={summary?.lapsedCustomers ?? 0}
+              hint={`No visit in ${summary?.lapsedWindowDays ?? 90} days · ${summary?.neverVisited ?? 0} never visited`}
+              active={activity === "lapsed"}
+              onClick={() => changeActivity("lapsed")}
+            />
+          </>
+        )}
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, phone or email…"
+            placeholder="Search by name or mobile number…"
             className="pl-10"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            aria-label="Search customers"
+            aria-label="Search customers by name or mobile number"
           />
         </div>
         <div className="flex flex-wrap gap-2">
+          <Select value={activity} onValueChange={(v) => changeActivity(v as ActivityFilter)}>
+            <SelectTrigger className="w-[150px]" aria-label="Filter by visit activity">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All activity</SelectItem>
+              <SelectItem value="new">New customers</SelectItem>
+              <SelectItem value="returning">Returning</SelectItem>
+              <SelectItem value="lapsed">Not visited recently</SelectItem>
+              <SelectItem value="never">Never visited</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={consent} onValueChange={changeConsent}>
             <SelectTrigger className="w-[150px]" aria-label="Filter by consent">
               <SelectValue />
@@ -354,45 +442,49 @@ export function CustomersView({
           >
             {showPhones ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
-          <Button
-            variant="outline"
-            disabled={exporting}
-            onClick={async () => {
-              setExporting(true);
-              try {
-                await triggerCustomersExport();
-                toast({
-                  title: "Export ready",
-                  description: "Your customer CSV download has started.",
-                });
-              } catch (err) {
-                toast({
-                  title: "Export failed",
-                  description: err instanceof Error ? err.message : "Please try again.",
-                  variant: "destructive",
-                });
-              } finally {
-                setExporting(false);
-              }
-            }}
-            aria-label="Export customers to CSV"
-            title="Export all customers to CSV"
-          >
-            {exporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline">Export</span>
-          </Button>
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setDialogOpen(true);
-            }}
-          >
-            <UserPlus className="h-4 w-4" /> Add customer
-          </Button>
+          {canExport && (
+            <Button
+              variant="outline"
+              disabled={exporting}
+              onClick={async () => {
+                setExporting(true);
+                try {
+                  await triggerCustomersExport();
+                  toast({
+                    title: "Export ready",
+                    description: "Your customer CSV download has started.",
+                  });
+                } catch (err) {
+                  toast({
+                    title: "Export failed",
+                    description: err instanceof Error ? err.message : "Please try again.",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              aria-label="Export customers to CSV"
+              title="Export all customers to CSV"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Export</span>
+            </Button>
+          )}
+          {canCreate && (
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
+              <UserPlus className="h-4 w-4" /> Add customer
+            </Button>
+          )}
         </div>
       </div>
 
@@ -403,7 +495,7 @@ export function CustomersView({
             <>
               Showing{" "}
               <span className="font-semibold text-foreground">
-                {(page - 1) * 10 + 1}–{Math.min(page * 10, total)}
+                {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}
               </span>{" "}
               of <span className="font-semibold text-foreground">{formatNumber(total)}</span>{" "}
               {total === 1 ? "customer" : "customers"}
@@ -413,17 +505,17 @@ export function CustomersView({
           )}
           {isFetching && !isLoading && <Loader2 className="inline ml-2 h-3 w-3 animate-spin" />}
         </p>
-        {search && (
+        {filtersActive && (
           <button
             className="hover:text-foreground underline underline-offset-2"
-            onClick={() => setSearchInput("")}
+            onClick={clearFilters}
           >
-            Clear search
+            Clear filters
           </button>
         )}
       </div>
 
-      {/* Table */}
+      {/* Loading / error / empty / list */}
       {isLoading ? (
         <div className="rounded-xl border bg-card">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -438,37 +530,39 @@ export function CustomersView({
         <EmptyState
           icon={Users}
           title="Couldn't load customers"
-          description="Something went wrong while fetching your guest list."
-          action={<Button onClick={() => refetch()}>Try again</Button>}
+          description="Something went wrong while fetching your customer list."
+          action={
+            <Button onClick={() => refetch()}>
+              <Loader2 className="h-4 w-4" /> Try again
+            </Button>
+          }
         />
       ) : customers.length === 0 ? (
         <EmptyState
-          icon={search || consent !== "all" || status !== "all" ? Search : Users}
-          title={
-            search || consent !== "all" || status !== "all"
-              ? "No matching customers"
-              : "No customers yet"
-          }
+          icon={filtersActive ? Search : Users}
+          title={filtersActive ? "No matching customers" : "No customers yet"}
           description={
-            search || consent !== "all" || status !== "all"
-              ? "Try a different search term or clear the filters."
-              : "Add your first guest manually, or import your whole guest list from a CSV file."
+            filtersActive
+              ? "Try a different name or number, or clear the filters to see everyone."
+              : "Add your first customer manually, or import your whole list from a CSV file."
           }
           action={
-            search || consent !== "all" || status !== "all" ? (
+            filtersActive ? (
               <Button variant="outline" onClick={clearFilters}>
                 Clear filters
               </Button>
             ) : (
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => {
-                    setEditing(null);
-                    setDialogOpen(true);
-                  }}
-                >
-                  <UserPlus className="h-4 w-4" /> Add customer
-                </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                {canCreate && (
+                  <Button
+                    onClick={() => {
+                      setEditing(null);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    <UserPlus className="h-4 w-4" /> Add customer
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => setView("import")}>
                   Import CSV
                 </Button>
@@ -478,7 +572,110 @@ export function CustomersView({
         />
       ) : (
         <div className="rounded-xl border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Mobile / tablet: card list */}
+          <ul className="divide-y md:hidden">
+            {customers.map((c) => (
+              <li key={c.id}>
+                <button
+                  className="flex w-full items-start gap-3 px-4 py-3.5 text-left hover:bg-accent/40 transition-colors"
+                  onClick={() => onOpenCustomer(c.id)}
+                >
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarFallback
+                      className={cn(
+                        "text-[11px] font-bold",
+                        c.status === "ACTIVE"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {initials(c.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-[14px] flex items-center gap-1">
+                      {c.name}
+                      {c.vip && <Crown className="h-3 w-3 text-amber-500" aria-label="VIP" />}
+                    </p>
+                    <p className="text-[12px] text-muted-foreground font-mono">
+                      {showPhones ? phoneDisplay(c.phone) : maskPhoneDisplay(c.phone)}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary" className="tabular-nums text-[10.5px]">
+                        {c.totalVisits} {c.totalVisits === 1 ? "visit" : "visits"}
+                      </Badge>
+                      {c.isReturning && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 border-0 text-[10.5px]"
+                        >
+                          Returning
+                        </Badge>
+                      )}
+                      {c.neverVisited && (
+                        <Badge variant="outline" className="text-[10.5px] text-muted-foreground">
+                          No visits yet
+                        </Badge>
+                      )}
+                      {c.optOut ? (
+                        <Badge className="bg-rose-500/12 text-rose-600 dark:text-rose-400 border-0 text-[10.5px]">
+                          Opted out
+                        </Badge>
+                      ) : c.marketingConsent ? (
+                        <Badge className="bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 border-0 text-[10.5px]">
+                          Opted in
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Last visit {formatDate(c.lastVisit)}
+                      {c.totalSpend != null && c.totalSpend > 0
+                        ? ` · ₹${c.totalSpend.toLocaleString("en-IN")}`
+                        : ""}
+                    </p>
+                  </div>
+                </button>
+                {(canUpdate || canDelete) && (
+                  <div className="flex justify-end px-3 pb-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Actions for ${c.name}`}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <CustomerMenuItems
+                          c={c}
+                          canUpdate={canUpdate}
+                          canDelete={canDelete}
+                          onOpenCustomer={onOpenCustomer}
+                          onEdit={() => {
+                            setEditing(c);
+                            setDialogOpen(true);
+                          }}
+                          onAddVisit={() => {
+                            setVisitFor(c);
+                            setVisitOpen(true);
+                          }}
+                          onConsent={(mode) => setConsentAction({ customer: c, mode })}
+                          onDeactivate={() => setDeactivating(c)}
+                          onReactivate={() => reactivateMutation.mutate(c)}
+                        />
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-accent/40 hover:bg-accent/40">
@@ -492,7 +689,7 @@ export function CustomersView({
                     </button>
                   </TableHead>
                   <TableHead>Phone</TableHead>
-                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead className="hidden lg:table-cell">Email</TableHead>
                   <TableHead>
                     <button
                       className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors font-semibold"
@@ -511,7 +708,7 @@ export function CustomersView({
                   </TableHead>
                   <TableHead>Consent</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Spend</TableHead>
+                  <TableHead className="hidden xl:table-cell">Spend</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -541,14 +738,16 @@ export function CustomersView({
                         {c.name}
                         {c.vip && <Crown className="h-3 w-3 text-amber-500" aria-label="VIP" />}
                       </p>
-                      <p className="text-[11px] text-muted-foreground md:hidden">
-                        {showPhones ? phoneDisplay(c.phone) : maskPhoneDisplay(c.phone)}
-                      </p>
+                      {c.isReturning && (
+                        <p className="text-[10.5px] font-medium text-emerald-600 dark:text-emerald-400">
+                          Returning
+                        </p>
+                      )}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell font-mono text-[12.5px] text-muted-foreground">
+                    <TableCell className="font-mono text-[12.5px] text-muted-foreground">
                       {showPhones ? phoneDisplay(c.phone) : maskPhoneDisplay(c.phone)}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell max-w-[170px]">
+                    <TableCell className="hidden lg:table-cell max-w-[170px]">
                       <p className="truncate text-[12.5px] text-muted-foreground">
                         {c.email || "—"}
                       </p>
@@ -596,74 +795,45 @@ export function CustomersView({
                         {c.status === "ACTIVE" ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell text-[12.5px] tabular-nums font-medium">
+                    <TableCell className="hidden xl:table-cell text-[12.5px] tabular-nums font-medium">
                       {c.totalSpend != null && c.totalSpend > 0
                         ? `₹${c.totalSpend.toLocaleString("en-IN")}`
                         : "—"}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            aria-label={`Actions for ${c.name}`}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuLabel className="text-xs">{c.name}</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => onOpenCustomer(c.id)}>
-                            <Eye className="h-4 w-4" /> View profile
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditing(c);
-                              setDialogOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" /> Edit details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setVisitFor(c);
-                              setVisitOpen(true);
-                            }}
-                          >
-                            <CalendarCheck className="h-4 w-4" /> Add visit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {c.optOut || !c.marketingConsent ? (
-                            <DropdownMenuItem
-                              onClick={() => setConsentAction({ customer: c, mode: "opt_in" })}
+                      {(canUpdate || canDelete) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label={`Actions for ${c.name}`}
                             >
-                              <BellRing className="h-4 w-4" /> Record marketing consent
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() => setConsentAction({ customer: c, mode: "opt_out" })}
-                            >
-                              <BellOff className="h-4 w-4" /> Opt out of marketing
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          {c.status === "ACTIVE" ? (
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setDeactivating(c)}
-                            >
-                              <UserRoundX className="h-4 w-4" /> Deactivate customer
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => reactivateMutation.mutate(c)}>
-                              <UserRoundCheck className="h-4 w-4" /> Reactivate customer
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <CustomerMenuItems
+                              c={c}
+                              canUpdate={canUpdate}
+                              canDelete={canDelete}
+                              onOpenCustomer={onOpenCustomer}
+                              onEdit={() => {
+                                setEditing(c);
+                                setDialogOpen(true);
+                              }}
+                              onAddVisit={() => {
+                                setVisitFor(c);
+                                setVisitOpen(true);
+                              }}
+                              onConsent={(mode) => setConsentAction({ customer: c, mode })}
+                              onDeactivate={() => setDeactivating(c)}
+                              onReactivate={() => reactivateMutation.mutate(c)}
+                            />
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -672,36 +842,57 @@ export function CustomersView({
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t bg-accent/20 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-accent/20 px-4 py-3">
+            <div className="flex items-center gap-2">
               <p className="text-xs text-muted-foreground">
                 Page <span className="font-semibold text-foreground">{page}</span> of {totalPages}
               </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4" /> Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                >
-                  Next <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="h-7 w-[92px] text-xs" aria-label="Rows per page">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 / page</SelectItem>
+                  <SelectItem value="25">25 / page</SelectItem>
+                  <SelectItem value="50">50 / page</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" /> Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Dialogs */}
-      <CustomerDialog open={dialogOpen} onOpenChange={setDialogOpen} editing={editing} />
+      <CustomerDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={editing}
+        onOpenCustomer={onOpenCustomer}
+      />
       <VisitDialog open={visitOpen} onOpenChange={setVisitOpen} presetCustomer={visitFor} />
 
       {/* Deactivate confirm */}
@@ -741,8 +932,8 @@ export function CustomersView({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {consentAction?.mode === "opt_in"
-                ? "Confirm that this guest has agreed to receive promotional offers and updates from your hotel."
-                : "The guest will stop receiving all promotional messages. Their consent flag will be cleared and opt-out recorded."}
+                ? "Confirm that this customer has agreed to receive promotional offers and updates from your restaurant."
+                : "The customer will stop receiving all promotional messages. Their consent flag will be cleared and opt-out recorded."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -763,5 +954,114 @@ export function CustomersView({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/** One summary card; clicking it applies the matching activity filter. */
+function SummaryTile({
+  icon,
+  title,
+  value,
+  hint,
+  active,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  value: number;
+  hint: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const Icon = icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "text-left rounded-xl border bg-card p-4 transition-colors hover:bg-accent/40",
+        active && "ring-2 ring-primary/40",
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[12px] font-medium text-muted-foreground leading-tight">{title}</p>
+        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+      </div>
+      <p className="mt-1.5 text-[24px] font-bold tracking-tight leading-none tabular-nums">
+        {formatNumber(value)}
+      </p>
+      <p className="mt-1.5 text-[11px] text-muted-foreground leading-snug">{hint}</p>
+    </button>
+  );
+}
+
+/** Row action menu — shared by the desktop table and the mobile card list. */
+function CustomerMenuItems({
+  c,
+  canUpdate,
+  canDelete,
+  onOpenCustomer,
+  onEdit,
+  onAddVisit,
+  onConsent,
+  onDeactivate,
+  onReactivate,
+}: {
+  c: CustomerRow;
+  canUpdate: boolean;
+  canDelete: boolean;
+  onOpenCustomer: (id: string) => void;
+  onEdit: () => void;
+  onAddVisit: () => void;
+  onConsent: (mode: "opt_in" | "opt_out") => void;
+  onDeactivate: () => void;
+  onReactivate: () => void;
+}) {
+  return (
+    <>
+      <DropdownMenuLabel className="text-xs">{c.name}</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => onOpenCustomer(c.id)}>
+        <Eye className="h-4 w-4" /> View profile
+      </DropdownMenuItem>
+      {canUpdate && (
+        <>
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="h-4 w-4" /> Edit details
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onAddVisit}>
+            <CalendarCheck className="h-4 w-4" /> Record visit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {c.optOut || !c.marketingConsent ? (
+            <DropdownMenuItem onClick={() => onConsent("opt_in")}>
+              <BellRing className="h-4 w-4" /> Record marketing consent
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={() => onConsent("opt_out")}>
+              <BellOff className="h-4 w-4" /> Opt out of marketing
+            </DropdownMenuItem>
+          )}
+        </>
+      )}
+      {canDelete && (
+        <>
+          <DropdownMenuSeparator />
+          {c.status === "ACTIVE" ? (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={onDeactivate}
+            >
+              <UserRoundX className="h-4 w-4" /> Deactivate customer
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={onReactivate}>
+              <UserRoundCheck className="h-4 w-4" /> Reactivate customer
+            </DropdownMenuItem>
+          )}
+        </>
+      )}
+    </>
   );
 }

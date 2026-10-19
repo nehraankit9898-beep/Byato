@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
-import type { CustomerProfile, VisitRow, ViewId } from "@/lib/types";
+import type { CustomerProfile, VisitRow, ViewId, SessionUser } from "@/lib/types";
 import { VisitDialog } from "./visit-dialog";
 import { CustomerDialog } from "./customer-dialog";
 import { Button } from "@/components/ui/button";
@@ -57,14 +57,26 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime, formatRelative, initials, phoneDisplay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/**
+ * Client-side visibility helper. Hiding is UX only — every route re-checks the
+ * permission server-side. When the session carries no permission set we do NOT
+ * hide the control: the server remains the guard.
+ */
+function can(user: SessionUser | null | undefined, permission: string): boolean {
+  if (!user?.permissions) return true;
+  return user.permissions.includes(permission);
+}
+
 export function CustomerProfileView({
   customerId,
   onBack,
   setView,
+  user,
 }: {
   customerId: string;
   onBack: () => void;
   setView: (v: ViewId) => void;
+  user?: SessionUser | null;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -164,6 +176,10 @@ export function CustomerProfileView({
   }
 
   const { customer, stats, visits, timeline, segments } = data;
+  // Restaurant orders (one row per paid bill) and the loyalty balance are
+  // optional: they are only rendered when the backend actually has them.
+  const orders = data.orders ?? [];
+  const loyalty = data.loyalty ?? null;
   const isActive = customer.status === "ACTIVE";
 
   return (
@@ -228,41 +244,51 @@ export function CustomerProfileView({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                onClick={() => {
-                  setEditingVisit(null);
-                  setVisitOpen(true);
-                }}
-              >
-                <CalendarCheck className="h-4 w-4" /> Add visit
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-4 w-4" /> Edit
-              </Button>
-              {customer.optOut || !customer.marketingConsent ? (
-                <Button size="sm" variant="outline" onClick={() => setConfirmAction("opt_in")}>
-                  <BellRing className="h-4 w-4" /> Record consent
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => setConfirmAction("opt_out")}>
-                  <BellOff className="h-4 w-4" /> Opt out
-                </Button>
-              )}
-              {isActive ? (
+              {can(user, "VISIT_CREATE") && (
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setConfirmAction("deactivate")}
+                  onClick={() => {
+                    setEditingVisit(null);
+                    setVisitOpen(true);
+                  }}
                 >
-                  <UserRoundX className="h-4 w-4" /> Deactivate
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => setConfirmAction("reactivate")}>
-                  <UserRoundCheck className="h-4 w-4" /> Reactivate
+                  <CalendarCheck className="h-4 w-4" /> Add visit
                 </Button>
               )}
+              {can(user, "CUSTOMER_UPDATE") && (
+                <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                  <Pencil className="h-4 w-4" /> Edit
+                </Button>
+              )}
+              {can(user, "CUSTOMER_UPDATE") &&
+                (customer.optOut || !customer.marketingConsent ? (
+                  <Button size="sm" variant="outline" onClick={() => setConfirmAction("opt_in")}>
+                    <BellRing className="h-4 w-4" /> Record consent
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => setConfirmAction("opt_out")}>
+                    <BellOff className="h-4 w-4" /> Opt out
+                  </Button>
+                ))}
+              {can(user, "CUSTOMER_DELETE") &&
+                (isActive ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setConfirmAction("deactivate")}
+                  >
+                    <UserRoundX className="h-4 w-4" /> Deactivate
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmAction("reactivate")}
+                  >
+                    <UserRoundCheck className="h-4 w-4" /> Reactivate
+                  </Button>
+                ))}
             </div>
           </div>
         </CardContent>
@@ -313,11 +339,11 @@ export function CustomerProfileView({
             icon: Repeat,
             label: "Guest type",
             value:
-              stats.totalVisits >= 2
-                ? "Repeat guest"
-                : stats.totalVisits === 1
-                  ? "New guest"
-                  : "No visits yet",
+              stats.neverVisited === true || stats.totalVisits === 0
+                ? "No visits yet"
+                : stats.isReturning === true || stats.totalVisits >= 2
+                  ? "Repeat guest"
+                  : "New guest",
           },
         ].map((s) => (
           <div key={s.label} className="rounded-xl border bg-card p-4">
@@ -411,20 +437,26 @@ export function CustomerProfileView({
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3">
                   <CalendarCheck className="h-6 w-6" />
                 </div>
-                <p className="text-sm font-semibold">No visits recorded yet</p>
-                <p className="mt-1 text-xs text-muted-foreground max-w-xs">
-                  Record this guest&apos;s first visit to start building their history.
+                <p className="text-sm font-semibold">
+                  {orders.length > 0 ? "No stays recorded — orders only" : "No visits recorded yet"}
                 </p>
-                <Button
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => {
-                    setEditingVisit(null);
-                    setVisitOpen(true);
-                  }}
-                >
-                  <CalendarCheck className="h-4 w-4" /> Record first visit
-                </Button>
+                <p className="mt-1 text-xs text-muted-foreground max-w-xs">
+                  {orders.length > 0
+                    ? "This guest's activity comes from paid bills, listed under Order history below."
+                    : "Record this guest's first visit to start building their history."}
+                </p>
+                {can(user, "VISIT_CREATE") && (
+                  <Button
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => {
+                      setEditingVisit(null);
+                      setVisitOpen(true);
+                    }}
+                  >
+                    <CalendarCheck className="h-4 w-4" /> Record first visit
+                  </Button>
+                )}
               </div>
             ) : (
               <ul className="divide-y">
@@ -482,6 +514,83 @@ export function CustomerProfileView({
           </CardContent>
         </Card>
       </div>
+
+      {/* Order history — one row per PAID restaurant bill (real backend data).
+          Rendered only when the customer actually has orders. */}
+      {orders.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-[15px]">
+              <UtensilsCrossed className="h-4 w-4 text-primary" /> Order history
+              <Badge variant="secondary" className="ml-auto tabular-nums">
+                {orders.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ul className="divide-y">
+              {orders.map((o) => (
+                <li key={o.id} className="flex items-center gap-4 px-6 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-semibold">{formatDateTime(o.visitDate)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
+                      <span>
+                        {String(o.source || "order")
+                          .replace(/_/g, " ")
+                          .toLowerCase()}
+                      </span>
+                      {o.tableNumber && <span>· table {o.tableNumber}</span>}
+                      {o.guests > 1 && <span>· {o.guests} guests</span>}
+                    </p>
+                  </div>
+                  <p className="text-[13.5px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    ₹{(o.amount ?? 0).toLocaleString("en-IN")}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loyalty — shown ONLY when the hotel runs a loyalty account for this
+          guest. No account means no card, never a fabricated zero balance. */}
+      {loyalty && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-[15px]">
+              <Wallet className="h-4 w-4 text-primary" /> Loyalty
+              <Badge variant="secondary" className="ml-auto">
+                {loyalty.tier}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Points balance</p>
+                <p className="mt-1 text-lg font-bold tabular-nums">{loyalty.points}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Lifetime points</p>
+                <p className="mt-1 text-lg font-bold tabular-nums">{loyalty.lifetimePoints}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Visits counted</p>
+                <p className="mt-1 text-lg font-bold tabular-nums">{loyalty.visitsCounted}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Lifetime spend</p>
+                <p className="mt-1 text-lg font-bold tabular-nums">
+                  {loyalty.lifetimeSpend > 0
+                    ? `₹${loyalty.lifetimeSpend.toLocaleString("en-IN")}`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Consent details card */}
       <Card>

@@ -85,12 +85,28 @@ export const profileUpdateSchema = z
 
 // ---------- customers ----------
 
+/** Optional email: empty string means "not provided". */
+export const optionalEmailSchema = z
+  .string()
+  .trim()
+  .max(254, "Email address is too long.")
+  .refine((v) => v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+    message: "Please enter a valid email address.",
+  });
+
 export const customerCreateSchema = z.object({
   name: z.string().trim().min(2, "Please enter the customer's full name.").max(100),
   phone: phoneSchema,
-  email: z.string().trim().max(254).optional().default(""),
+  email: optionalEmailSchema.optional().default(""),
   marketingConsent: z.boolean().optional().default(false),
-  consentSource: z.enum(["MANUAL_ENTRY", "WEBSITE", "CSV_IMPORT", "PHONE", "IN_PERSON"]).optional(),
+  // Kept permissive: several workflows stamp their own source (QR_PAGE, API…).
+  // Length-capped so it can never bloat the row.
+  consentSource: z.string().trim().max(40).optional(),
+  // Phase 6.4 — channel-level opt-ins. Only meaningful WITH marketing consent;
+  // the server ANDs them with it, so a stale client flag cannot grant consent.
+  whatsappOptIn: z.boolean().optional().default(false),
+  smsOptIn: z.boolean().optional().default(false),
+  emailOptIn: z.boolean().optional().default(false),
   roomPreference: z.string().trim().max(60).optional(),
   foodPreference: z.string().trim().max(60).optional(),
   location: z.string().trim().max(80).optional(),
@@ -99,6 +115,31 @@ export const customerCreateSchema = z.object({
   source: z.enum(["WALK_IN", "BOOKING", "WEBSITE", "REFERRAL", "OTHER"]).optional(),
   notes: z.string().trim().max(1000).optional(),
   vip: z.boolean().optional().default(false),
+});
+
+/**
+ * Coerce an optional numeric query param, treating an EMPTY value as absent
+ * (`?pageSize=` must behave like the default, not like `0`).
+ */
+function numericQuery(min: number, max: number, fallback: number) {
+  return z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.coerce.number().int().min(min).max(max).optional().default(fallback),
+  );
+}
+
+/** GET /api/customers query contract (search / filters / sort / pagination). */
+export const customerListQuerySchema = z.object({
+  q: z.string().trim().max(120).optional().default(""),
+  search: z.string().trim().max(120).optional().default(""),
+  consent: z.enum(["all", "opted_in", "opted_out"]).optional().default("all"),
+  status: z.enum(["all", "active", "inactive"]).optional().default("all"),
+  /** Visit activity bucket — see lib/customers.ts for the exact definitions. */
+  activity: z.enum(["all", "new", "returning", "lapsed", "never"]).optional().default("all"),
+  sort: z.enum(["created", "name", "visits", "last_visit"]).optional().default("created"),
+  order: z.enum(["asc", "desc"]).optional().default("desc"),
+  page: numericQuery(1, 10_000, 1),
+  pageSize: numericQuery(1, 50, 10),
 });
 
 export const customerUpdateSchema = z
@@ -456,6 +497,37 @@ export interface ParsedResult<T> {
   ok: boolean;
   data?: T;
   error?: string;
+}
+
+/**
+ * Parse + validate and keep EVERY field error, keyed by field path.
+ *
+ * Used by routes that echo field-level messages back to the form (the Add /
+ * Edit customer dialog shows them under the matching input). `message` is the
+ * first issue and is what a single-error JSON response should show.
+ */
+export interface FieldErrorResult<T> {
+  ok: boolean;
+  data?: T;
+  errors?: Record<string, string>;
+  message?: string;
+}
+
+export function parseWithFieldErrors<T>(schema: z.ZodType<T>, input: unknown): FieldErrorResult<T> {
+  const result = schema.safeParse(input);
+  if (result.success) return { ok: true, data: result.data };
+  const errors: Record<string, string> = {};
+  for (const issue of result.error.issues) {
+    const key = issue.path.length ? issue.path.join(".") : "_";
+    // First message per field wins — later refinements must not overwrite the
+    // most specific, human-readable one.
+    if (!errors[key]) errors[key] = issue.message;
+  }
+  return {
+    ok: false,
+    errors,
+    message: result.error.issues[0]?.message ?? "Please check the details and try again.",
+  };
 }
 
 /** Parse + validate with a friendly first-error message. */

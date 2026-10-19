@@ -58,3 +58,28 @@ Setup: fresh SQLite DB → `prisma db push` (WASM engine) → `scripts/seed.ts` 
 | BUG-5 (probe self-provisioning + backup field) | `SA_MFA_SECRET=… PROBE_BASE=… bun run scripts/verify/super-admin.ts` | 25/25 |
 
 Combined re-run of the three directly-affected suites after fixes: `bun test tests/dashboard-regressions.test.ts tests/export-policy.test.ts tests/bugfix-regressions-2026-10.test.ts` → **44 pass, 0 fail**.
+
+---
+
+## 3. Customer CRM suite — added 2026-10-19 (branch `arena/f31589e5-byato`)
+
+New suite: **`tests/customers-crm.test.ts`** — 63 cases covering customer creation,
+validation, duplicate prevention (same-tenant + cross-tenant), concurrency, RBAC,
+tenant isolation, profile/history, order→CRM linking and UI-state/regression
+checks. Registered in `scripts/run-tests.ts`. Full reference: `docs/CUSTOMER_CRM.md`.
+
+| Command | Exit | Result |
+|---|---|---|
+| `bun test tests/customers-crm.test.ts` (inside the harness) | 0 | **63 pass, 0 fail** |
+| `bun run test` (full harness, re-run after the suite was added) | **0** | `ALL TEST SUITES PASSED` — **678 assertions / 55 suite files, 0 failures** (was 55 files / 54 suites before this branch). Functional acceptance scripts unchanged: Phase 1 **93/93**, Phase 2 **79/79**, Phase 6.3 **62/62** → **234 functional checks ✅, 0 ❌** |
+| `npx tsc --noEmit` | 0 | PASS |
+| `npx eslint .` | 0 | PASS |
+| `npx prettier --check` (files touched by the branch) | 0 | PASS — `src/lib/billing.ts` excluded: already non-conformant at `HEAD` (verified against a pristine `HEAD` copy) |
+| `bun run build` | 1 | Compile + TypeScript pass; page-data collection blocked by the sandbox (Prisma engine binaries are fetched from `binaries.prisma.sh`, which is unreachable here). **Reproduced identically on pristine `HEAD`** → environmental, not a regression. CI runs the real build. |
+
+Note on test isolation: the new suite registers its **own throwaway restaurants**
+(it never writes into the seeded demo tenants) because `scripts/test-phase1.ts`
+and `scripts/test-phase2.ts` assert exact seeded counts (e.g. "Hotel B dashboard
+is scoped (1 customer)"). An earlier revision polluted the demo tenants and broke
+both suites; the functional scripts were then re-run on a clean database
+(93/79/62, all green) to prove the product itself was never broken.

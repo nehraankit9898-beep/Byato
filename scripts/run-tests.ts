@@ -390,6 +390,10 @@ async function main() {
       "tests/bill-balance-concurrency.test.ts",
       "tests/privacy-delete-atomicity.test.ts",
       "tests/body-cap-route-coverage.test.ts",
+      // Customer Section & Add Customer improvements: CRM dashboard contract,
+      // add-customer validation, duplicate prevention, tenant isolation, RBAC,
+      // profile history and customer linking from the paid-bill workflow.
+      "tests/customers-crm.test.ts",
     ];
     const unregistered = readdirSync(join(ROOT, "tests"))
       .filter((f) => f.endsWith(".test.ts"))
@@ -419,6 +423,10 @@ async function main() {
         // Many logins (argon2 + MFA-free) + first-hit dev compilation of
         // several brand-new routes → needs the same headroom as the phases.
         "rbac-security-master",
+        // Registers a fresh hotel and drives the full table → order → bill →
+        // payment flow several times (first-hit dev compilation of those
+        // routes is slow).
+        "customers-crm",
       ];
       const timeout = longFiles.some((f) => file.includes(f)) ? "120000" : "30000";
       failures += await runInherited("bun", ["test", file, "--timeout", timeout], testEnv);
