@@ -145,6 +145,8 @@ export interface PublicQrData {
   };
   consentText: string;
   feedbackEnabled: boolean;
+  /** Owner-verified public review link (Google etc.) — null when not set. */
+  reviewUrl: string | null;
 }
 
 /**
@@ -205,5 +207,9 @@ export async function resolvePublicQr(
     consentText:
       settings?.consentText ?? "I want to receive offers and discounts from this restaurant.",
     feedbackEnabled: settings?.feedbackEnabled ?? true,
+    // Owner-verified PUBLIC review link (Google Business Profile / g.page).
+    // Display-safe: offered to guests who leave 4-5 star feedback so happy
+    // diners can be redirected to public reviews. null = not configured.
+    reviewUrl: settings?.reviewUrl ?? null,
   };
 }

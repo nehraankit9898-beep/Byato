@@ -1070,6 +1070,8 @@ export interface SettingsResponse {
     frequencyWindowDays: number;
     consentText: string;
     feedbackEnabled: boolean;
+    reviewUrl: string | null;
+    fssaiNumber: string | null;
   };
   loyalty: { enabled: boolean; mode: string };
   restaurant: { name: string };

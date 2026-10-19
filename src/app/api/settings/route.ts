@@ -42,6 +42,8 @@ export async function GET(req: Request) {
         frequencyWindowDays: settings.frequencyWindowDays,
         consentText: settings.consentText,
         feedbackEnabled: settings.feedbackEnabled,
+        reviewUrl: settings.reviewUrl ?? null,
+        fssaiNumber: settings.fssaiNumber ?? null,
       },
       loyalty: {
         enabled: loyalty.enabled,
@@ -101,6 +103,44 @@ export async function PUT(req: Request) {
     if (typeof body.feedbackEnabled === "boolean") {
       data.feedbackEnabled = body.feedbackEnabled;
     }
+
+    // Google review URL — owner-verified PUBLIC link (Google Business Profile
+    // review link, g.page link, Zomato…). Shown to guests who leave 4-5 star
+    // QR feedback, so it must be https and absolute. Empty string clears it.
+    if (body.reviewUrl !== undefined) {
+      const raw = typeof body.reviewUrl === "string" ? body.reviewUrl.trim() : "";
+      if (!raw) {
+        data.reviewUrl = null;
+      } else {
+        if (raw.length > 500) return jsonError("Review URL is too long (max 500 characters).");
+        let parsed: URL;
+        try {
+          parsed = new URL(raw);
+        } catch {
+          return jsonError("Review URL must be a valid https:// link.");
+        }
+        if (parsed.protocol !== "https:" || !parsed.hostname.includes(".")) {
+          return jsonError("Review URL must be a valid https:// link.");
+        }
+        data.reviewUrl = parsed.toString();
+      }
+    }
+
+    // FSSAI licence/registration number — 14 digits, displayed on the public
+    // digital menu footer (required display for Indian food businesses).
+    // Empty string clears it (tenants outside India / not yet licensed).
+    if (body.fssaiNumber !== undefined) {
+      const raw = typeof body.fssaiNumber === "string" ? body.fssaiNumber.trim() : "";
+      if (!raw) {
+        data.fssaiNumber = null;
+      } else {
+        if (!/^\d{14}$/.test(raw)) {
+          return jsonError("FSSAI number must be exactly 14 digits (e.g. 12345678901234).");
+        }
+        data.fssaiNumber = raw;
+      }
+    }
+
     if (Object.keys(data).length === 0) {
       return jsonError("Nothing to update.");
     }
@@ -122,6 +162,8 @@ export async function PUT(req: Request) {
         marketingFrequencyLimit: updated.marketingFrequencyLimit,
         frequencyWindowDays: updated.frequencyWindowDays,
         feedbackEnabled: updated.feedbackEnabled,
+        reviewUrl: updated.reviewUrl ? "set" : "cleared",
+        fssaiNumber: updated.fssaiNumber ? "set" : "cleared",
       },
     });
 

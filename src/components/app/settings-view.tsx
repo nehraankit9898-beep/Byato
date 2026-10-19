@@ -14,7 +14,16 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { UserCog, Lock, Building2, Loader2, CheckCircle2, ShieldCheck, Rocket } from "lucide-react";
+import {
+  UserCog,
+  Lock,
+  Building2,
+  Loader2,
+  CheckCircle2,
+  ShieldCheck,
+  Rocket,
+  Star,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MfaCard } from "@/components/app/mfa-card";
 
@@ -265,6 +274,9 @@ export function SettingsView({ user }: { user: SessionUser }) {
       {/* Phase 6.3 — Marketing safety & customer experience (hotel roles only) */}
       {!isSuperAdmin && <MarketingSafetyCard user={user} />}
 
+      {/* Reputation & India compliance — Google review redirect + FSSAI */}
+      {!isSuperAdmin && <ReputationComplianceCard user={user} />}
+
       {/* Roadmap — hotel roles only */}
       {!isSuperAdmin && (
         <Card>
@@ -472,5 +484,144 @@ function MarketingSafetyForm({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Reputation & India compliance — Google review redirect + FSSAI      */
+/* ------------------------------------------------------------------ */
+
+function ReputationComplianceCard({ user }: { user: SessionUser }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["restaurant-settings"],
+    queryFn: () => api.get<SettingsResponse>("/api/settings"),
+  });
+
+  const canManage = user.role === "HOTEL_ADMIN" || user.role === "HOTEL_OWNER";
+
+  const save = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.put("/api/settings", body),
+    onSuccess: () => {
+      toast({ title: "Reputation & compliance settings saved" });
+      qc.invalidateQueries({ queryKey: ["restaurant-settings"] });
+    },
+    onError: (err: unknown) => {
+      toast({
+        title: "Could not save",
+        description: err instanceof ApiError ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (isLoading || !data) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-[15px]">
+            <Star className="h-4 w-4 text-primary" /> Google reviews & FSSAI
+          </CardTitle>
+          <CardDescription>Loading settings…</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-[15px]">
+          <Star className="h-4 w-4 text-primary" /> Google reviews & FSSAI
+        </CardTitle>
+        <CardDescription>
+          Turn happy guests into public Google reviews, and show your FSSAI licence on the digital
+          menu.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {/* Keyed by current server values: remounts with fresh state after save. */}
+        <ReputationForm
+          key={`${data.settings.reviewUrl ?? ""}-${data.settings.fssaiNumber ?? ""}`}
+          settings={data.settings}
+          canManage={canManage}
+          save={save}
+        />
+        {!canManage ? (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Only hotel admins can change these settings.
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReputationForm({
+  settings,
+  canManage,
+  save,
+}: {
+  settings: SettingsResponse["settings"];
+  canManage: boolean;
+  save: { isPending: boolean; mutate: (body: Record<string, unknown>) => void };
+}) {
+  const [reviewUrl, setReviewUrl] = useState(settings.reviewUrl ?? "");
+  const [fssai, setFssai] = useState(settings.fssaiNumber ?? "");
+  const fssaiClean = fssai.trim();
+  const fssaiValid = fssaiClean === "" || /^\d{14}$/.test(fssaiClean);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fssaiValid) return;
+    save.mutate({ reviewUrl: reviewUrl.trim(), fssaiNumber: fssaiClean });
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="rep-review">Google review link</Label>
+        <Input
+          id="rep-review"
+          type="url"
+          placeholder="https://search.google.com/local/writereview?placeid=…"
+          value={reviewUrl}
+          onChange={(e) => setReviewUrl(e.target.value)}
+          disabled={!canManage}
+          maxLength={500}
+        />
+        <p className="text-xs text-muted-foreground">
+          Guests who rate you 4–5 stars on your QR feedback page are shown a “Rate us on Google”
+          button with this link. Get it from your Google Business Profile → “Ask for reviews”. Low
+          ratings are never sent to Google — they stay private in your Feedback inbox.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="rep-fssai">FSSAI licence number</Label>
+        <Input
+          id="rep-fssai"
+          inputMode="numeric"
+          placeholder="14-digit number, e.g. 12345678901234"
+          value={fssai}
+          onChange={(e) => setFssai(e.target.value)}
+          disabled={!canManage}
+          maxLength={14}
+        />
+        {fssaiClean !== "" && !fssaiValid ? (
+          <p className="text-xs text-destructive">FSSAI number must be exactly 14 digits.</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Displayed in the footer of your digital menu — required display for Indian food
+            businesses. Leave empty if not applicable.
+          </p>
+        )}
+      </div>
+      {canManage ? (
+        <Button type="submit" disabled={save.isPending || !fssaiValid}>
+          {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save
+        </Button>
+      ) : null}
+    </form>
   );
 }

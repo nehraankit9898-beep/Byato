@@ -29,6 +29,8 @@ export interface PublicQrPayload {
   };
   consentText: string;
   feedbackEnabled: boolean;
+  /** Owner-verified public review link (null when not configured). */
+  reviewUrl: string | null;
 }
 
 export function usePublicQr(code: string) {

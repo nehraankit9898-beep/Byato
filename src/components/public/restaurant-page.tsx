@@ -489,13 +489,33 @@ function FeedbackPanel({ data }: { data: PublicQrPayload }) {
   }
 
   if (done) {
+    // Reputation loop: only 4-5 star ratings are invited to review publicly
+    // (a low rating never sends the guest to Google — the owner gets those
+    // privately via the feedback inbox instead).
+    const reviewUrl = rating >= 4 ? data.reviewUrl : null;
     return (
       <div className="rounded-2xl border bg-card p-8 text-center shadow-sm">
-        <p className="text-4xl">🙏</p>
+        <p className="text-4xl">{reviewUrl ? "🎉" : "🙏"}</p>
         <h2 className="mt-3 text-lg font-bold">Thank you!</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Your feedback goes straight to {data.restaurant.name}.
         </p>
+        {reviewUrl && (
+          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-left dark:border-amber-900 dark:bg-amber-950/40">
+            <p className="text-center text-sm font-semibold">Loved your experience? 💛</p>
+            <p className="mt-1 text-center text-xs text-muted-foreground">
+              A Google review helps other foodies discover {data.restaurant.name}.
+            </p>
+            <a
+              href={reviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#4285F4] px-4 py-3 text-sm font-bold text-white shadow transition hover:opacity-90"
+            >
+              <span aria-hidden>⭐</span> Rate us on Google
+            </a>
+          </div>
+        )}
       </div>
     );
   }
