@@ -29,6 +29,8 @@
  *  A7. The Docker `deps` layer MUST survive package.json's root postinstall —
  *      it copies only the two manifests, so `node scripts/prisma-generate.mjs`
  *      died with MODULE_NOT_FOUND and every image build failed in stage 1.
+ *  A8. A failing Trivy scan MUST be readable (JSON report + summary step) and
+ *      the runtime base MUST upgrade OS packages from the pinned snapshot.
  *
  * These are static invariants (no Docker daemon required). When a compose
  * binary IS available (env DOCKER_COMPOSE_BIN, or `docker compose` on PATH),
@@ -507,5 +509,63 @@ describe("A7 — Docker deps layer survives the root postinstall (CI-003)", () =
     expect(`${res.stdout}${res.stderr}`).toMatch(
       /Cannot find module|Module not found|MODULE_NOT_FOUND/i,
     );
+  });
+});
+
+/**
+ * A8 — a failing Trivy scan must be readable, and the runtime layer must not
+ * ship OS packages that already have a patch.
+ *
+ * CI-004 (2026-10-19): with CI-001/CI-003 fixed, both image builds went green
+ * and the gate moved to `Trivy vulnerability scan (web)`, which failed with
+ * exit code 1 and NO usable detail — trivy-action prints its table to the step
+ * log, i.e. to the archive host that a restricted environment cannot reach.
+ * So: both scans now emit a JSON report, and an `if: always()` summary step
+ * republishes the findings to the step log, the job summary and a check
+ * annotation without changing the verdict (both scans keep `exit-code: "1"`).
+ *
+ * The `apt-get upgrade` in `runtime-base` is the usual remedy for the OS-package
+ * half of those findings: a pinned base tag is a snapshot of Debian, so its
+ * packages lag `<suite>-security` from the day the tag is published.
+ */
+describe("A8 — Trivy findings are readable and the runtime layer is patched (CI-004)", () => {
+  const trivySteps = ci.split(/- name: Trivy vulnerability scan/m).slice(1);
+
+  test("both scans still gate, and each writes its own JSON report", () => {
+    expect(trivySteps.length).toBe(2);
+    const outputs = new Set<string>();
+    for (const step of trivySteps) {
+      expect(step).toContain("severity: HIGH,CRITICAL");
+      expect(step).toContain('exit-code: "1"');
+      expect(step).toContain('ignore-unfixed: "true"');
+      expect(step).toContain("format: json");
+      const output = step.match(/output: (\S+)/)?.[1];
+      expect(output).toBeTruthy();
+      if (output) outputs.add(output);
+    }
+    expect(outputs.size).toBe(2);
+  });
+
+  test("an always()-running summary step publishes findings and never changes the verdict", () => {
+    const summary =
+      ci.split(/- name: Trivy findings summary/m)[1]?.split(/\n {6}- name: /m)[0] ?? "";
+    expect(summary.length).toBeGreaterThan(0);
+    expect(summary).toContain("if: always()");
+    expect(summary).toContain("GITHUB_STEP_SUMMARY");
+    expect(summary).toContain("::error title=trivy HIGH/CRITICAL findings::");
+    // Informational: the step ends 0 so it can never mask or replace the scans'
+    // own exit-code 1 verdict (and it must not fail the job when a report is
+    // missing, e.g. when a scan was skipped).
+    expect(summary).toMatch(/^\s*exit 0\s*$/m);
+    expect(summary).not.toMatch(/^\s*exit 1\s*$/m);
+  });
+
+  test("the runtime base upgrades OS packages from the pinned base snapshot", () => {
+    const runtimeBase = dockerfile.split(/AS runtime-base\b/)[1]?.split(/^FROM /m)[0] ?? "";
+    expect(runtimeBase).toMatch(/apt-get upgrade -y --no-install-recommends/);
+    // Upgrading inside the same suite must not become a dist-upgrade/release
+    // change, which could swap the PostgreSQL client major version.
+    expect(runtimeBase).not.toMatch(/apt-get dist-upgrade/);
+    expect(runtimeBase).not.toMatch(/full-upgrade/);
   });
 });

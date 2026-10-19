@@ -87,7 +87,17 @@ ENV NODE_ENV=production \
 # small. `--no-install-recommends` avoids pulling in extra services.
 # The pgdg suite is derived from the base image's Debian codename so this
 # works on both bookworm- and trixie-based bun images.
+#
+# `apt-get upgrade` (CI-004, 2026-10-19): a pinned base-image tag is a snapshot
+# of Debian, so its OS packages fall behind `trixie-security` as soon as the tag
+# is published. The Trivy gate below fails the build on HIGH/CRITICAL findings
+# that HAVE a fix, so the runtime layer brings every already-installed package
+# up to the current patched level at build time instead of shipping known-fixed
+# CVEs. It upgrades within the same suite (no distribution change) and cannot
+# alter the bun binary, which is copied in by the base image, not installed
+# from apt.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
     && install -d /usr/share/postgresql-common/pgdg \
     && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \

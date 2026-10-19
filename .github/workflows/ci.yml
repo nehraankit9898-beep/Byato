@@ -298,6 +298,13 @@ jobs:
       # every docker job (image build, Trivy scan, compose startup, in-stack
       # export/backup/restore) silently unexecuted while the other three jobs
       # stayed green. tests/deployment-config.test.ts now guards the ref list.
+      # CI-004 (2026-10-19): each scan now writes a JSON report and the summary
+      # step below turns it into a log table + job summary + check annotation.
+      # Without that, a failing scan reports only "Process completed with exit
+      # code 1": the action's table goes to the log archive, which lives on a
+      # different host than the API and is unreachable from a restricted
+      # environment. The gate itself is untouched (severity, exit-code 1,
+      # ignore-unfixed).
       - name: Trivy vulnerability scan (web)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -305,6 +312,8 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: "true"
+          format: json
+          output: trivy-web.json
 
       - name: Trivy vulnerability scan (worker)
         uses: aquasecurity/trivy-action@v0.36.0
@@ -313,6 +322,66 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: "true"
+          format: json
+          output: trivy-worker.json
+
+      # Informational only: runs even when a scan failed and never changes the
+      # verdict (both scans above keep exit-code "1").
+      - name: Trivy findings summary
+        if: always()
+        run: |
+          set +e
+          python3 - <<'PY'
+          import json, os
+
+          ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+          rows = []
+          for path in ("trivy-web.json", "trivy-worker.json"):
+              if not os.path.exists(path):
+                  print("[trivy-summary] no report at %s (that scan did not run)" % path)
+                  continue
+              try:
+                  with open(path, encoding="utf-8") as fh:
+                      data = json.load(fh)
+              except Exception as exc:  # noqa: BLE001 - diagnostics must not crash
+                  print("[trivy-summary] cannot parse %s: %s" % (path, exc))
+                  continue
+              count = 0
+              for result in data.get("Results") or []:
+                  for v in result.get("Vulnerabilities") or []:
+                      count += 1
+                      rows.append((
+                          v.get("Severity") or "?",
+                          path,
+                          str(result.get("Target") or "-")[:40],
+                          result.get("Class") or "-",
+                          v.get("VulnerabilityID") or "-",
+                          v.get("PkgName") or "-",
+                          v.get("InstalledVersion") or "-",
+                          v.get("FixedVersion") or "no fix",
+                          (v.get("Title") or "")[:70],
+                      ))
+              print("[trivy-summary] %s: %d HIGH/CRITICAL finding(s) reported" % (path, count))
+
+          rows.sort(key=lambda r: (ORDER.get(r[0], 9), r[1], r[4]))
+          header = ("Severity", "Report", "Target", "Class", "ID", "Package", "Installed", "Fixed", "Title")
+          table = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+          for r in rows[:80]:
+              table.append("| " + " | ".join(str(x).replace("|", "/") for x in r) + " |")
+          text = "\n".join(table) if rows else "No HIGH/CRITICAL findings with a fix available."
+          print(text)
+
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as fh:
+                  fh.write("### Trivy - %d HIGH/CRITICAL finding(s)\n\n%s\n" % (len(rows), text))
+
+          if rows:
+              compact = "; ".join("%s %s %s %s->%s" % (r[0], r[4], r[5], r[6], r[7]) for r in rows[:15])
+              compact = compact.replace("%", "%25").replace("\r", "%0D")[:1900]
+              print("::error title=trivy HIGH/CRITICAL findings::%s" % compact)
+          PY
+          exit 0
 
       # Full stack startup: postgres + redis + migrate + web + worker with
       # healthchecks, then probe the real endpoints. Uses ONLY generated
