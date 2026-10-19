@@ -317,3 +317,55 @@ describe("A5 — GitHub Actions refs resolve to real published versions (CI-001)
     }
   });
 });
+
+/**
+ * A6 — a failing `docker build` must be diagnosable from the run metadata.
+ *
+ * CI-002 (2026-10-19): once CI-001 was fixed and the docker job actually ran,
+ * it failed in the single "Build production images" step, which built BOTH
+ * targets. The run metadata said only "Process completed with exit code 1":
+ * the step list could not say which target broke, and the raw log archive is
+ * served from `results-receiver.actions.githubusercontent.com` — a different
+ * host than the API — so a restricted environment (or anyone without the log
+ * download) could not see the cause at all.
+ *
+ * The steps below keep the gate exactly as strict (each build still exits
+ * non-zero) while making the failure legible: one named step per target,
+ * `--progress=plain`, the log captured to a file, its tail echoed to the step
+ * log AND published as an `::error` check annotation (readable through
+ * `GET /repos/{owner}/{repo}/check-runs/{id}/annotations`).
+ */
+describe("A6 — docker build failures are diagnosable (CI-002)", () => {
+  const dockerJob = ci.split(/^  docker:/m)[1]?.split(/^ {2}\w[\w-]*:/m)[0] ?? "";
+
+  test("the docker job exists in the workflow", () => {
+    expect(dockerJob.length).toBeGreaterThan(0);
+  });
+
+  test("each image target is built in its own named step", () => {
+    expect(dockerJob).toContain("name: Build web image (--target web)");
+    expect(dockerJob).toContain("name: Build worker image (--target worker)");
+  });
+
+  test("builds use plain progress and capture the full log to a file", () => {
+    const builds = dockerJob.split(/\r?\n/).filter((l) => /^\s*docker build\b/.test(l));
+    expect(builds.length).toBe(2);
+    for (const line of builds) {
+      expect(line).toContain("--progress=plain");
+      expect(line).toMatch(/> \/tmp\/build-(web|worker)\.log 2>&1/);
+    }
+  });
+
+  test("a failed build prints its log tail AND raises a check annotation", () => {
+    // Annotations are the only failure text reachable through the API host.
+    expect((dockerJob.match(/::error title=docker build/g) ?? []).length).toBe(2);
+    expect(
+      (dockerJob.match(/tail -n \d+ \/tmp\/build-(?:web|worker)\.log/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(4);
+  });
+
+  test("the build steps still fail the job (gate not weakened)", () => {
+    expect((dockerJob.match(/exit "\$status"/g) ?? []).length).toBe(2);
+    expect(dockerJob).not.toMatch(/docker build[^\n]*\|\|\s*true/);
+  });
+});

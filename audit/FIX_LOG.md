@@ -91,3 +91,29 @@ the PostgreSQL integration suite.
 `git revert` the single workflow hunk (`@v0.36.0` → `@0.36.0`) restores the
 previous behaviour; the A5 tests then fail, which is the intended signal. No
 schema, data, runtime code or dependency version changed.
+
+---
+
+# Fix Log — CI-002 (2026-10-19, same branch)
+
+Repairing CI-001 let the `docker` job run its steps for the first time in weeks
+— and it immediately failed in `Build production images` (run `39244641325`,
+`Process completed with exit code 1` at log line 488). That step built **both**
+targets in one command, so the step list could not say which one broke, and the
+raw log archive is served from `results-receiver.actions.githubusercontent.com`
+— a different host than `api.github.com` — so the cause was unreadable from
+here.
+
+| Finding | Files changed | Change | Regression test | Result |
+|---|---|---|---|---|
+| CI-002 — a docker build failure was undiagnosable from run metadata | `.github/workflows/ci.yml`, `tests/deployment-config.test.ts` | One named step per target (`Build web image (--target web)` / `Build worker image (--target worker)`), `--progress=plain`, log captured to `/tmp/build-<target>.log`, tail echoed to the step log **and** published as an `::error` check annotation. Each step still `exit "$status"`, so the gate is unchanged in strength | `deployment-config` › A6 (5 tests) | 4 of the 5 fail against the previous workflow; the file is now 25 pass / 0 fail (was 16 on `main`) |
+
+Read the annotation with:
+
+```bash
+gh api repos/nehraankit9898-beep/Byato/check-runs/<docker-job-id>/annotations \
+  --jq '.[] | select(.annotation_level=="failure") | .message'
+```
+
+The actual image-build defect this exposes is diagnosed and fixed in the commits
+that follow on this branch.

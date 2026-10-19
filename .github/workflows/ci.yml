@@ -225,14 +225,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build production images
+      # AUDIT FIX (deploy-2): the LAST stage in the Dockerfile is
+      # admin-bootstrap, so a build WITHOUT --target produces the ADMIN image —
+      # not web. Every web image build must pass --target web.
+      #
+      # CI-002 (2026-10-19): one step per target + the failure text in a check
+      # annotation. When this job fails, the step list and the annotations are
+      # readable through the GitHub API, while the raw log archive lives on a
+      # different host that a restricted environment cannot reach — so a
+      # two-command step that says only "exit code 1" is undiagnosable. Each
+      # target now fails its OWN named step, and the tail of the plain-progress
+      # build log is echoed both to the step log and to an ::error annotation.
+      - name: Build web image (--target web)
         run: |
-          # AUDIT FIX (deploy-2): the LAST stage in the Dockerfile is
-          # admin-bootstrap, so a build WITHOUT --target produces the ADMIN
-          # image — not web. Every web image build must pass --target web
-          # (the worker build already passed --target worker).
-          docker build --target web -t stayloop-web:ci .
-          docker build --target worker -t stayloop-worker:ci .
+          set -uo pipefail
+          docker build --progress=plain --target web -t stayloop-web:ci . > /tmp/build-web.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "----- docker build --target web FAILED (last 80 log lines) -----"
+            tail -n 80 /tmp/build-web.log
+            echo "::error title=docker build --target web failed::$(tail -n 30 /tmp/build-web.log | awk '{gsub(/%/,"%25"); printf "%s%%0A", $0}' | cut -c1-2000)"
+          fi
+          exit "$status"
+
+      - name: Build worker image (--target worker)
+        run: |
+          set -uo pipefail
+          docker build --progress=plain --target worker -t stayloop-worker:ci . > /tmp/build-worker.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "----- docker build --target worker FAILED (last 80 log lines) -----"
+            tail -n 80 /tmp/build-worker.log
+            echo "::error title=docker build --target worker failed::$(tail -n 30 /tmp/build-worker.log | awk '{gsub(/%/,"%25"); printf "%s%%0A", $0}' | cut -c1-2000)"
+          fi
+          exit "$status"
 
       # NOTE (CI-001, 2026-10-19): aquasecurity/trivy-action publishes its tags
       # WITH a `v` prefix (`v0.36.0`). A bare `@0.36.0` cannot be resolved, and
