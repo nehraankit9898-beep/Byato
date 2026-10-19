@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Providers } from "@/components/app/providers";
 import { LoginScreen } from "@/components/app/login-screen";
@@ -67,6 +67,8 @@ import { AttendanceView } from "@/components/app/attendance-view";
 import { BranchesView } from "@/components/app/branches-view";
 import { AiView } from "@/components/app/ai-view";
 import { StaffView } from "@/components/app/staff-view";
+import { OnboardingView } from "@/components/app/onboarding-view";
+import { onboardingDismissedKey } from "@/components/app/onboarding-view";
 import { api, clearSessionToken } from "@/lib/api-client";
 import type { SessionUser, ViewId } from "@/lib/types";
 import { Hotel } from "lucide-react";
@@ -95,6 +97,53 @@ function App() {
     queryFn: () => api.get<{ user: SessionUser }>("/api/auth/me"),
     retry: false,
   });
+
+  // First-run onboarding: a hotel owner/admin whose workspace is empty (no
+  // menu items AND no QR codes) lands on the Setup Guide instead of the
+  // dashboard — unless they dismissed it earlier (localStorage, per hotel).
+  // Tenants that already have data skip straight to the dashboard.
+  const onboardingChecked = useRef(false);
+  const sessionUser = data?.user ?? null;
+  useEffect(() => {
+    if (!sessionUser) {
+      onboardingChecked.current = false; // re-arm for the next login
+      return;
+    }
+    if (onboardingChecked.current) return;
+    onboardingChecked.current = true;
+    if (sessionUser.role !== "HOTEL_OWNER" && sessionUser.role !== "HOTEL_ADMIN") return;
+    if (sessionUser.mustChangePassword || sessionUser.mfaSetupRequired) return;
+    try {
+      if (window.localStorage.getItem(onboardingDismissedKey(sessionUser.hotelId))) return;
+    } catch {
+      return; // storage unavailable — don't force the wizard
+    }
+    let alive = true;
+    void (async () => {
+      try {
+        const [menu, qr] = await Promise.all([
+          api.get<{ items: unknown[] }>("/api/menu/items"),
+          api.get<{ qrCodes: unknown[] }>("/api/qr-codes"),
+        ]);
+        if (!alive) return;
+        if ((menu.items?.length ?? 0) === 0 && (qr.qrCodes?.length ?? 0) === 0) {
+          setView("onboarding");
+        } else {
+          // Existing tenant with data — mark as seen so we never nag them.
+          try {
+            window.localStorage.setItem(onboardingDismissedKey(sessionUser.hotelId), "1");
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // API hiccup — land on the dashboard as usual.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [sessionUser]);
 
   async function handleLogout() {
     try {
@@ -325,6 +374,8 @@ function App() {
         <BranchesView />
       ) : effectiveView === "ai" ? (
         <AiView user={user} />
+      ) : effectiveView === "onboarding" ? (
+        <OnboardingView user={user} setView={setView} />
       ) : (
         <ComingSoonView view={view} />
       )}
