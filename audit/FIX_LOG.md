@@ -35,3 +35,59 @@ FUNC-001 (custom roles), SEC-007 (rate limits on payment-link routes), DB-001/DB
 
 ## Rollback
 Each fix is independent. To revert one, `git revert` the relevant hunk (the files are listed above). Nothing in this set changes the database schema or stored data.
+
+---
+
+# Fix Log — CI-001 (2026-10-19)
+
+Branch: `arena/71c0dcb9-byato` (base `9c2f2cb`, main).
+
+| Finding | Files changed | Change | Regression test | Result |
+|---|---|---|---|---|
+| CI-001 — unresolvable GitHub Actions ref silently disabled the docker release gate | `.github/workflows/ci.yml`, `tests/deployment-config.test.ts`, `LAUNCH_CHECKLIST.md`, `audit/REMAINING_BLOCKERS.md` | `aquasecurity/trivy-action@0.36.0` → `@v0.36.0` (upstream tags are `v`-prefixed); added A5 allowlist guard so any future unresolvable ref fails a test instead of a job | `deployment-config` › A5 (4 tests) | 3 of the 4 fail on the original ref, all 20 pass with the fix |
+
+## Evidence
+
+`gh run view` for runs `39142757093`, `39220571032`, `39235756453`, `39238304015`
+(main pushes for PRs #18, #22, #23 and the PR pipelines themselves) all show the
+same shape:
+
+```
+✓ quality-and-security   ✓ postgres-migrations   ✓ postgres-integration
+X docker — X Set up job
+   "Unable to resolve action `aquasecurity/trivy-action@0.36.0`,
+    unable to find version `0.36.0`"
+```
+
+Upstream tag check via the GitHub API (2026-10-19):
+`/repos/aquasecurity/trivy-action/git/ref/tags/v0.36.0` → **200**,
+`/repos/aquasecurity/trivy-action/git/ref/tags/0.36.0` → **404**.
+
+Consequence: the docker job died in ~3 s, before `docker build`, before both
+Trivy scans, before compose startup/health checks, before the in-stack export
+round-trip and before the pg_dump backup + restore. Those checks are listed as
+release gates in `LAUNCH_CHECKLIST.md` §A but had **not** been executed by CI on
+any recent commit. The three green jobs are unaffected — they do prove
+frozen install, dependency audit (prod), secret scan, typecheck, lint, the full
+SQLite test suite, the production build, PostgreSQL 16 migrations + drift and
+the PostgreSQL integration suite.
+
+## Verification in this sandbox (network-restricted: `binaries.prisma.sh` blocked)
+
+| Check | Result |
+|---|---|
+| `bun install --frozen-lockfile --ignore-scripts` (Bun 1.4.3) | exit 0, 592 packages |
+| `bun test tests/deployment-config.test.ts` (Prisma-free suite) | 20 pass, 0 fail |
+| same test against the original broken ref | 17 pass, **3 fail** |
+| `npx eslint .` (whole tree) | exit 0 |
+| `prettier --check` on the changed files | exit 0 |
+| `bun run scripts/scan-secrets.ts` | exit 0, clean |
+| `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** |
+| `npm audit --audit-level=high` (full tree) | 5 high — all the DEP-002 dev-only chain `braces * → micromatch → fast-glob → @next/eslint-plugin-next → eslint-config-next`; no patched `braces` exists upstream, `npm audit fix --force` would downgrade to eslint-config-next 14 |
+| `prisma generate` / `bun run typecheck` / `bun run test` / `bun run build` | **NOT RUNNABLE HERE** — Prisma CLI downloads `libquery_engine.so.node` from the blocked host even with `engineType = "client"` and `--no-engine`. CI covers all four. |
+
+## Rollback
+
+`git revert` the single workflow hunk (`@v0.36.0` → `@0.36.0`) restores the
+previous behaviour; the A5 tests then fail, which is the intended signal. No
+schema, data, runtime code or dependency version changed.

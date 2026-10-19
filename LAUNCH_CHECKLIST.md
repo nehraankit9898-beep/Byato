@@ -28,6 +28,18 @@ provider) — run the exact verification steps listed.
 - 🔧 CI workflow (`.github/workflows/ci.yml`) green on your fork — including
   the docker job (build with **--target web** + Trivy + compose startup +
   in-stack export/backup)
+  - **CI-001 (2026-10-19):** every run from `39142757093` to `39238304015`
+    (main *and* PRs #20–#23) failed in the `docker` job at **"Set up job"**
+    because the Trivy step pinned `aquasecurity/trivy-action@0.36.0`, and that
+    repository publishes **`v`-prefixed** tags (`v0.36.0`). An unresolvable ref
+    kills the job before any step runs, so `quality-and-security`,
+    `postgres-migrations` and `postgres-integration` stayed green while the
+    Docker + Trivy + compose-startup + in-stack export/backup/restore gate had
+    **never actually executed**. Fixed to `@v0.36.0`, with a regression guard
+    (`tests/deployment-config.test.ts` › A5 — verified action-ref allowlist).
+    Tick this box only after a run where the docker job *executed its steps*
+    and passed; a 3-second "Set up job" failure is a skipped gate, not a
+    passing one.
 
 ## B. Infrastructure (staging/VPS)
 

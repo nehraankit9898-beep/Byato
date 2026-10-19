@@ -234,8 +234,14 @@ jobs:
           docker build --target web -t stayloop-web:ci .
           docker build --target worker -t stayloop-worker:ci .
 
+      # NOTE (CI-001, 2026-10-19): aquasecurity/trivy-action publishes its tags
+      # WITH a `v` prefix (`v0.36.0`). A bare `@0.36.0` cannot be resolved, and
+      # GitHub fails the job at "Set up job" — BEFORE any step runs. That made
+      # every docker job (image build, Trivy scan, compose startup, in-stack
+      # export/backup/restore) silently unexecuted while the other three jobs
+      # stayed green. tests/deployment-config.test.ts now guards the ref list.
       - name: Trivy vulnerability scan (web)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: stayloop-web:ci
           severity: HIGH,CRITICAL
@@ -243,7 +249,7 @@ jobs:
           ignore-unfixed: "true"
 
       - name: Trivy vulnerability scan (worker)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: stayloop-worker:ci
           severity: HIGH,CRITICAL
