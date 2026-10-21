@@ -18,6 +18,8 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
+import { enableSqliteWal } from "./test-db-concurrency";
+
 const ROOT = resolve(import.meta.dir, "..");
 const PORT = 3100;
 const BASE = `http://localhost:${PORT}`;
@@ -214,6 +216,23 @@ async function main() {
     process.exit(1);
   }
 
+  // 2026-10-21 CI flake fix: the schema push leaves the disposable database
+  // in SQLite's default rollback-journal mode. Each suite then runs in its
+  // OWN process while the dev server keeps its own connection, so a second
+  // writer/reader failed IMMEDIATELY with "SQLITE_BUSY: database is locked".
+  // Two real CI failures came from this:
+  //   - tests/super-admin-platform.test.ts:103 → a fixture updateMany threw
+  //     "Operation has timed out" BEFORE saJar was assigned, so every later
+  //     request in the file returned 401 (misleading auth cascade);
+  //   - tests/audit-fixes.test.ts:746 → a findFirst timed out.
+  // WAL is stored in the database file, so every process that opens it after
+  // this point (seed, server, per-file suites) gets non-blocking readers.
+  // Residual writer-vs-writer collisions are handled by the bounded retry in
+  // tests/helpers.ts (PRAGMA busy_timeout is not honoured by the libsql
+  // native binding — verified).
+  console.log("\n[1/6] Switching the test database to WAL journal mode…");
+  await enableSqliteWal(`file:${dbFile}`);
+
   // 2. Seed with known credentials
   console.log("\n[2/6] Seeding synthetic test data…");
   const seedEnv: NodeJS.ProcessEnv = {
@@ -323,6 +342,10 @@ async function main() {
       // here, so `bun run test` silently skipped it.
       "tests/export-policy.test.ts",
       "tests/backup-schedule.test.ts",
+      // 2026-10-21 CI flake fix: WAL + bounded SQLITE_BUSY retries for the
+      // disposable test database. Removing WAL (or making the retry swallow
+      // non-lock errors) fails this suite.
+      "tests/test-db-concurrency.test.ts",
       "tests/bootstrap-atomicity.test.ts",
       // RECHECK REGRESSION: the F01–F18 audit-fix suite was previously MISSING
       // from this list — `bun run test` silently skipped it. Registered now.
@@ -363,7 +386,6 @@ async function main() {
       "tests/custom-role-resolution.test.ts",
       "tests/custom-role-api.test.ts",
       "tests/payment-link-limit.test.ts",
-      "tests/export-policy.test.ts",
       "tests/payment-link-settle.test.ts",
       "tests/payment-callback-routes.test.ts",
       // Module-load order in the RBAC import cycle: loading

@@ -3,6 +3,38 @@
  */
 import { createHmac } from "crypto";
 
+import { retryOnSqliteContention } from "../scripts/test-db-concurrency";
+
+/**
+ * Wrap a test Prisma client so TRANSIENT SQLite lock errors are retried.
+ *
+ * Why (2026-10-21 CI): every suite runs in its own process while the dev
+ * server holds its own connection to the same SQLite file. Two real failures
+ * came from a fixture write/read colliding with a server write:
+ *   - tests/super-admin-platform.test.ts:103 (`db.user.updateMany` →
+ *     "Operation has timed out") aborted the first test BEFORE `saJar` was
+ *     assigned, so every later request in the file answered 401;
+ *   - tests/audit-fixes.test.ts:746 (`db.customer.findFirst` → P1008).
+ *
+ * Only contention errors are retried; every other error is re-thrown on the
+ * first attempt, so genuine bugs are never masked. Application code is NOT
+ * wrapped — this is test infrastructure only.
+ */
+function withSqliteContentionRetry(client: import("@prisma/client").PrismaClient) {
+  return client.$extends({
+    query: {
+      // `query(args)` re-executes the statement on each call; a failed
+      // SQLITE_BUSY attempt never committed, so the retry cannot duplicate it.
+      $allOperations: ({ args, query }) =>
+        retryOnSqliteContention(() => query(args), {
+          attempts: 10,
+          baseDelayMs: 100,
+          maxDelayMs: 1000,
+        }),
+    },
+  });
+}
+
 /**
  * Test-harness Prisma client.
  *
@@ -21,7 +53,10 @@ export function testDb(): import("@prisma/client").PrismaClient {
     // Test-only synchronous adapter loading keeps this path out of production initialization.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaLibSQL } = require("@prisma/adapter-libsql");
-    return new PrismaClient({ adapter: new PrismaLibSQL({ url: url.split("?")[0] }) });
+    const client = new PrismaClient({ adapter: new PrismaLibSQL({ url: url.split("?")[0] }) });
+    // Test-only: retry transient cross-process SQLite lock errors so a
+    // server write can never abort a fixture mid-suite (see above).
+    return withSqliteContentionRetry(client) as unknown as import("@prisma/client").PrismaClient;
   }
   return new PrismaClient();
 }

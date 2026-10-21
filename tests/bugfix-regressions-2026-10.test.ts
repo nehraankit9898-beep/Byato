@@ -232,4 +232,19 @@ describe("repository hygiene", () => {
       .filter((f) => !runner.includes(`"tests/${f}"`));
     expect(missing).toEqual([]);
   });
+
+  test("no suite is registered twice in scripts/run-tests.ts", () => {
+    // REGRESSION (2026-10-21): the original "missing registration" failure was
+    // fixed by adding tests/export-policy.test.ts — TWICE. The presence guard
+    // above cannot see that, so the suite silently ran twice on every CI run
+    // and one stale copy could drift from the other. Registration is a SET.
+    const runner = readFileSync(join(ROOT, "scripts/run-tests.ts"), "utf8");
+    const registered = [...runner.matchAll(/"tests\/([^"/]+\.test\.ts)"/g)].map((m) => m[1]);
+    const counts = new Map<string, number>();
+    for (const file of registered) counts.set(file, (counts.get(file) ?? 0) + 1);
+    const duplicates = [...counts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([file, count]) => `${file} ×${count}`);
+    expect(duplicates).toEqual([]);
+  });
 });
