@@ -10,6 +10,8 @@
   --font-mono: var(--font-geist-mono);
   /* Luxury type system: Cormorant Garamond (display) + Geist (UI/text). */
   --font-display: var(--font-cormorant);
+  /* `font-serif` anywhere in the app resolves to the editorial face. */
+  --font-serif: var(--font-cormorant), Georgia, "Times New Roman", serif;
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
   --color-gold-ink: var(--gold-ink);
@@ -214,7 +216,12 @@
   .lux-rule {
     height: 1px;
     border: 0;
-    background: linear-gradient(90deg, var(--gold) 0%, color-mix(in oklch, var(--gold) 25%, transparent) 45%, transparent 100%);
+    background: linear-gradient(
+      90deg,
+      var(--gold) 0%,
+      color-mix(in oklch, var(--gold) 25%, transparent) 45%,
+      transparent 100%
+    );
   }
 
   /* Primary surface: paper card, hairline border, diffused ink shadow. */
@@ -230,7 +237,11 @@
   /* Faint champagne wash for hero / empty-state panels. */
   .lux-sheen {
     background:
-      radial-gradient(120% 90% at 12% 0%, color-mix(in oklch, var(--gold) 12%, transparent) 0%, transparent 55%),
+      radial-gradient(
+        120% 90% at 12% 0%,
+        color-mix(in oklch, var(--gold) 12%, transparent) 0%,
+        transparent 55%
+      ),
       linear-gradient(180deg, var(--porcelain) 0%, var(--background) 100%);
   }
 
@@ -244,7 +255,12 @@
 
   /* Champagne gradient text — for one hero word only, never for body copy. */
   .lux-gold-text {
-    background: linear-gradient(100deg, oklch(0.82 0.07 86) 0%, oklch(0.68 0.09 78) 50%, oklch(0.86 0.05 90) 100%);
+    background: linear-gradient(
+      100deg,
+      oklch(0.82 0.07 86) 0%,
+      oklch(0.68 0.09 78) 50%,
+      oklch(0.86 0.05 90) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

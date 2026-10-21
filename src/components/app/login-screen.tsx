@@ -25,6 +25,14 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
+/**
+ * Sign-in — "Ivory, Ink & Champagne".
+ *
+ * Presentation only: the auth flow (hotel vs platform admin, MFA challenge,
+ * token storage, error copy) is unchanged. The brand column is now an ink panel
+ * with an editorial serif line and hairline-separated proof points instead of a
+ * saturated gradient; the form column is paper with uppercase micro-labels.
+ */
 export function LoginScreen({
   onLoggedIn,
   onGoRegister,
@@ -111,102 +119,107 @@ export function LoginScreen({
     setError(null);
   }
 
+  const proofPoints = [
+    { icon: Repeat, text: "Every visit remembered, automatically" },
+    { icon: BellRing, text: "Consent-first campaigns — never a cold message" },
+    { icon: BarChart3, text: "Retention measured on your own data" },
+    { icon: ShieldCheck, text: "Role-based access, tenant-level privacy" },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-background">
-      {/* Brand panel */}
-      <div className="relative hidden lg:flex lg:w-[46%] flex-col justify-between overflow-hidden bg-[linear-gradient(150deg,#7c2d12_0%,#92400e_35%,#b45309_70%,#d97706_100%)] text-amber-50 p-10 xl:p-14">
-        <div className="brand-pattern absolute inset-0 pointer-events-none" />
+      {/* Brand panel — ink, hairline gold frame, editorial serif */}
+      <div className="lux-ink-panel relative hidden lg:flex lg:w-[47%] flex-col justify-between overflow-hidden p-10 xl:p-14">
+        <div className="pointer-events-none absolute inset-4 border border-[color:var(--gold)]/20" />
         <div className="relative">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 backdrop-blur border border-white/20">
-              <Hotel className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-xl font-bold tracking-tight">Beyto</p>
-              <p className="text-xs text-amber-100/80">Restaurant CRM & Guest Loyalty</p>
-            </div>
-          </div>
+          <p className="lux-eyebrow" style={{ color: "oklch(0.82 0.07 84)" }}>
+            Guest intelligence
+          </p>
+          <p className="mt-3 font-serif text-[26px] font-semibold uppercase tracking-[0.28em]">
+            Beyto
+          </p>
         </div>
 
         <div className="relative max-w-md">
           <motion.h1
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-4xl xl:text-[2.75rem] font-bold leading-tight tracking-tight"
+            transition={{ duration: 0.7, delay: 0.05 }}
+            className="lux-display text-[44px] xl:text-[52px]"
           >
-            Turn one-time guests into loyal regulars.
+            Turn one-time guests into <em className="italic text-[color:var(--gold)]">regulars</em>.
           </motion.h1>
           <motion.p
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="mt-4 text-amber-100/90 text-base leading-relaxed"
+            transition={{ duration: 0.7, delay: 0.15 }}
+            className="mt-6 max-w-sm text-[14px] leading-[1.85] text-[color:oklch(0.78_0.012_82)]"
           >
-            Know every guest who walks through your doors. Track visits, record consent the right
-            way, and watch your repeat-customer rate climb — all in one simple dashboard.
+            Know every guest who walks through your doors. Record visits, keep consent honest, and
+            watch your repeat rate rise — quietly, in one place.
           </motion.p>
 
-          <div className="mt-8 space-y-4">
-            {[
-              { icon: Repeat, text: "Automatic visit tracking & guest history" },
-              { icon: BellRing, text: "Consent-first marketing (GDPR-friendly)" },
-              { icon: BarChart3, text: "Real retention insights, live from your data" },
-              { icon: ShieldCheck, text: "Role-based access and tenant-level privacy" },
-            ].map((f, i) => (
+          <div className="mt-10 border-t border-white/10">
+            {proofPoints.map((f, i) => (
               <motion.div
                 key={f.text}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + i * 0.1 }}
-                className="flex items-center gap-3"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.25 + i * 0.08 }}
+                className="flex items-center gap-4 border-b border-white/10 py-3.5"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/12 border border-white/15">
-                  <f.icon className="h-4 w-4" />
-                </div>
-                <p className="text-sm text-amber-50/95">{f.text}</p>
+                <f.icon className="h-[15px] w-[15px] shrink-0 text-[color:oklch(0.8_0.075_82)]" />
+                <p className="text-[12.5px] tracking-[0.01em] text-[color:oklch(0.88_0.008_85)]">
+                  {f.text}
+                </p>
               </motion.div>
             ))}
           </div>
         </div>
 
-        <div className="relative text-xs text-amber-100/70">
-          © {new Date().getFullYear()} Beyto · Restaurant CRM & Ordering
+        <div className="relative flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-white/35">
+          <span>© {new Date().getFullYear()} Beyto</span>
+          <span>Hospitality, held quietly</span>
         </div>
       </div>
 
-      {/* Form panel */}
-      <div className="flex flex-1 items-center justify-center p-6 sm:p-10">
+      {/* Form panel — paper */}
+      <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full max-w-md"
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-[400px]"
         >
-          {/* Mobile logo */}
-          <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-              <Hotel className="h-7 w-7" />
+          {/* Mobile wordmark */}
+          <div className="mb-10 flex flex-col items-center gap-2 lg:hidden">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[4px] border border-[color:var(--gold)]/40 bg-[color:oklch(0.2_0.012_72)] text-[color:oklch(0.82_0.075_82)]">
+              <Hotel className="h-5 w-5" />
             </div>
-            <div className="text-center">
-              <h1 className="text-2xl font-bold tracking-tight">Beyto</h1>
-              <p className="text-xs text-muted-foreground">Restaurant CRM & Guest Loyalty</p>
-            </div>
-          </div>
-
-          <div className="mb-7">
-            <h2 className="text-2xl font-bold tracking-tight">
-              {mode === "platform" ? "Platform admin" : "Welcome back"}
-            </h2>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              {mode === "platform"
-                ? "Sign in to the multi-hotel platform control centre."
-                : "Sign in to manage your restaurant's guests and visits."}
+            <p className="mt-1 font-serif text-[20px] font-semibold uppercase tracking-[0.26em]">
+              Beyto
             </p>
           </div>
 
-          {/* Mode switch — Hotel vs Platform Super Admin */}
-          <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="tablist">
+          <div>
+            <p className="lux-eyebrow">
+              {mode === "platform" ? "Platform control" : "Welcome back"}
+            </p>
+            <h2 className="lux-display mt-3 text-[34px]">
+              {mode === "platform" ? "Platform admin" : "Sign in"}
+            </h2>
+            <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
+              {mode === "platform"
+                ? "Sign in to the multi-hotel platform control centre."
+                : "Continue to your guests, campaigns and reports."}
+            </p>
+          </div>
+
+          {/* Mode switch — hairline segmented control */}
+          <div
+            className="mt-7 grid grid-cols-2 gap-0 border-b border-[color:var(--border)]"
+            role="tablist"
+          >
             <button
               type="button"
               role="tab"
@@ -215,10 +228,10 @@ export function LoginScreen({
                 setMode("hotel");
                 setError(null);
               }}
-              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-2 border-b pb-3 text-[10.5px] font-medium uppercase tracking-[0.14em] transition-colors duration-300 ${
                 mode === "hotel"
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "border-[color:var(--gold)] text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <Hotel className="h-3.5 w-3.5" /> Hotel sign-in
@@ -231,10 +244,10 @@ export function LoginScreen({
                 setMode("platform");
                 setError(null);
               }}
-              className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+              className={`flex items-center justify-center gap-2 border-b pb-3 text-[10.5px] font-medium uppercase tracking-[0.14em] transition-colors duration-300 ${
                 mode === "platform"
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "border-[color:var(--gold)] text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <PlatformIcon className="h-3.5 w-3.5" /> Platform admin
@@ -242,30 +255,32 @@ export function LoginScreen({
           </div>
 
           {error && (
-            <Alert variant="destructive" className="mb-5">
+            <Alert variant="destructive" className="mt-6 rounded-[4px]">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {mfaToken ? (
-            <form onSubmit={handleMfaVerify} className="space-y-4">
-              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-                <p className="flex items-center gap-2 text-sm font-semibold text-primary">
-                  <KeyRound className="h-4 w-4" /> Two-factor authentication
+            <form onSubmit={handleMfaVerify} className="mt-6 space-y-5">
+              <div className="border-l-2 border-[color:var(--gold)] bg-[color:var(--porcelain)] px-4 py-3">
+                <p className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.14em] text-[color:var(--gold-ink)]">
+                  <KeyRound className="h-3.5 w-3.5" /> Two-factor authentication
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
                   Enter the 6-digit code from your authenticator app, or one of your single-use
                   backup codes.
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mfa-code">Authentication code</Label>
+                <Label htmlFor="mfa-code" className={labelClass}>
+                  Authentication code
+                </Label>
                 <Input
                   id="mfa-code"
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   placeholder="••••••"
-                  className="h-11 text-center text-lg tracking-[0.4em] font-mono"
+                  className="h-11 rounded-[4px] text-center text-[17px] tracking-[0.4em] font-mono"
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value.replace(/\s/g, ""))}
                   maxLength={10}
@@ -275,7 +290,7 @@ export function LoginScreen({
               </div>
               <Button
                 type="submit"
-                className="w-full h-11 text-[15px]"
+                className={primaryButtonClass}
                 disabled={loading || mfaCode.length < 6}
               >
                 {loading ? (
@@ -284,29 +299,31 @@ export function LoginScreen({
                   </>
                 ) : (
                   <>
-                    Verify and sign in <ArrowRight className="h-4 w-4" />
+                    Verify and sign in <ArrowRight className="h-3.5 w-3.5" />
                   </>
                 )}
               </Button>
               <button
                 type="button"
                 onClick={backToPassword}
-                className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+                className="flex w-full items-center justify-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-foreground"
               >
                 <ArrowLeft className="h-3 w-3" /> Back to sign in
               </button>
             </form>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="mt-6 space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+                <Label htmlFor="email" className={labelClass}>
+                  Email address
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground/70" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="you@yourhotel.com"
-                    className="pl-10 h-11"
+                    placeholder="you@yourrestaurant.com"
+                    className={inputClass}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
@@ -316,16 +333,16 @@ export function LoginScreen({
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                </div>
+                <Label htmlFor="password" className={labelClass}>
+                  Password
+                </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground/70" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="pl-10 pr-10 h-11"
+                    className={`${inputClass} pr-10`}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -334,7 +351,7 @@ export function LoginScreen({
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 transition-colors hover:text-foreground"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -342,7 +359,7 @@ export function LoginScreen({
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-11 text-[15px]" disabled={loading}>
+              <Button type="submit" className={primaryButtonClass} disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" /> Signing you in…
@@ -350,7 +367,7 @@ export function LoginScreen({
                 ) : (
                   <>
                     {mode === "platform" ? "Sign in as super admin" : "Sign in"}{" "}
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </>
                 )}
               </Button>
@@ -358,22 +375,23 @@ export function LoginScreen({
           )}
 
           {/* Security notice (Phase 2): demo credentials removed from the UI */}
-          <div className="mt-7 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 text-xs text-muted-foreground">
-            Sign in with the account created for your hotel. Demo credentials are no longer embedded
-            in the application — hotel owners receive a one-time invitation link, and platform super
-            admins are provisioned through a secure bootstrap process.
+          <div className="mt-7 border-l-2 border-[color:var(--gold)]/60 pl-4 text-[11.5px] leading-relaxed text-muted-foreground">
+            Sign in with the account created for your hotel. Hotel owners receive a one-time
+            invitation link; platform super admins are provisioned through a secure bootstrap
+            process.
           </div>
 
           {mode === "hotel" && (
-            <p className="mt-6 text-center text-sm text-muted-foreground">
+            <p className="mt-8 border-t border-[color:var(--border)] pt-6 text-[12.5px] text-muted-foreground">
               New restaurant?{" "}
               <button
                 type="button"
                 onClick={onGoRegister}
-                className="font-semibold text-primary hover:underline underline-offset-4"
+                className="group inline-flex items-center gap-1.5 font-medium text-[color:var(--gold-ink)] transition-colors hover:text-foreground"
               >
-                <Building2 className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
+                <Building2 className="h-3.5 w-3.5" />
                 Register your restaurant
+                <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
               </button>
             </p>
           )}
@@ -382,3 +400,11 @@ export function LoginScreen({
     </div>
   );
 }
+
+/* Shared field styling — keeps labels, inputs and the primary action in one
+   place so the sign-in and MFA forms stay identical. */
+const labelClass = "text-[10.5px] font-medium uppercase tracking-[0.16em] text-muted-foreground";
+const inputClass =
+  "h-11 rounded-[4px] border-[color:var(--border)] bg-white/60 pl-10 text-[13.5px] shadow-none focus-visible:ring-1 focus-visible:ring-[color:var(--gold)] focus-visible:ring-offset-0";
+const primaryButtonClass =
+  "h-11 w-full rounded-[4px] bg-[color:var(--ink)] text-[11px] font-medium uppercase tracking-[0.16em] text-[color:oklch(0.98_0.004_90)] hover:bg-[color:oklch(0.29_0.01_72)]";

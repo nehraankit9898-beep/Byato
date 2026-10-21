@@ -14,14 +14,14 @@ real app in `src/app/globals.css`.
 Not gold gradients, not glassmorphism, not more animation. Luxury in an operations tool is
 **restraint plus precision**:
 
-| Signal | Cheap version | Luxury version |
-|---|---|---|
-| Colour | saturated amber/orange everywhere | warm ivory paper, espresso ink, **one** champagne accent used sparingly |
-| Type | one sans, bold headings, tight tracking | serif headings (Cormorant) + neutral sans for UI (Geist) |
-| Structure | heavy shadows and big rounded cards | hairlines, 6px radii, shadow only on floating layers |
-| Density | equal weight for everything | one primary number per card, everything else recedes |
-| Motion | 150ms snappy, bouncy | 420ms eased, almost imperceptible |
-| Copy | "Boost your retention 🚀" | "Three guests worth a quiet word." |
+| Signal    | Cheap version                           | Luxury version                                                          |
+| --------- | --------------------------------------- | ----------------------------------------------------------------------- |
+| Colour    | saturated amber/orange everywhere       | warm ivory paper, espresso ink, **one** champagne accent used sparingly |
+| Type      | one sans, bold headings, tight tracking | serif headings (Cormorant) + neutral sans for UI (Geist)                |
+| Structure | heavy shadows and big rounded cards     | hairlines, 6px radii, shadow only on floating layers                    |
+| Density   | equal weight for everything             | one primary number per card, everything else recedes                    |
+| Motion    | 150ms snappy, bouncy                    | 420ms eased, almost imperceptible                                       |
+| Copy      | "Boost your retention 🚀"               | "Three guests worth a quiet word."                                      |
 
 The test: **screenshot any screen, remove the logo — would a hotel GM believe it costs ₹2,499/month?**
 If it looks like a free Chrome extension, the design has failed regardless of features.
@@ -30,15 +30,18 @@ If it looks like a free Chrome extension, the design has failed regardless of fe
 
 ## 2. What is already changed in the codebase
 
-| File | Change |
-|---|---|
-| `src/app/globals.css` | New palette (ivory / ink / champagne / sage / terracotta), radius 0.75rem → 0.375rem, serif `h1–h4` with sans body, `tabular-nums` for tables & `[data-numeric]`, refined scrollbars, new `--gold-ink` token |
-| `src/app/globals.css` (`@theme`) | Amber scale remapped to champagne → ~80 existing `amber-*` utilities restyle themselves, no component edits |
-| `src/app/globals.css` (utilities) | `.lux-eyebrow`, `.lux-display`, `.lux-rule`, `.lux-card`, `.lux-sheen`, `.lux-ink-panel`, `.lux-gold-text`, `.lux-transition` |
-| `src/app/layout.tsx` | Self-hosted **Cormorant Garamond** (400/500/600, SIL OFL) as `--font-cormorant`, `themeColor` → `#171310` |
-| `src/app/fonts/`, `public/fonts/` | Font binaries + licence; `public/fonts` is there for the login/QR/guest-facing surfaces |
-| `design/luxury-preview.html` | Standalone visual reference: hero, app dashboard, before/after, type & palette specs, guest QR card, pricing |
-| `scripts/serve-design.mjs` | Static preview server, not part of the Next build |
+| File                                     | Change                                                                                                                                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/app/globals.css`                    | New palette (ivory / ink / champagne / sage / terracotta), radius 0.75rem → 0.375rem, serif `h1–h4` with sans body, `tabular-nums` for tables & `[data-numeric]`, refined scrollbars, new `--gold-ink` token                   |
+| `src/app/globals.css` (`@theme`)         | Amber scale remapped to champagne → ~80 existing `amber-*` utilities restyle themselves, no component edits                                                                                                                    |
+| `src/app/globals.css` (utilities)        | `.lux-eyebrow`, `.lux-display`, `.lux-rule`, `.lux-card`, `.lux-sheen`, `.lux-ink-panel`, `.lux-gold-text`, `.lux-transition`                                                                                                  |
+| `src/app/layout.tsx`                     | Self-hosted **Cormorant Garamond** (400/500/600, SIL OFL) as `--font-cormorant`, `themeColor` → `#171310`                                                                                                                      |
+| `src/app/fonts/`, `public/fonts/`        | Font binaries + licence; `public/fonts` is there for the login/QR/guest-facing surfaces                                                                                                                                        |
+| `design/luxury-preview.html`             | Standalone visual reference: hero, app dashboard, before/after, type & palette specs, guest QR card, pricing                                                                                                                   |
+| `scripts/serve-design.mjs`               | Static preview server, not part of the Next build                                                                                                                                                                              |
+| `src/components/app/login-screen.tsx`    | **Done** — ink brand panel with hairline gold frame, Cormorant headline, hairline proof list; paper form with uppercase micro-labels, 44px inputs, single ink action, hairline segmented mode switch. Auth/MFA logic untouched |
+| `src/components/app/register-screen.tsx` | **Done** — ink panel + paper form, same field system as sign-in; success state is a paper card with a gold-ruled check instead of a green blob                                                                                 |
+| `design/luxury-preview.html` § "Sign in" | Preview of the implemented auth screens                                                                                                                                                                                        |
 
 Nothing functional changed. No feature, route, query or permission was touched.
 
@@ -47,7 +50,7 @@ Nothing functional changed. No feature, route, query or permission was touched.
 ## 3. The five rules (apply to everything from here on)
 
 1. **One accent per screen.** Gold only for: eyebrow labels, 1px rules, the active nav marker,
-   a single primary number, focus rings. Gold never fills a button that isn't the *one* primary
+   a single primary number, focus rings. Gold never fills a button that isn't the _one_ primary
    action on the page, and never a large surface.
 2. **Serif for voice, sans for work.** Headings, KPI numerals, empty-state lines, guest-facing
    copy → Cormorant. Labels, tables, inputs, buttons, errors → Geist. Never serif below 14px,
@@ -66,15 +69,17 @@ Nothing functional changed. No feature, route, query or permission was touched.
 Do these in order — each one is independently shippable, and the first three deliver ~80% of
 the perceived upgrade.
 
-### 4.1 Login / register (`login-screen.tsx`, `register-screen.tsx`)
-- Split layout: left = full-bleed venue photograph (dark-toned, no text) or `.lux-ink-panel`;
-  right = form on ivory. Today it's a centred card on a flat background — the single biggest
-  cheap-looking cue.
+### 4.1 Login / register (`login-screen.tsx`, `register-screen.tsx`) — ✅ implemented
+
+- Split layout: left = `.lux-ink-panel` with a 1px gold inset frame; right = paper form.
+  (A real venue photograph can replace the ink panel later by dropping an image into
+  `public/` and layering a dark scrim over it — the panel is already dark-safe.)
 - Form: 44px inputs, 1px `--line` border, label above in `.lux-eyebrow`, no placeholder-as-label.
 - One ink button, full width, uppercase 12px, `0.12em` tracking.
 - Bottom line: "Already a member? Sign in" — never "Don't have an account? Sign up!!!".
 
 ### 4.2 Dashboard (`dashboard-view.tsx`)
+
 - Replace the 4 KPI cards with **one hairline-divided strip** (as in the mock): serif numeral,
   uppercase label, one delta line. Removes four competing card shadows.
 - Section titles: `.lux-eyebrow` above, serif `h3` below. No icon next to every title.
@@ -84,17 +89,20 @@ the perceived upgrade.
   honest, just quieter).
 
 ### 4.3 Campaigns / composer
+
 - Two-column: template preview (chat bubble on `--porcelain`) + guardrails column.
-- Show **audience size, estimated cost, consent count** *before* the approve button, in the
+- Show **audience size, estimated cost, consent count** _before_ the approve button, in the
   composer footer — luxury is confidence, and confidence means no surprises at send time.
 - Primary action label is a verb phrase: "Approve & send 214" not "Submit".
 
 ### 4.4 Guests list / tables
+
 - No zebra striping. Hairline row dividers, 14px vertical padding, hover `#fdfbf7`.
 - Numerals are tabular; money right-aligned; dates as `12 Jul`, not `07/12/2026`.
 - Segments as outlined chips (gold for lapsed/high-value, sage for new) — never coloured fills.
 
 ### 4.5 Settings, forms and modals
+
 - Inputs: 44px height, 1px border, gold focus ring at 1px (no glow), inline errors in
   terracotta `--destructive`, helper text in `--muted`.
 - Modals: overlay `oklch(0.2 0.01 70 / 45%)` + 2px blur, white card, 6px radius, title in serif,
@@ -102,7 +110,9 @@ the perceived upgrade.
 - Toasts: white card, 1px border, left 2px gold rule, text only.
 
 ### 4.6 Guest-facing surfaces (`menu/[code]`, `pay/[token]`, `r/` feedback)
+
 These are the only surfaces guests touch — spend the most polish here.
+
 - Paper texture background (`--porcelain` + 2% noise), serif dish names, generous line-height.
 - QR card printable on 300gsm cotton stock: venue name in small caps, one line of invitation,
   QR in a hairline square, no "Scan me!" arrows.
@@ -114,15 +124,15 @@ These are the only surfaces guests touch — spend the most polish here.
 
 Write like a maître d', not a marketer.
 
-| Instead of | Write |
-|---|---|
-| "Boost retention 🚀" | "Guests worth a nudge" |
-| "Send Campaign" | "Compose an invitation" |
-| "0 results found" | "Nothing here yet. Your first import takes about a minute." |
-| "Error! Something went wrong" | "That didn't save. Try again — your data is safe." |
-| "Customer #4812" | "Rahul Mehta · 6 visits" |
+| Instead of                    | Write                                                       |
+| ----------------------------- | ----------------------------------------------------------- |
+| "Boost retention 🚀"          | "Guests worth a nudge"                                      |
+| "Send Campaign"               | "Compose an invitation"                                     |
+| "0 results found"             | "Nothing here yet. Your first import takes about a minute." |
+| "Error! Something went wrong" | "That didn't save. Try again — your data is safe."          |
+| "Customer #4812"              | "Rahul Mehta · 6 visits"                                    |
 
-Warm business WhatsApp templates in Hindi + English (only *approved* templates):
+Warm business WhatsApp templates in Hindi + English (only _approved_ templates):
 
 > नमस्ते {name} जी, {venue} में आपका फिर से स्वागत है। आपकी पिछली पसंद याद है — इस बार शेफ का
 > tasting menu आपके लिए तैयार है. — Team {venue}
@@ -154,14 +164,14 @@ Design can't carry a cheap offer. Pair it with:
 Champagne on ivory is only **2.3:1** — it is decoration, not text. Use `--gold-ink` for any
 small gold type:
 
-| Pair | Ratio | Use |
-|---|---|---|
-| ink #1b1714 on ivory #fbf9f5 | 15.5:1 | body, headings |
-| muted #6e655c on ivory | 5.4:1 | secondary text |
-| gold-ink #816229 on ivory | 5.4:1 | eyebrows, links, small gold text |
-| gold #c4a265 on ivory | 2.3:1 | rules, dividers, 1px accents **only** |
-| #cfae74 on ink #241f1a | 7.8:1 | gold text on dark panels |
-| cream #f6f1e8 on ink | 14.5:1 | dark panel body text |
+| Pair                         | Ratio  | Use                                   |
+| ---------------------------- | ------ | ------------------------------------- |
+| ink #1b1714 on ivory #fbf9f5 | 15.5:1 | body, headings                        |
+| muted #6e655c on ivory       | 5.4:1  | secondary text                        |
+| gold-ink #816229 on ivory    | 5.4:1  | eyebrows, links, small gold text      |
+| gold #c4a265 on ivory        | 2.3:1  | rules, dividers, 1px accents **only** |
+| #cfae74 on ink #241f1a       | 7.8:1  | gold text on dark panels              |
+| cream #f6f1e8 on ink         | 14.5:1 | dark panel body text                  |
 
 Also: visible focus states on every interactive element, 44px minimum tap targets, no text over
 photos without a scrim, `prefers-reduced-motion` respected, and never gold-on-white for anything
@@ -185,17 +195,17 @@ a user must read.
 
 ## 9. Rollout (2 weeks, no feature work)
 
-| Day | Scope |
-|---|---|
-| 1 | Tokens + fonts (already done) — verify login, dashboard, campaigns, guests at 375px and 1440px |
-| 2–3 | Login/register split layout with venue photography |
-| 4–5 | Dashboard: KPI strip, section headers, chart restyle, remove emoji |
-| 6–7 | Campaign composer: preview + cost/consent footer |
-| 8 | Guest tables: hairlines, tabular numerals, date format |
-| 9–10 | Modals, toasts, forms, empty/error/loading states |
-| 11–12 | Guest-facing menu / pay / feedback surfaces + printable QR card |
-| 13 | Print artefact, pricing page (from the mock), OG image, favicon lockup |
-| 14 | Accessibility + contrast audit, `prefers-reduced-motion`, mobile pass, screenshot archive |
+| Day   | Scope                                                                                          |
+| ----- | ---------------------------------------------------------------------------------------------- |
+| 1     | Tokens + fonts (already done) — verify login, dashboard, campaigns, guests at 375px and 1440px |
+| 2–3   | ✅ Login/register split layout (ink panel). Optional follow-up: real venue photography         |
+| 4–5   | Dashboard: KPI strip, section headers, chart restyle, remove emoji                             |
+| 6–7   | Campaign composer: preview + cost/consent footer                                               |
+| 8     | Guest tables: hairlines, tabular numerals, date format                                         |
+| 9–10  | Modals, toasts, forms, empty/error/loading states                                              |
+| 11–12 | Guest-facing menu / pay / feedback surfaces + printable QR card                                |
+| 13    | Print artefact, pricing page (from the mock), OG image, favicon lockup                         |
+| 14    | Accessibility + contrast audit, `prefers-reduced-motion`, mobile pass, screenshot archive      |
 
 Ship it with the existing plan in `docs/GO_LIVE_90_DAYS.md`: the luxury direction is what makes
 ₹2,499/month believable, but real WhatsApp delivery and a 10-minute onboarding are what make it
