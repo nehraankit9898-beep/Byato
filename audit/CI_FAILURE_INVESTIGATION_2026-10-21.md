@@ -201,7 +201,8 @@ Workflow coverage in the same run (the product paths named in the task):
 
 - Branch: `arena/94a9b612-byato` (session branch; a separate `fix/ci-test-failures`
   branch cannot be created because the session is pinned to this branch).
-- Pull request: see the PR opened from this branch (URL in the final message/report).
+- Pull request: **https://github.com/nehraankit9898-beep/Byato/pull/29**
+  (open, **not** merged).
 
 ---
 
