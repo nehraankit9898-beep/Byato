@@ -208,17 +208,17 @@ a user must read.
 
 ## 10. Rollout (2 weeks, no feature work)
 
-| Day   | Scope                                                                                          |
-| ----- | ---------------------------------------------------------------------------------------------- |
-| 1     | Tokens + fonts (already done) — verify login, dashboard, campaigns, guests at 375px and 1440px |
-| 2–3   | ✅ Login/register split layout (ink panel). Optional follow-up: real venue photography         |
-| 4–5   | Dashboard: KPI strip, section headers, chart restyle, remove emoji                             |
-| 6–7   | Campaign composer: preview + cost/consent footer                                               |
-| 8     | Guest tables: hairlines, tabular numerals, date format                                         |
-| 9–10  | Modals, toasts, forms, empty/error/loading states                                              |
-| 11–12 | Guest-facing menu / pay / feedback surfaces + printable QR card                                |
-| 13    | Print artefact, pricing page (from the mock), OG image, favicon lockup                         |
-| 14    | Accessibility + contrast audit, `prefers-reduced-motion`, mobile pass, screenshot archive      |
+| Day   | Scope                                                                                                                |
+| ----- | -------------------------------------------------------------------------------------------------------------------- |
+| 1     | Tokens + fonts (already done) — verify login, dashboard, campaigns, guests at 375px and 1440px                       |
+| 2–3   | ✅ Login/register split layout (ink panel). Optional follow-up: real venue photography                               |
+| 4–5   | ✅ Dashboard: KPI strip, serif greeting, chart restyle, emoji removed                                                |
+| 6–7   | Campaign composer: preview + cost/consent footer                                                                     |
+| 8     | ✅ Guest tables: hairlines, tabular numerals, outlined chips (dates keep the year)                                   |
+| 9–10  | ✅ Primitives (modal/toast/input/card/table) restyled globally; per-screen empty/error states not audited one by one |
+| 11–12 | Guest-facing menu / pay / feedback surfaces + printable QR card                                                      |
+| 13    | Print artefact, pricing page (from the mock), OG image, favicon lockup                                               |
+| 14    | Accessibility + contrast audit, `prefers-reduced-motion`, mobile pass, screenshot archive                            |
 
 Ship it with the existing plan in `docs/GO_LIVE_90_DAYS.md`: the luxury direction is what makes
 ₹2,499/month believable, but real WhatsApp delivery and a 10-minute onboarding are what make it
