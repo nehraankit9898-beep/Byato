@@ -47,7 +47,6 @@
 import { randomUUID, timingSafeEqual } from "crypto";
 
 import { isProduction, MIN_SECRET_LENGTH } from "./config";
-import { db } from "./db";
 import { logger } from "./logger";
 import {
   claimNextJob,
@@ -58,11 +57,7 @@ import {
   type ClaimedJob,
 } from "./queue";
 import { runJob } from "./jobs/handlers";
-import {
-  sweepAutomationTriggers,
-  sweepDueCampaigns,
-  sweepJourneys,
-} from "./scheduler";
+import { sweepAutomationTriggers, sweepDueCampaigns, sweepJourneys } from "./scheduler";
 import { sweepOwnerReports } from "./report-sweep";
 import { sweepDueWebhookDeliveries } from "./webhooks-out";
 
@@ -72,10 +67,6 @@ import { sweepDueWebhookDeliveries } from "./webhooks-out";
 
 export const CRON_TASKS = ["sweep", "maintenance", "all"] as const;
 export type CronTask = (typeof CRON_TASKS)[number];
-
-export function isCronTask(value: string): value is CronTask {
-  return (CRON_TASKS as readonly string[]).includes(value);
-}
 
 /** Env name read by the auth check and by Vercel Cron. */
 export const CRON_SECRET_ENV = "CRON_SECRET";
@@ -256,7 +247,8 @@ async function executeClaimedJob(
  */
 export async function drainQueue(opts: DrainQueueOptions = {}): Promise<QueueDrainResult> {
   const budgetMs =
-    opts.budgetMs ?? positiveIntFromEnv("CRON_QUEUE_BUDGET_MS", DEFAULT_QUEUE_BUDGET_MS, MAX_QUEUE_BUDGET_MS);
+    opts.budgetMs ??
+    positiveIntFromEnv("CRON_QUEUE_BUDGET_MS", DEFAULT_QUEUE_BUDGET_MS, MAX_QUEUE_BUDGET_MS);
   const maxJobs =
     opts.maxJobs ?? positiveIntFromEnv("CRON_QUEUE_MAX_JOBS", DEFAULT_MAX_JOBS, MAX_MAX_JOBS);
   const now = opts.now ?? Date.now;
@@ -439,7 +431,13 @@ export async function runCronTask(
   // invocation instead of waiting for the next 5-minute tick.
   if (!opts.skipQueue) {
     await step("drainQueue", async () => {
-      result.queue = await drainQueue({ budgetMs: opts.budgetMs, maxJobs: opts.maxJobs });
+      // Adaptive budget: the sweeps above can take a while on a real tenant
+      // set, and the route declares maxDuration = 60. Leave headroom instead of
+      // starting a 25 s drain at the 55 s mark (a killed invocation is
+      // recoverable, but it wastes the tick).
+      const elapsed = Date.now() - startedAt;
+      const budgetMs = opts.budgetMs ?? Math.max(5_000, 40_000 - elapsed);
+      result.queue = await drainQueue({ budgetMs, maxJobs: opts.maxJobs });
     });
   }
 
@@ -500,14 +498,4 @@ export async function handleCronRequest(req: Request, task: CronTask): Promise<R
       { status: 500, headers: { "cache-control": "no-store" } },
     );
   }
-}
-
-/** Diagnostics used by the health endpoint and tests (no secrets, counts only). */
-export async function cronQueueDepth(): Promise<{ queued: number; running: number; failed: number }> {
-  const [queued, running, failed] = await Promise.all([
-    db.backgroundJob.count({ where: { status: "QUEUED" } }),
-    db.backgroundJob.count({ where: { status: "RUNNING" } }),
-    db.backgroundJob.count({ where: { status: "FAILED" } }),
-  ]);
-  return { queued, running, failed };
 }

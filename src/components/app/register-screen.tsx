@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -141,8 +142,23 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
           </div>
         </div>
 
-        <div className="relative text-[10px] uppercase tracking-[0.18em] text-white/35">
-          © {new Date().getFullYear()} Beyto
+        <div className="relative flex flex-wrap items-center justify-between gap-y-2 text-[10px] uppercase tracking-[0.18em] text-white/35">
+          <span>© {new Date().getFullYear()} Beyto</span>
+          {/* Consent is collected in this flow — the notice must be one tap away. */}
+          <nav aria-label="Legal and pricing" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link href="/pricing" className="transition-colors hover:text-white/70">
+              Pricing
+            </Link>
+            <Link href="/privacy" className="transition-colors hover:text-white/70">
+              Privacy
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-white/70">
+              Terms
+            </Link>
+            <Link href="/refund-policy" className="transition-colors hover:text-white/70">
+              Refunds
+            </Link>
+          </nav>
         </div>
       </div>
 

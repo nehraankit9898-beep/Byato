@@ -352,6 +352,9 @@ async function main() {
       // Serverless cron driver (vercel.json → /api/cron/sweep|maintenance):
       // auth fail-closed, schedule invariants, and queue drain without a worker.
       "tests/cron-scheduler.test.ts",
+      // Go-live gate 1 item 8: public privacy notice, terms, refund policy and
+      // DB-driven pricing page (DPDP notice + payment-provider KYC requirement).
+      "tests/legal-pages.test.ts",
       "tests/bootstrap-atomicity.test.ts",
       // RECHECK REGRESSION: the F01–F18 audit-fix suite was previously MISSING
       // from this list — `bun run test` silently skipped it. Registered now.
@@ -463,6 +466,8 @@ async function main() {
         // Compiles both new /api/cron routes on first hit and then drives a
         // real queue drain (job handler execution) end to end.
         "cron-scheduler",
+        // Compiles four new public pages on first hit.
+        "legal-pages",
       ];
       const timeout = longFiles.some((f) => file.includes(f)) ? "120000" : "30000";
       failures += await runInherited("bun", ["test", file, "--timeout", timeout], testEnv);
