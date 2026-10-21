@@ -33,3 +33,14 @@ test("BUG-18 frozen Bun workspace declarations match package.json", () => {
     expect(lock.workspaces[""][section]).toEqual(pkg[section]);
   }
 });
+
+test("npm lockfile declarations match package.json for reproducible npm ci", () => {
+  const lock = JSON.parse(readFileSync(resolve(root, "package-lock.json"), "utf8"));
+  for (const section of ["dependencies", "devDependencies"] as const) {
+    expect(lock.packages[""][section]).toEqual(pkg[section]);
+  }
+  expect(lock.packages["node_modules/next"].version).toBe(pkg.dependencies.next);
+  expect(lock.packages["node_modules/eslint-config-next"].version).toBe(
+    pkg.devDependencies["eslint-config-next"],
+  );
+});
