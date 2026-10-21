@@ -380,8 +380,17 @@ export async function PATCH(req: Request, ctx: Ctx) {
         if (body[field] === null || body[field] === "") {
           data[field] = null;
         } else {
-          const d = new Date(String(body[field]));
-          if (isNaN(d.getTime())) {
+          // DATE-ONLY column: normalise to UTC midnight so the stored instant
+          // is identical regardless of the client's timezone (BUG_REPORT_NEW
+          // M-4 — local-midnight strings used to drift the date by a day).
+          const raw = String(body[field]).trim();
+          const d = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+            ? new Date(`${raw}T00:00:00.000Z`)
+            : new Date(raw);
+          const valid =
+            !isNaN(d.getTime()) &&
+            (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || d.toISOString().slice(0, 10) === raw);
+          if (!valid) {
             return jsonError(
               field === "birthday"
                 ? "The birthday date is not valid."

@@ -1,5 +1,24 @@
 /** Human-friendly formatting helpers. */
 
+/**
+ * Format a DATE-ONLY value (birthday / anniversary).
+ *
+ * These columns are calendar labels stored at UTC midnight. `formatDate`
+ * renders them in the viewer's local zone, which shows the PREVIOUS day for
+ * anyone west of UTC. Always format them as UTC.
+ */
+export function formatCalendarDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-IN", {

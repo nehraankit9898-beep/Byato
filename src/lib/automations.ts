@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { hotelTimezone, sameZonedDay } from "@/lib/timezone";
+import { hotelTimezone, sameZonedDay, sameZonedMonthDay } from "@/lib/timezone";
 import { logAudit } from "@/lib/audit";
 import { executeCampaignSend } from "@/lib/campaigns";
 
@@ -451,34 +451,32 @@ export async function scanAutomationTriggers(
         break;
       }
       case "BIRTHDAY": {
-        const today = now;
+        // BUG FIX (2026-10-21, BUG_REPORT_NEW H-3): the comparison used the
+        // SERVER's calendar for both sides. `birthday` is a date-only column
+        // stored at UTC midnight, so local getters can shift it a day, and
+        // "today" must be the HOTEL's calendar day (see tz above), not the
+        // server's. Compare the column's UTC month/day with the hotel-local
+        // month/day of `now`.
         const customers = await db.customer.findMany({
           where: { hotelId, birthday: { not: null } },
           select: { id: true, birthday: true },
         });
         for (const c of customers) {
           if (!c.birthday) continue;
-          if (
-            c.birthday.getMonth() === today.getMonth() &&
-            c.birthday.getDate() === today.getDate()
-          ) {
+          if (sameZonedMonthDay(c.birthday, now, tz)) {
             matched.push({ customerId: c.id, triggerDate });
           }
         }
         break;
       }
       case "ANNIVERSARY": {
-        const today = now;
         const customers = await db.customer.findMany({
           where: { hotelId, anniversary: { not: null } },
           select: { id: true, anniversary: true },
         });
         for (const c of customers) {
           if (!c.anniversary) continue;
-          if (
-            c.anniversary.getMonth() === today.getMonth() &&
-            c.anniversary.getDate() === today.getDate()
-          ) {
+          if (sameZonedMonthDay(c.anniversary, now, tz)) {
             matched.push({ customerId: c.id, triggerDate });
           }
         }

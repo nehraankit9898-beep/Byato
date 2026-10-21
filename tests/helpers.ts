@@ -119,6 +119,28 @@ export async function apiCall(
   return { status: res.status, body };
 }
 
+/**
+ * The authenticated user (includes `hotelId`) for a session jar.
+ *
+ * Used by suites that register a fresh hotel over HTTP: the registration
+ * response deliberately no longer exposes the created hotel id or any
+ * verification URL (anti-enumeration — see BUG_REPORT_NEW H-4), so the id is
+ * read back from the authenticated session instead.
+ */
+export async function currentUser(jar: Jar): Promise<{
+  userId: string;
+  hotelId: string;
+  role: string;
+  email: string;
+  name: string;
+}> {
+  const me = await apiCall("GET", "/api/auth/me", { jar });
+  if (me.status !== 200 || !me.body?.user) {
+    throw new Error(`GET /api/auth/me failed while resolving the session user: ${me.status}`);
+  }
+  return me.body.user;
+}
+
 /** Sign a webhook payload the way a real provider would. */
 export function signWebhook(
   secret: string,

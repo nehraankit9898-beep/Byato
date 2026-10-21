@@ -64,7 +64,10 @@ export async function validateCoupon(
   ) {
     return {
       valid: false,
-      reason: `Minimum order amount is ₹${coupon.minimumOrder?.toFixed(2)} for this coupon.`,
+      // BUG FIX (2026-10-21): the currency was hard-coded to ₹ even though
+      // every hotel carries its own currency. The neutral amount avoids
+      // telling a USD tenant about rupees; the UI renders the hotel currency.
+      reason: `Minimum order amount is ${(coupon.minimumOrder ?? 0).toFixed(2)} for this coupon.`,
       code: normalized,
     };
   }
@@ -106,17 +109,17 @@ const couponLocks = new Map<string, Promise<unknown>>();
 
 function withCouponLock<T>(couponId: string, fn: () => Promise<T>): Promise<T> {
   const previous = couponLocks.get(couponId) ?? Promise.resolve();
+  // BUG FIX (2026-10-21, BUG_REPORT_NEW M-1): the old cleanup compared values
+  // to `Promise.resolve()` (a fresh object each call → never equal), so the
+  // map grew without bound. Each entry now removes itself once settled,
+  // guarded by identity so a newer waiter is never discarded.
   const next = previous.catch(() => undefined).then(fn);
-  couponLocks.set(
-    couponId,
-    next.catch(() => undefined),
-  );
-  // Opportunistic cleanup to keep the map bounded.
-  if (couponLocks.size > 10_000) {
-    for (const [k, v] of couponLocks) {
-      if (k !== couponId && v === Promise.resolve()) couponLocks.delete(k);
-    }
-  }
+  const tracked: Promise<unknown> = next
+    .catch(() => undefined)
+    .finally(() => {
+      if (couponLocks.get(couponId) === tracked) couponLocks.delete(couponId);
+    });
+  couponLocks.set(couponId, tracked);
   return next;
 }
 
@@ -194,7 +197,8 @@ export async function redeemCoupon(
   if (coupon.minimumOrder !== null && orderAmount < coupon.minimumOrder) {
     return {
       ok: false,
-      reason: `Minimum order amount is ₹${coupon.minimumOrder.toFixed(2)} for this coupon.`,
+      // BUG FIX (2026-10-21): currency was hard-coded to ₹ for every tenant.
+      reason: `Minimum order amount is ${coupon.minimumOrder.toFixed(2)} for this coupon.`,
       discountAmount: 0,
       finalAmount: orderAmount,
     };

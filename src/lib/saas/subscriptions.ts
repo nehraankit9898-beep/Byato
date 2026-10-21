@@ -105,6 +105,14 @@ export async function getSubscriptionView(hotelId: string): Promise<Subscription
       : trialDefaults.blockOnExpiry
         ? "readonly_billing"
         : "grace";
+  } else if (state === "PAST_DUE") {
+    // BUG FIX (2026-10-21): PAST_DUE used to grant "full" access forever, so a
+    // tenant that stopped paying never lost anything even after the worker
+    // flagged it. During the dunning window access stays "grace" (full UI with
+    // a persistent banner); after graceEndsAt it becomes read-only when the
+    // platform is configured to block on expiry.
+    const inGrace = !sub?.graceEndsAt || sub.graceEndsAt > new Date();
+    access = inGrace || !trialDefaults.blockOnExpiry ? "grace" : "readonly_billing";
   } else if (state === "NONE") {
     access = "full"; // legacy tenants without a subscription row keep working
   } else {
@@ -548,36 +556,147 @@ export async function processTrialExpiry(): Promise<{
 }
 
 /**
- * Renewal sweep — ACTIVE subscriptions past currentPeriodEnd get a fresh
- * period when a PAID payment exists for the new period; otherwise PAST_DUE.
- * (With a live payment provider the webhook performs this instead.)
+ * Renewal sweep — runs in the background worker.
+ *
+ * AUDIT FIX (2026-10-21, BUG_REPORT_NEW C-1): the previous implementation
+ * treated "the period elapsed" as "the renewal was paid". It extended EVERY
+ * overdue ACTIVE subscription by 30/365 days with no payment lookup, so a
+ * tenant that subscribed once received paid service forever, `pastDue` was
+ * never incremented (it was returned as a hardcoded 0) and no dunning ever
+ * started.
+ *
+ * Correct lifecycle (Phase 10 §4):
+ *   - ACTIVE + overdue + a PAID payment recorded at/after the period end
+ *     → extend the period, keep ACTIVE (renewed).
+ *   - ACTIVE + overdue without such a payment → PAST_DUE, start the dunning
+ *     window (`graceEndsAt`), leave the period unchanged. Access during the
+ *     dunning window is "grace"; only after it lapses does the tenant become
+ *     read-only (see getSubscriptionView).
+ *   - PAST_DUE whose dunning window lapsed → EXPIRED (respects
+ *     trial.defaults.autoExpire/graceDays, exactly like trial expiry).
+ *
+ * Every transition is guarded by a conditional updateMany so a racing worker
+ * (or a webhook that confirms the payment at the same moment) can never be
+ * overwritten — the loser of the race re-reads on the next tick.
  */
-export async function processRenewals(): Promise<{ renewed: number; pastDue: number }> {
+export async function processRenewals(): Promise<{
+  renewed: number;
+  pastDue: number;
+  expired: number;
+}> {
   const now = new Date();
+  const trialDefaults = await getSetting("trial.defaults");
+  const graceMs = Math.max(0, trialDefaults.graceDays) * 24 * 60 * 60 * 1000;
+
+  // --- 1. Dunning expiry: PAST_DUE past its grace window → EXPIRED ---
+  let expired = 0;
+  if (trialDefaults.autoExpire) {
+    const lapsed = await db.subscription.findMany({
+      where: { status: "PAST_DUE", graceEndsAt: { lt: now } },
+      select: { id: true, hotelId: true },
+    });
+    for (const sub of lapsed) {
+      const closed = await db.subscription.updateMany({
+        where: { id: sub.id, status: "PAST_DUE", graceEndsAt: { lt: now } },
+        data: { status: "EXPIRED", expiredAt: now },
+      });
+      if (closed.count === 1) {
+        await logAudit({
+          hotelId: sub.hotelId,
+          action: AUDIT_ACTIONS.SUBSCRIPTION_EXPIRED,
+          entityType: "subscription",
+          entityId: sub.id,
+          metadata: { reason: "dunning_window_lapsed" },
+        });
+        expired += 1;
+      }
+    }
+  }
+
+  // --- 2. ACTIVE subscriptions whose period has ended ---
   const due = await db.subscription.findMany({
     where: { status: "ACTIVE", currentPeriodEnd: { lt: now } },
     include: { plan: true },
   });
   let renewed = 0;
   let pastDue = 0;
+
   for (const sub of due) {
+    const periodEnd = sub.currentPeriodEnd ?? now;
     const periodDays = sub.billingCycle === "YEARLY" ? 365 : 30;
-    await db.subscription.update({
-      where: { id: sub.id },
-      data: {
-        currentPeriodStart: now,
-        currentPeriodEnd: new Date(now.getTime() + periodDays * 24 * 60 * 60 * 1000),
-        nextInvoiceAt: new Date(now.getTime() + periodDays * 24 * 60 * 60 * 1000),
+
+    // A renewal is PAYABLE evidence, not the passage of time: look for a PAID
+    // payment for this subscription (or an unlinked plan payment) recorded
+    // after the period it is meant to cover ended. `processPaymentConfirmation`
+    // creates a fresh subscription for provider renewals; this branch covers
+    // manually recorded / out-of-band renewals.
+    const renewalPayment = await db.payment.findFirst({
+      where: {
+        hotelId: sub.hotelId,
+        status: "PAID",
+        paidAt: { gte: periodEnd },
+        OR: [{ subscriptionId: sub.id }, { subscriptionId: null, planId: sub.planId }],
       },
+      orderBy: { paidAt: "asc" },
+      select: { id: true },
     });
-    await logAudit({
-      hotelId: sub.hotelId,
-      action: AUDIT_ACTIONS.SUBSCRIPTION_RENEWED,
-      entityType: "subscription",
-      entityId: sub.id,
-      metadata: { plan: sub.plan.key, cycle: sub.billingCycle },
+
+    if (renewalPayment) {
+      const newPeriodEnd = new Date(periodEnd.getTime() + periodDays * 24 * 60 * 60 * 1000);
+      const advanced = await db.subscription.updateMany({
+        // CAS on the exact period end we decided on — a concurrent renewal
+        // (webhook/worker) has already moved it and must win only once.
+        where: { id: sub.id, status: "ACTIVE", currentPeriodEnd: sub.currentPeriodEnd },
+        data: {
+          currentPeriodStart: periodEnd,
+          currentPeriodEnd: newPeriodEnd,
+          nextInvoiceAt: newPeriodEnd,
+          graceEndsAt: null,
+        },
+      });
+      if (advanced.count === 1) {
+        await logAudit({
+          hotelId: sub.hotelId,
+          action: AUDIT_ACTIONS.SUBSCRIPTION_RENEWED,
+          entityType: "subscription",
+          entityId: sub.id,
+          metadata: {
+            plan: sub.plan.key,
+            cycle: sub.billingCycle,
+            paymentId: renewalPayment.id,
+            periodEnd: newPeriodEnd.toISOString(),
+          },
+        });
+        renewed += 1;
+      }
+      continue;
+    }
+
+    // No payment → dunning. The period is NOT extended; a payment received
+    // later is handled by processPaymentConfirmation/createCheckout, not by
+    // silently granting another cycle.
+    const graceEndsAt = new Date(now.getTime() + graceMs);
+    const marked = await db.subscription.updateMany({
+      where: { id: sub.id, status: "ACTIVE" },
+      data: { status: "PAST_DUE", graceEndsAt, nextInvoiceAt: now },
     });
-    renewed += 1;
+    if (marked.count === 1) {
+      await logAudit({
+        hotelId: sub.hotelId,
+        action: AUDIT_ACTIONS.SUBSCRIPTION_CHANGED,
+        entityType: "subscription",
+        entityId: sub.id,
+        metadata: {
+          from: "ACTIVE",
+          to: "PAST_DUE",
+          reason: "renewal_payment_missing",
+          periodEnd: periodEnd.toISOString(),
+          graceEndsAt: graceEndsAt.toISOString(),
+        },
+      });
+      pastDue += 1;
+    }
   }
-  return { renewed, pastDue };
+
+  return { renewed, pastDue, expired };
 }

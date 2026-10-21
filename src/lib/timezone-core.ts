@@ -133,3 +133,37 @@ export function zonedDayBounds(dateStr: string, tz: string): { start: Date; end:
   // Date.UTC normalises day overflow (Jan 31 + 1 → Feb 1).
   return { start: zonedMidnight(y, m, d, tz), end: zonedMidnight(y, m, d + 1, tz) };
 }
+
+/**
+ * "MM-DD" of a DATE-ONLY value (birthday / anniversary).
+ *
+ * These columns are calendar labels, not instants: the API stores
+ * "1990-05-15" as UTC midnight. Reading them with server-local getters
+ * (`getMonth`/`getDate`) shifts the day on any server west of UTC (16:00 on
+ * the PREVIOUS day), so the same customer's birthday matched on different
+ * dates depending on the deployment's TZ. UTC parts are always correct for a
+ * date-only value.
+ */
+export function calendarMonthDay(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+/** "MM-DD" of the wall-clock calendar day at `date` in `tz`. */
+export function zonedMonthDay(date: Date, tz: string): string {
+  return zonedDayKey(date, tz).slice(5);
+}
+
+/**
+ * Does a date-only column (stored at UTC midnight) fall on the hotel's local
+ * month/day right now? Used by the BIRTHDAY / ANNIVERSARY automation triggers.
+ *
+ * BUG FIX (2026-10-21): those triggers compared `birthday.getMonth()/getDate()`
+ * with `now.getMonth()/getDate()` — the SERVER's calendar. On a UTC server an
+ * Indian hotel's birthday between 18:30 and 24:00 UTC is already "tomorrow"
+ * locally, so the wish fired on the wrong day (and was skipped for that
+ * year's actual local date).
+ */
+export function sameZonedMonthDay(dateOnly: Date, now: Date, tz: string): boolean {
+  return calendarMonthDay(dateOnly) === zonedMonthDay(now, tz);
+}

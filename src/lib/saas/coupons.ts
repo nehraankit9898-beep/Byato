@@ -113,15 +113,50 @@ export async function redeemCoupon(params: {
 }): Promise<boolean> {
   const coupon = await db.billingCoupon.findUnique({ where: { id: params.couponId } });
   if (!coupon) return false;
-  const guarded = await db.billingCoupon.updateMany({
-    where: {
-      id: coupon.id,
-      isActive: true,
-      OR: [{ usageLimit: null }, { usedCount: { lt: db.billingCoupon.fields.usageLimit } }],
-    },
-    data: { usedCount: { increment: 1 } },
+  const now = new Date();
+
+  // BUG FIX (2026-10-21, BUG_REPORT_NEW M-7): redemption only re-checked
+  // `isActive` + the GLOBAL usage limit. A coupon that expired (or was
+  // scheduled for later) between checkout and payment confirmation, or whose
+  // per-tenant cap was already reached, still consumed a slot. Redemption is
+  // now validated atomically in one transaction:
+  //   · the coupon is currently valid (startsAt/expiresAt/isActive);
+  //   · the global usage limit still has room (guarded increment);
+  //   · the tenant's confirmed payments stay within perTenantLimit — the
+  //     increment rolls back when that check fails.
+  const redeemed = await db.$transaction(async (tx) => {
+    const guarded = await tx.billingCoupon.updateMany({
+      where: {
+        id: coupon.id,
+        isActive: true,
+        AND: [
+          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+          { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+          { OR: [{ usageLimit: null }, { usedCount: { lt: tx.billingCoupon.fields.usageLimit } }] },
+        ],
+      },
+      data: { usedCount: { increment: 1 } },
+    });
+    if (guarded.count !== 1) return false;
+
+    if (coupon.perTenantLimit !== null) {
+      // The current payment is already PAID with this coupon code, so it is
+      // included in the count: exceeding the cap means one too many.
+      const usedByTenant = await tx.payment.count({
+        where: { hotelId: params.hotelId, couponCode: coupon.code, status: "PAID" },
+      });
+      if (usedByTenant > coupon.perTenantLimit) {
+        // Throwing rolls the increment back — the coupon slot is not consumed.
+        throw new Error("COUPON_PER_TENANT_LIMIT");
+      }
+    }
+    return true;
+  }).catch((err) => {
+    if (err instanceof Error && err.message === "COUPON_PER_TENANT_LIMIT") return false;
+    throw err;
   });
-  if (guarded.count !== 1) return false;
+
+  if (!redeemed) return false;
   await logAudit({
     hotelId: params.hotelId,
     userId: params.adminUserId,

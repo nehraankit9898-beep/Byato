@@ -14,7 +14,9 @@
  *      order; revoked session conflict surfaced
  */
 import { describe, test, expect } from "bun:test";
-import { apiCall, login } from "./helpers";
+import { apiCall, login,
+  currentUser,
+} from "./helpers";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3100";
 
@@ -28,8 +30,9 @@ async function registerFreshHotel(suffix: string) {
     body: JSON.stringify({ hotelName: `Fresh P16 ${suffix}`, adminName: "Owner", email: ADMIN_EMAIL, password: "FreshOwner123!" }),
   });
   if (res.status !== 201) throw new Error("fresh hotel registration failed: " + res.status);
-  const body = (await res.json()) as { hotel: { id: string } };
-  return { hotelId: body.hotel.id, session: await login(ADMIN_EMAIL, "FreshOwner123!") };
+  const session = await login(ADMIN_EMAIL, "FreshOwner123!");
+  const me = await currentUser(session.jar);
+  return { hotelId: me.hotelId, session };
 }
 
 const fresh = await registerFreshHotel(String(Date.now()));

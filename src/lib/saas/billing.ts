@@ -721,39 +721,79 @@ export async function processPaymentConfirmation(params: {
   await db.$transaction(async (tx) => {
     // --- coupon redemption (exactly once per payment) ---
     if (payment.couponId && !couponDone) {
-      // Claim: transition metadata from "no marker" to "marker". NULL
-      // metadata must ALSO be claimable — on SQLite `NOT (NULL LIKE …)` is
-      // NULL (row filtered out), so the null case is handled explicitly.
-      const claim = await tx.payment.updateMany({
-        where: {
-          id: payment.id,
-          status: "PAID",
-          OR: [{ metadata: null }, { NOT: { metadata: { contains: COUPON_REDEEMED_MARKER } } }],
-        },
-        data: {
-          metadata: JSON.stringify({
-            ...safeParseMetadata(payment.metadata),
-            couponRedeemedAt: new Date().toISOString(),
-          }),
-        },
-      });
-      if (claim.count === 1) {
-        // Usage-guarded increment — cannot exceed the coupon's usageLimit.
-        const guarded = await tx.billingCoupon.updateMany({
+      const redeemedAt = new Date();
+      // BUG FIX (2026-10-21, BUG_REPORT_NEW M-7): the guarded increment only
+      // re-checked isActive + the GLOBAL usage limit. A coupon that expired
+      // (or was scheduled to start later) between checkout and payment
+      // confirmation still consumed a slot, and the per-tenant cap was not
+      // enforced at redemption time at all. Validity is re-evaluated here and
+      // the per-tenant cap is compensated inside the same transaction.
+      const couponRow = await tx.billingCoupon.findUnique({ where: { id: payment.couponId } });
+      const couponCurrentlyValid =
+        !!couponRow &&
+        couponRow.isActive &&
+        (!couponRow.startsAt || couponRow.startsAt <= redeemedAt) &&
+        (!couponRow.expiresAt || couponRow.expiresAt > redeemedAt);
+
+      if (couponCurrentlyValid) {
+        // Claim: transition metadata from "no marker" to "marker". NULL
+        // metadata must ALSO be claimable — on SQLite `NOT (NULL LIKE …)` is
+        // NULL (row filtered out), so the null case is handled explicitly.
+        const claim = await tx.payment.updateMany({
           where: {
-            id: payment.couponId,
-            isActive: true,
-            OR: [{ usageLimit: null }, { usedCount: { lt: tx.billingCoupon.fields.usageLimit } }],
+            id: payment.id,
+            status: "PAID",
+            OR: [{ metadata: null }, { NOT: { metadata: { contains: COUPON_REDEEMED_MARKER } } }],
           },
-          data: { usedCount: { increment: 1 } },
+          data: {
+            metadata: JSON.stringify({
+              ...safeParseMetadata(payment.metadata),
+              couponRedeemedAt: redeemedAt.toISOString(),
+            }),
+          },
         });
-        if (guarded.count !== 1) {
-          // Coupon expired/exhausted between checkout and confirmation — the
-          // discount was validated at checkout, so this is an anomaly worth
-          // surfacing, but it must not block the subscription activation.
-          redeemedThisRun = false;
-        } else {
-          redeemedThisRun = true;
+        if (claim.count === 1) {
+          // Usage-guarded increment — cannot exceed the coupon's usageLimit.
+          const guarded = await tx.billingCoupon.updateMany({
+            where: {
+              id: payment.couponId,
+              isActive: true,
+              AND: [
+                { OR: [{ startsAt: null }, { startsAt: { lte: redeemedAt } }] },
+                { OR: [{ expiresAt: null }, { expiresAt: { gt: redeemedAt } }] },
+                { OR: [{ usageLimit: null }, { usedCount: { lt: tx.billingCoupon.fields.usageLimit } }] },
+              ],
+            },
+            data: { usedCount: { increment: 1 } },
+          });
+          if (guarded.count !== 1) {
+            // Coupon exhausted/expired between checkout and confirmation — the
+            // discount was validated at checkout, so this is an anomaly worth
+            // surfacing, but it must not block the subscription activation.
+            redeemedThisRun = false;
+          } else if (couponRow.perTenantLimit !== null) {
+            // The current payment is already PAID with this code, so it is
+            // part of the count: exceeding the cap means one too many.
+            const usedByTenant = await tx.payment.count({
+              where: {
+                hotelId: payment.hotelId,
+                couponCode: couponRow.code,
+                status: "PAID",
+              },
+            });
+            if (usedByTenant > couponRow.perTenantLimit) {
+              // Compensate: give the slot back, the tenant cap was exceeded.
+              await tx.billingCoupon.update({
+                where: { id: couponRow.id },
+                data: { usedCount: { decrement: 1 } },
+              });
+              redeemedThisRun = false;
+            } else {
+              redeemedThisRun = true;
+            }
+          } else {
+            redeemedThisRun = true;
+          }
         }
       }
     }

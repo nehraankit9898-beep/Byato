@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { requireAuth, serverError } from "@/lib/api-helpers";
+import { requireAuth, jsonError, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
 import { buildVisitTrend, dashboardConsentStatsFromCounts } from "@/lib/dashboard";
 import { DEFAULT_TIMEZONE, isValidTimeZone, recentZonedDays } from "@/lib/timezone";
@@ -22,7 +22,17 @@ export async function GET(req: Request) {
     });
     const timezone = isValidTimeZone(hotel?.timezone) ? hotel.timezone : DEFAULT_TIMEZONE;
     const now = new Date();
-    const trendDays = recentZonedDays(now, timezone, 14);
+
+    // BUG FIX (2026-10-21, BUG_REPORT_NEW M-5): `?days=` was accepted and then
+    // silently ignored — every client received the same fixed 14-day trend
+    // while believing its own window had been applied. It is now validated and
+    // honoured (1–90 days, default 14).
+    const daysParam = new URL(req.url).searchParams.get("days");
+    const trendWindow = daysParam === null ? 14 : Number(daysParam);
+    if (!Number.isInteger(trendWindow) || trendWindow < 1 || trendWindow > 90) {
+      return jsonError("days must be an integer between 1 and 90.", 400, "INVALID_DAYS");
+    }
+    const trendDays = recentZonedDays(now, timezone, trendWindow);
 
     const [totalCustomers, marketingOptIn, optedOut, totalVisits, visitGroups] = await Promise.all([
       db.customer.count({ where: { hotelId, status: "ACTIVE" } }),
@@ -38,7 +48,7 @@ export async function GET(req: Request) {
     const uniqueVisitors = visitGroups.length;
     const repeatCustomers = visitGroups.filter((g) => g._count._all >= 2).length;
 
-    // Visits over the last 14 hotel-local calendar days (for trend chart).
+    // Visits over the last `trendWindow` hotel-local calendar days (trend chart).
     const recentVisits = await db.visit.findMany({
       where: {
         hotelId,
@@ -50,7 +60,7 @@ export async function GET(req: Request) {
       select: { checkin: true },
       orderBy: { checkin: "asc" },
     });
-    const visitsTrend = buildVisitTrend(recentVisits, now, timezone, 14);
+    const visitsTrend = buildVisitTrend(recentVisits, now, timezone, trendWindow);
 
     // Recent activity
     const [recentCustomers, recentVisitRows] = await Promise.all([

@@ -581,6 +581,10 @@ function toDateInput(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
+  // BUG FIX (2026-10-21, BUG_REPORT_NEW M-4): birthday/anniversary are
+  // DATE-ONLY columns stored at UTC midnight. Reading them with local getters
+  // showed "1990-05-14" to any browser west of UTC, and saving that value back
+  // shifted the date by a day on every edit round-trip.
   const pad = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }

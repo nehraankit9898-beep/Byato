@@ -129,11 +129,18 @@ function startOfDay(d: Date): Date {
 /** Days until the next occurrence of a yearly date (0 = today). */
 export function daysUntilNextYearly(date: Date, today = new Date()): number {
   const t = startOfDay(today);
-  const thisYear = new Date(t.getFullYear(), date.getMonth(), date.getDate());
+  // BUG FIX (2026-10-21, BUG_REPORT_NEW M-4): `date` is a DATE-ONLY column
+  // stored at UTC midnight; local getters read the previous day on any server
+  // west of UTC, so "birthday within N days" segments were off by one. UTC
+  // parts are the calendar label; the candidate day is then built on the
+  // server's local calendar for a stable day-granularity difference.
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const thisYear = new Date(t.getFullYear(), month, day);
   if (thisYear.getTime() >= t.getTime()) {
     return Math.round((startOfDay(thisYear).getTime() - t.getTime()) / DAY_MS);
   }
-  const nextYear = new Date(t.getFullYear() + 1, date.getMonth(), date.getDate());
+  const nextYear = new Date(t.getFullYear() + 1, month, day);
   return Math.round((startOfDay(nextYear).getTime() - t.getTime()) / DAY_MS);
 }
 

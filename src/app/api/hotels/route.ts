@@ -18,9 +18,27 @@ import { logger } from "@/lib/logger";
  * Public endpoint: protected by per-IP rate limiting and Origin validation
  * (login-CSRF). Password strength is enforced; no default credentials exist.
  */
-/** Same wording for new and already-registered emails (enumeration fix). */
+/**
+ * Same wording for new and already-registered emails (enumeration fix).
+ *
+ * AUDIT FIX (2026-10-21, BUG_REPORT_NEW H-4): the message was already generic,
+ * but the RESPONSE SHAPE still differed — only a fresh registration returned
+ * `hotel: { id, name }` and `emailVerification.devUrl`. A script could POST an
+ * address and read the body to learn whether an account exists (an email
+ * existence oracle used for phishing / list building). Both branches now
+ * return exactly this object; the verification link is delivered only through
+ * the email channel (tests read it from the mock outbox).
+ */
 const REGISTER_GENERIC_MESSAGE =
   "If this email is new to StayLoop, check your inbox to verify it, then sign in. If you already have an account, sign in instead.";
+
+/** The ONE public response shape for this endpoint (new or existing email). */
+function registerResponse() {
+  return Response.json(
+    { ok: true, message: REGISTER_GENERIC_MESSAGE },
+    { status: 201 },
+  );
+}
 
 export async function POST(req: Request) {
   try {
@@ -62,10 +80,7 @@ export async function POST(req: Request) {
           error: err instanceof Error ? err.message : String(err),
         }),
       );
-      return Response.json(
-        { ok: true, message: REGISTER_GENERIC_MESSAGE, emailVerification: { sent: false } },
-        { status: 201 },
-      );
+      return registerResponse();
     }
 
     const result = await db.$transaction(async (tx) => {
@@ -140,11 +155,14 @@ export async function POST(req: Request) {
     // Phase 7 (spec §6) — email verification: create a one-time hashed token
     // and email the link. Registration itself still succeeds; whether login is
     // gated on verification is controlled by REQUIRE_EMAIL_VERIFICATION.
-    let verification: { sent: boolean; devUrl?: string } = { sent: false };
+    // The token NEVER appears in the HTTP response (enumeration oracle) — it
+    // only travels in the email. Dev-mode delivery URLs are logged instead.
     try {
       const token = await issueSecurityToken(result.user.id, "EMAIL_VERIFICATION");
       const delivered = await sendVerificationEmail(email, token);
-      verification = { sent: delivered.ok, devUrl: delivered.url || undefined };
+      if (delivered.url) {
+        logger.info("register.verification_dev_url", { email, url: delivered.url });
+      }
       await logAudit({
         req,
         hotelId: result.hotel.id,
@@ -162,15 +180,7 @@ export async function POST(req: Request) {
       });
     }
 
-    return Response.json(
-      {
-        ok: true,
-        message: REGISTER_GENERIC_MESSAGE,
-        hotel: { id: result.hotel.id, name: result.hotel.name },
-        emailVerification: verification,
-      },
-      { status: 201 },
-    );
+    return registerResponse();
   } catch (err) {
     return serverError(err, "Could not register your hotel right now. Please try again.");
   }

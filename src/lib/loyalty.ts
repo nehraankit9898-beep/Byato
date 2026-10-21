@@ -120,16 +120,19 @@ const accountLocks = new Map<string, Promise<unknown>>();
 
 function withAccountLock<T>(accountId: string, fn: () => Promise<T>): Promise<T> {
   const previous = accountLocks.get(accountId) ?? Promise.resolve();
+  // BUG FIX (2026-10-21, BUG_REPORT_NEW M-1): the opportunistic cleanup
+  // compared map values to `Promise.resolve()` — a BRAND-NEW promise every
+  // call — so the condition was never true and settled entries accumulated
+  // forever (unbounded memory on a long-lived worker). The lock now removes
+  // itself as soon as its own chain settles, guarded by identity so it never
+  // discards a newer waiter.
   const next = previous.catch(() => undefined).then(fn);
-  accountLocks.set(
-    accountId,
-    next.catch(() => undefined),
-  );
-  if (accountLocks.size > 10_000) {
-    for (const [k, v] of accountLocks) {
-      if (k !== accountId && v === Promise.resolve()) accountLocks.delete(k);
-    }
-  }
+  const tracked: Promise<unknown> = next
+    .catch(() => undefined)
+    .finally(() => {
+      if (accountLocks.get(accountId) === tracked) accountLocks.delete(accountId);
+    });
+  accountLocks.set(accountId, tracked);
   return next;
 }
 

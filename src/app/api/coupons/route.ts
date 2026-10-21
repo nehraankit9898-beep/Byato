@@ -72,10 +72,82 @@ export async function POST(req: Request) {
     )
       ? (body.discountType as "PERCENTAGE" | "FIXED_AMOUNT" | "CUSTOMER_SPECIFIC" | "ONE_TIME")
       : "PERCENTAGE";
+    // BUG FIX (2026-10-21, BUG_REPORT_NEW M-3): every numeric field went
+    // through a bare `Number()`:
+    //   · "abc" → NaN → Prisma threw → 500 (and NaN silently disabled limits);
+    //   · a negative / NaN usageLimit made `usageLimit > 0` false, i.e. the cap
+    //     was silently dropped → effectively unlimited redemptions;
+    //   · an inverted validFrom > validUntil created an unusable coupon;
+    //   · a maximumDiscount below a fixed discount silently truncated it.
+    // Each field is now validated explicitly (422 with a precise message).
     const discountValue = Number(body.discountValue ?? 0);
-    if (discountValue < 0) return jsonError("Discount value cannot be negative.");
-    if (discountType === "PERCENTAGE" && discountValue > 100)
-      return jsonError("Percentage discount cannot exceed 100%.");
+    if (!Number.isFinite(discountValue) || discountValue < 0) {
+      return jsonError("Discount value must be a non-negative number.", 422, "INVALID_DISCOUNT");
+    }
+    if (discountType === "PERCENTAGE" && discountValue > 100) {
+      return jsonError("Percentage discount cannot exceed 100%.", 422, "INVALID_DISCOUNT");
+    }
+
+    /** Optional non-negative amount; undefined/null/"" → null. */
+    const optionalAmount = (value: unknown): number | null | "INVALID" => {
+      if (value === undefined || value === null || value === "") return null;
+      const n = typeof value === "string" ? Number(value) : (value as number);
+      return typeof n === "number" && Number.isFinite(n) && n >= 0 ? n : "INVALID";
+    };
+    /** Optional positive integer limit (0 = unlimited); null → default. */
+    const optionalLimit = (value: unknown, fallback: number): number | "INVALID" => {
+      if (value === undefined || value === null || value === "") return fallback;
+      const n = Number(value);
+      return Number.isInteger(n) && n >= 0 && n <= 1_000_000 ? n : "INVALID";
+    };
+    const optionalDate = (value: unknown): Date | null | "INVALID" => {
+      if (value === undefined || value === null || value === "") return null;
+      if (typeof value !== "string") return "INVALID";
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? "INVALID" : date;
+    };
+
+    const minimumOrder = optionalAmount(body.minimumOrder);
+    const maximumDiscount = optionalAmount(body.maximumDiscount);
+    const usageLimit = optionalLimit(body.usageLimit, 0);
+    const customerLimit = optionalLimit(body.customerLimit, 1);
+    const validFrom = optionalDate(body.validFrom);
+    const validUntil = optionalDate(body.validUntil);
+    if (
+      minimumOrder === "INVALID" ||
+      maximumDiscount === "INVALID"
+    ) {
+      return jsonError(
+        "minimumOrder/maximumDiscount must be non-negative amounts.",
+        422,
+        "INVALID_AMOUNT",
+      );
+    }
+    if (usageLimit === "INVALID" || customerLimit === "INVALID") {
+      return jsonError(
+        "usageLimit/customerLimit must be whole numbers between 0 and 1000000 (0 = unlimited).",
+        422,
+        "INVALID_LIMIT",
+      );
+    }
+    if (validFrom === "INVALID" || validUntil === "INVALID") {
+      return jsonError("validFrom/validUntil must be valid dates.", 422, "INVALID_DATE");
+    }
+    if (validFrom && validUntil && validUntil <= validFrom) {
+      return jsonError("validUntil must be after validFrom.", 422, "INVALID_DATE_RANGE");
+    }
+    if (
+      maximumDiscount !== null &&
+      (discountType === "FIXED_AMOUNT" || discountType === "CUSTOMER_SPECIFIC" || discountType === "ONE_TIME") &&
+      maximumDiscount > 0 &&
+      maximumDiscount < discountValue
+    ) {
+      return jsonError(
+        "maximumDiscount is lower than the fixed discount value — redemptions would be truncated.",
+        422,
+        "INVALID_DISCOUNT",
+      );
+    }
 
     const coupon = await db.coupon.create({
       data: {
@@ -85,12 +157,12 @@ export async function POST(req: Request) {
           typeof body.description === "string" ? body.description.slice(0, 300) || null : null,
         discountType,
         discountValue,
-        minimumOrder: body.minimumOrder !== undefined ? Number(body.minimumOrder) : null,
-        maximumDiscount: body.maximumDiscount !== undefined ? Number(body.maximumDiscount) : null,
-        validFrom: body.validFrom ? new Date(body.validFrom as string) : null,
-        validUntil: body.validUntil ? new Date(body.validUntil as string) : null,
-        usageLimit: Number(body.usageLimit ?? 0),
-        customerLimit: Number(body.customerLimit ?? 1),
+        minimumOrder,
+        maximumDiscount,
+        validFrom,
+        validUntil,
+        usageLimit,
+        customerLimit,
         active: body.active !== false,
       },
     });
