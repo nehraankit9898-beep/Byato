@@ -161,16 +161,26 @@ describe("owner dashboard usability", () => {
 
   test("dashboard exposes customer and visit actions with four plain-language KPIs", () => {
     const view = source("src/components/app/dashboard-view.tsx");
+    const shared = source("src/components/app/shared-ui.tsx");
     expect(view).toContain('onClick={() => setView("customers")}');
     expect(view).toContain("Add customer");
     expect(view).toContain('onClick={() => setView("visits")}');
     expect(view).toContain("Record a visit");
-    expect(view).toContain('aria-label="Restaurant summary"');
-    expect(view).toContain('title="Customers"');
-    expect(view).toContain('title="Repeat customers"');
-    expect(view).toContain('title="Visits recorded"');
-    expect(view).toContain('title="Can receive offers"');
-    expect(view).not.toContain('title="Unique Guests"');
-    expect(view).not.toContain('title="Opted Out"');
+
+    // 2026-10-21: the luxury redesign (bf8b571) moved the KPI row out of this
+    // file into the shared <KpiStrip> primitive — the accessible
+    // "Restaurant summary" region moved WITH it, and the four figures are now
+    // passed as `label` props instead of `title` attributes. Keep asserting
+    // the same guarantees, just at their new home: the labelled summary
+    // landmark, the four plain-language KPIs, and the absence of the legacy
+    // "Unique Guests" / "Opted Out" wording.
+    expect(view).toContain("<KpiStrip");
+    expect(shared).toContain('aria-label="Restaurant summary"');
+    expect(view).toContain('label: "Customers"');
+    expect(view).toContain('label: "Repeat customers"');
+    expect(view).toContain('label: "Visits recorded"');
+    expect(view).toContain('label: "Can receive offers"');
+    expect(view).not.toContain("Unique Guests");
+    expect(view).not.toContain("Opted Out");
   });
 });
