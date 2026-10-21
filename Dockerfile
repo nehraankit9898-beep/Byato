@@ -24,9 +24,24 @@
 FROM oven/bun:1.3.14 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
+# CI-003 (2026-10-19): the root `postinstall` in package.json runs
+# scripts/prisma-generate.mjs, and a package manager runs the ROOT postinstall
+# during install. This layer intentionally holds only the two manifests (that is
+# what keeps it cacheable), so bun died with
+#   Error: Cannot find module '/app/scripts/prisma-generate.mjs'
+#   error: postinstall script ... exited with 1
+# and EVERY image build failed in stage 1 — reproduced outside Docker by running
+# `bun install --frozen-lockfile` in a directory containing just package.json +
+# bun.lock. Copy that one small script and let it stand down for this command
+# only: the schemas are not in this layer yet, and the client production images
+# need (PostgreSQL) is generated explicitly on the RUN after next. The flag is
+# inline, NOT an ENV, so it cannot leak into the generate below or any stage.
+COPY scripts/prisma-generate.mjs ./scripts/
 # Frozen install: any lockfile drift fails the build instead of shipping
-# unreviewed dependency changes.
-RUN bun install --frozen-lockfile
+# unreviewed dependency changes. Dependency lifecycle scripts still run —
+# only the root postinstall is skipped, so no package silently loses a
+# native-binding or engine step.
+RUN STAYLOOP_SKIP_PRISMA_GENERATE=1 bun install --frozen-lockfile
 # PostgreSQL is the production database: the Postgres Prisma client is the
 # one generated for ALL production services (web, worker, migrate, admin).
 # Dev SQLite keeps its own schema (prisma/schema.prisma) outside the image.
@@ -72,7 +87,17 @@ ENV NODE_ENV=production \
 # small. `--no-install-recommends` avoids pulling in extra services.
 # The pgdg suite is derived from the base image's Debian codename so this
 # works on both bookworm- and trixie-based bun images.
+#
+# `apt-get upgrade` (CI-004, 2026-10-19): a pinned base-image tag is a snapshot
+# of Debian, so its OS packages fall behind `trixie-security` as soon as the tag
+# is published. The Trivy gate below fails the build on HIGH/CRITICAL findings
+# that HAVE a fix, so the runtime layer brings every already-installed package
+# up to the current patched level at build time instead of shipping known-fixed
+# CVEs. It upgrades within the same suite (no distribution change) and cannot
+# alter the bun binary, which is copied in by the base image, not installed
+# from apt.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
     && install -d /usr/share/postgresql-common/pgdg \
     && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \

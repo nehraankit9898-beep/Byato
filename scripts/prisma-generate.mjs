@@ -20,6 +20,10 @@
  *   - `dev`        (always regenerates before the dev server boots)
  *   - scripts/run-tests.ts (regenerates inside the test env)
  *
+ * Opt-out: STAYLOOP_SKIP_PRISMA_GENERATE=1 (used ONLY by the Dockerfile `deps`
+ * stage, where this file exists but the schemas deliberately do not — see the
+ * guard below and CI-003 in audit/FIX_LOG.md).
+ *
  * The Netlify `build` script stays explicit (schema.postgres.prisma) — it is
  * the authoritative production path.
  */
@@ -30,6 +34,30 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PRISMA_BIN = join(ROOT, "node_modules", ".bin", "prisma");
+
+/**
+ * OPT-OUT — Docker `deps` stage only (CI-003, 2026-10-19).
+ *
+ * package.json's root `postinstall` runs this script, and a package manager
+ * runs the root postinstall during `bun install`. The Dockerfile's `deps` stage
+ * deliberately contains ONLY package.json + bun.lock at that point (that is
+ * what keeps the dependency layer cacheable), so the schemas this script needs
+ * are not in the image yet — and the client it would generate there is the
+ * WRONG one anyway: every production stage needs the PostgreSQL client, which
+ * the very next Dockerfile line generates explicitly.
+ *
+ * The Dockerfile therefore copies this one file into the layer and runs
+ *   STAYLOOP_SKIP_PRISMA_GENERATE=1 bun install --frozen-lockfile
+ * so the postinstall stands down for that command only. The flag is scoped to a
+ * single RUN (no ENV), so it can never leak into the explicit generate, the
+ * dev server, the test harness or CI. A real generate failure still exits 1.
+ */
+if (process.env.STAYLOOP_SKIP_PRISMA_GENERATE === "1") {
+  console.log(
+    "[prisma-generate] STAYLOOP_SKIP_PRISMA_GENERATE=1 → skipping; the caller generates the client explicitly.",
+  );
+  process.exit(0);
+}
 
 const rawUrl = (process.env.DATABASE_URL || "").trim();
 const isPostgres = /^postgres(ql)?:\/\//i.test(rawUrl);

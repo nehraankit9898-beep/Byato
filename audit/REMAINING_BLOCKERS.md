@@ -1,3 +1,55 @@
+# CI gate status — 2026-10-19 (CI-001)
+
+CI on `main` is RED, but not because of application code: the `docker` job pinned
+`aquasecurity/trivy-action@0.36.0`, a tag that does not exist (upstream publishes
+**`v0.36.0`**), so GitHub failed the job at **"Set up job"** in ~3 s. Runs
+`39142757093` → `39238304015` (main pushes for PRs #18/#22/#23 and the PR
+pipelines themselves) all show the identical shape. Fixed on branch
+`arena/71c0dcb9-byato` (`@v0.36.0` + the A5 action-ref allowlist guard in
+`tests/deployment-config.test.ts`); details and evidence in `audit/FIX_LOG.md`.
+
+What the three GREEN jobs already prove on current `main` (GitHub-hosted runner,
+real network — unlike this sandbox): frozen-lockfile install, `npm audit
+--omit=dev` clean, secret scan, typecheck, lint, the full SQLite test suite, the
+production build, PostgreSQL 16 migrations with empty drift, and the PostgreSQL
+end-to-end integration suite.
+
+What stays UNPROVEN until the repaired docker job actually executes its steps:
+web/worker image builds, the Trivy HIGH/CRITICAL image scan, compose stack
+startup + in-stack health endpoints, worker heartbeat inside the stack, the
+in-stack export download round-trip, and the in-stack pg_dump backup + restore.
+Read those historical ✅ marks in `LAUNCH_CHECKLIST.md` §A as claims, and
+re-tick them from the first fully green run of the fixed job.
+
+## Non-blocking observations found while working CI-001/002/003 (2026-10-19)
+
+- **Naming drift.** The product is `Beyto` in `README.md`, `Byato` in the
+  repository name, and `StayLoop`/`stayloop` in ~81/70 files (package name,
+  docs, `STAYLOOP_*` env vars, `stayloop-web` image and compose service names).
+  `bun.lock`'s root workspace name is a fourth value:
+  `nextjs_tailwind_shadcn_ts`. Cosmetic, but it leaks into operator-facing
+  artefacts (image names, env prefixes, error messages), so pick one brand and
+  do a single deliberate rename pass.
+- **`package-lock.json` is stale** relative to `package.json` (declares
+  `next`/`eslint-config-next` `16.4.0` vs `16.4.2`; ~164 lines of resolution
+  drift). CI regenerates it with `npm install --package-lock-only` before
+  `npm audit`, so nothing breaks today — but the checked-in file does not
+  describe the tree `bun.lock` installs. Either refresh it deliberately or drop
+  it and audit from `bun.lock`.
+- **`README.md` tail is damaged**: a stray literal `"# Byato"` line sits between
+  the documentation list and the "Explicit standalone build mode" section, and
+  that section is orphaned at the very end instead of living under "Scripts" /
+  "Production Deployment".
+- **DEP-002 unchanged**: `npm audit --omit=dev --audit-level=high` is clean
+  (0 vulnerabilities, re-verified 2026-10-19); the full-tree audit still reports
+  5 high, all one dev-only chain `braces * → micromatch → fast-glob →
+  @next/eslint-plugin-next → eslint-config-next` with no patched `braces`
+  upstream. `npm audit fix --force` would downgrade to `eslint-config-next@14`,
+  which is not acceptable — keep the `--omit=dev` gate and re-check when
+  upstream publishes a fix.
+
+---
+
 > Final 2026-10-18 verification: `bun run test` **PASS** (587 Bun tests in 52 files; functional 93/93 + 79/79 + 62/62), lint/typecheck/frozen install **PASS**. Native production build **BLOCKED** before compilation. See the deep-hunt report and evidence JSON for the initial failed run and remaining release gates.
 
 # Current release blockers — 2026-10-18

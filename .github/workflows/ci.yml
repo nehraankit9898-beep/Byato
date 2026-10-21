@@ -225,30 +225,163 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build production images
+      # AUDIT FIX (deploy-2): the LAST stage in the Dockerfile is
+      # admin-bootstrap, so a build WITHOUT --target produces the ADMIN image —
+      # not web. Every web image build must pass --target web.
+      #
+      # CI-002 (2026-10-19): one step per target + the failure text in a check
+      # annotation. When this job fails, the step list and the annotations are
+      # readable through the GitHub API, while the raw log archive lives on a
+      # different host that a restricted environment cannot reach — so a
+      # two-command step that says only "exit code 1" is undiagnosable. Each
+      # target now fails its OWN named step, and the tail of the plain-progress
+      # build log is echoed both to the step log and to an ::error annotation.
+      - name: Build web image (--target web)
         run: |
-          # AUDIT FIX (deploy-2): the LAST stage in the Dockerfile is
-          # admin-bootstrap, so a build WITHOUT --target produces the ADMIN
-          # image — not web. Every web image build must pass --target web
-          # (the worker build already passed --target worker).
-          docker build --target web -t stayloop-web:ci .
-          docker build --target worker -t stayloop-worker:ci .
+          # GitHub executes `run:` blocks with `bash -e {0}`, so a failing
+          # `docker build` exits the script BEFORE any diagnostics run — that is
+          # exactly why the first CI-002 attempt still reported only "Process
+          # completed with exit code 1". errexit is disabled explicitly here; the
+          # step still exits with the build's own status, so the gate is intact.
+          set +e
+          set -uo pipefail
+          docker build --progress=plain --target web -t stayloop-web:ci . > /tmp/build-web.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "----- docker build --target web FAILED (exit $status, last 80 log lines) -----"
+            tail -n 80 /tmp/build-web.log
+            # Two extra outlets, because the raw log archive is served from a
+            # different host than the API: an ::error check annotation (readable
+            # through api.github.com) and the job summary (readable in the UI).
+            detail="$(tail -n 30 /tmp/build-web.log | awk '{gsub(/%/,"%25"); gsub(/\r/,"%0D"); printf "%s%%0A", $0}' | cut -c1-2000)"
+            echo "::error title=docker build --target web failed::${detail:-build log was empty}"
+            {
+              echo "### docker build --target web failed (exit $status)"
+              echo '```'
+              tail -n 60 /tmp/build-web.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
 
+      - name: Build worker image (--target worker)
+        run: |
+          # GitHub executes `run:` blocks with `bash -e {0}`, so a failing
+          # `docker build` exits the script BEFORE any diagnostics run — that is
+          # exactly why the first CI-002 attempt still reported only "Process
+          # completed with exit code 1". errexit is disabled explicitly here; the
+          # step still exits with the build's own status, so the gate is intact.
+          set +e
+          set -uo pipefail
+          docker build --progress=plain --target worker -t stayloop-worker:ci . > /tmp/build-worker.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "----- docker build --target worker FAILED (exit $status, last 80 log lines) -----"
+            tail -n 80 /tmp/build-worker.log
+            # Two extra outlets, because the raw log archive is served from a
+            # different host than the API: an ::error check annotation (readable
+            # through api.github.com) and the job summary (readable in the UI).
+            detail="$(tail -n 30 /tmp/build-worker.log | awk '{gsub(/%/,"%25"); gsub(/\r/,"%0D"); printf "%s%%0A", $0}' | cut -c1-2000)"
+            echo "::error title=docker build --target worker failed::${detail:-build log was empty}"
+            {
+              echo "### docker build --target worker failed (exit $status)"
+              echo '```'
+              tail -n 60 /tmp/build-worker.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
+
+      # NOTE (CI-001, 2026-10-19): aquasecurity/trivy-action publishes its tags
+      # WITH a `v` prefix (`v0.36.0`). A bare `@0.36.0` cannot be resolved, and
+      # GitHub fails the job at "Set up job" — BEFORE any step runs. That made
+      # every docker job (image build, Trivy scan, compose startup, in-stack
+      # export/backup/restore) silently unexecuted while the other three jobs
+      # stayed green. tests/deployment-config.test.ts now guards the ref list.
+      # CI-004 (2026-10-19): each scan now writes a JSON report and the summary
+      # step below turns it into a log table + job summary + check annotation.
+      # Without that, a failing scan reports only "Process completed with exit
+      # code 1": the action's table goes to the log archive, which lives on a
+      # different host than the API and is unreachable from a restricted
+      # environment. The gate itself is untouched (severity, exit-code 1,
+      # ignore-unfixed).
       - name: Trivy vulnerability scan (web)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: stayloop-web:ci
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: "true"
+          format: json
+          output: trivy-web.json
 
       - name: Trivy vulnerability scan (worker)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: stayloop-worker:ci
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: "true"
+          format: json
+          output: trivy-worker.json
+
+      # Informational only: runs even when a scan failed and never changes the
+      # verdict (both scans above keep exit-code "1").
+      - name: Trivy findings summary
+        if: always()
+        run: |
+          set +e
+          python3 - <<'PY'
+          import json, os
+
+          ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+          rows = []
+          for path in ("trivy-web.json", "trivy-worker.json"):
+              if not os.path.exists(path):
+                  print("[trivy-summary] no report at %s (that scan did not run)" % path)
+                  continue
+              try:
+                  with open(path, encoding="utf-8") as fh:
+                      data = json.load(fh)
+              except Exception as exc:  # noqa: BLE001 - diagnostics must not crash
+                  print("[trivy-summary] cannot parse %s: %s" % (path, exc))
+                  continue
+              count = 0
+              for result in data.get("Results") or []:
+                  for v in result.get("Vulnerabilities") or []:
+                      count += 1
+                      rows.append((
+                          v.get("Severity") or "?",
+                          path,
+                          str(result.get("Target") or "-")[:40],
+                          result.get("Class") or "-",
+                          v.get("VulnerabilityID") or "-",
+                          v.get("PkgName") or "-",
+                          v.get("InstalledVersion") or "-",
+                          v.get("FixedVersion") or "no fix",
+                          (v.get("Title") or "")[:70],
+                      ))
+              print("[trivy-summary] %s: %d HIGH/CRITICAL finding(s) reported" % (path, count))
+
+          rows.sort(key=lambda r: (ORDER.get(r[0], 9), r[1], r[4]))
+          header = ("Severity", "Report", "Target", "Class", "ID", "Package", "Installed", "Fixed", "Title")
+          table = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+          for r in rows[:80]:
+              table.append("| " + " | ".join(str(x).replace("|", "/") for x in r) + " |")
+          text = "\n".join(table) if rows else "No HIGH/CRITICAL findings with a fix available."
+          print(text)
+
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as fh:
+                  fh.write("### Trivy - %d HIGH/CRITICAL finding(s)\n\n%s\n" % (len(rows), text))
+
+          if rows:
+              compact = "; ".join("%s %s %s %s->%s" % (r[0], r[4], r[5], r[6], r[7]) for r in rows[:15])
+              compact = compact.replace("%", "%25").replace("\r", "%0D")[:1900]
+              print("::error title=trivy HIGH/CRITICAL findings::%s" % compact)
+          PY
+          exit 0
 
       # Full stack startup: postgres + redis + migrate + web + worker with
       # healthchecks, then probe the real endpoints. Uses ONLY generated
