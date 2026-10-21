@@ -19,6 +19,22 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+/**
+ * LUXURY TYPE SYSTEM — Cormorant Garamond (SIL OFL) for editorial headings,
+ * paired with Geist for all functional UI text. Self-hosted so the build has
+ * no dependency on Google Fonts (same reason as the Geist files above).
+ */
+const cormorant = localFont({
+  src: [
+    { path: "./fonts/cormorant-garamond-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/cormorant-garamond-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/cormorant-garamond-600.woff2", weight: "600", style: "normal" },
+  ],
+  variable: "--font-cormorant",
+  display: "swap",
+  fallback: ["Cormorant Garamond", "Georgia", "Times New Roman", "serif"],
+});
+
 export const metadata: Metadata = {
   title: "Beyto — Restaurant CRM, Loyalty & QR Ordering",
   description:
@@ -38,7 +54,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#b45309",
+  themeColor: "#171310",
 };
 
 /**
@@ -55,7 +71,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} ${cormorant.variable} antialiased bg-background text-foreground`}
       >
         <CspNonceProvider nonce={nonce}>
           {children}

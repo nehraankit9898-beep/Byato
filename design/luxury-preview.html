@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Beyto — Luxury Direction (design preview)</title>
+<style>
+  /* ============ Fonts (self-hosted, OFL) ============ */
+  @font-face{font-family:"Cormorant Garamond";src:url("fonts/cormorant-garamond-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+  @font-face{font-family:"Cormorant Garamond";src:url("fonts/cormorant-garamond-500.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+  @font-face{font-family:"Cormorant Garamond";src:url("fonts/cormorant-garamond-600.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
+  @font-face{font-family:"Geist";src:url("fonts/Geist-Variable.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
+
+  :root{
+    /* Ivory, Ink & Champagne — mirrors src/app/globals.css */
+    --ivory:#fbf9f5;
+    --porcelain:#f4f0e9;
+    --card:#fefdfb;
+    --ink:#1b1714;
+    --ink-2:#241f1a;
+    --ink-3:#2e2823;
+    --text:#241f1a;
+    --muted:#6e655c;
+    --muted-2:#948a7f;
+    --line:#e7e0d6;
+    --line-soft:#efe9e0;
+    --gold:#c4a265;
+    --gold-deep:#a8874a;
+    --gold-ink:#816229;
+    --gold-soft:#ece0c9;
+    --sage:#7f9483;
+    --terra:#b57a5c;
+    --r:6px;
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --shadow:0 1px 1px rgba(27,23,20,.03), 0 18px 40px -28px rgba(27,23,20,.28);
+    --shadow-lg:0 2px 4px rgba(27,23,20,.04), 0 40px 80px -48px rgba(27,23,20,.38);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--ivory);color:var(--text);
+    font-family:Geist,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:15px;line-height:1.6;letter-spacing:-.003em;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;letter-spacing:-.006em;line-height:1.14;margin:0}
+  p{margin:0}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--gold-soft);color:var(--ink)}
+  .wrap{width:min(1180px,calc(100% - 48px));margin:0 auto}
+  .eyebrow{font-size:10.5px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-ink)}
+  .muted{color:var(--muted)}
+  .rule{height:1px;border:0;margin:0;background:linear-gradient(90deg,var(--gold) 0%,rgba(196,162,101,.25) 45%,transparent 100%)}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ============ Nav ============ */
+  header{position:sticky;top:0;z-index:50;background:rgba(251,249,245,.82);backdrop-filter:blur(14px) saturate(120%);border-bottom:1px solid var(--line-soft)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:72px}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand b{font-family:"Cormorant Garamond",Georgia,serif;font-size:24px;font-weight:600;letter-spacing:.26em;text-transform:uppercase}
+  .brand span{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted-2)}
+  .nav-links{display:flex;gap:34px;font-size:12.5px;color:var(--muted)}
+  .nav-links a{transition:color 420ms var(--ease)}
+  .nav-links a:hover{color:var(--ink)}
+  .btn{display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border-radius:var(--r);font-size:12px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;border:1px solid transparent;cursor:pointer;transition:all 420ms var(--ease)}
+  .btn-ink{background:var(--ink);color:#f7f2ea}
+  .btn-ink:hover{background:var(--ink-3);transform:translateY(-1px);box-shadow:0 16px 30px -20px rgba(27,23,20,.7)}
+  .btn-ghost{border-color:var(--line);color:var(--ink);background:transparent}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold-ink)}
+  .btn-gold{background:linear-gradient(180deg,#cdad72,#bd9a58);color:#1b1714;box-shadow:0 1px 0 rgba(255,255,255,.35) inset}
+  .btn-gold:hover{transform:translateY(-1px);box-shadow:0 18px 34px -22px rgba(168,135,74,.9)}
+
+  /* ============ Hero ============ */
+  .hero{position:relative;padding:96px 0 0;overflow:hidden}
+  .hero:before{
+    content:"";position:absolute;inset:-220px 0 auto 0;height:620px;pointer-events:none;
+    background:radial-gradient(60% 60% at 50% 0%,rgba(196,162,101,.16) 0%,rgba(196,162,101,0) 70%);
+  }
+  .hero-grid{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:center}
+  .hero h1{font-size:clamp(44px,5.4vw,74px);font-weight:400;line-height:1.02;letter-spacing:-.02em;margin:26px 0 0}
+  .hero h1 em{font-style:italic;color:var(--gold-ink)}
+  .hero p.lead{margin-top:24px;max-width:44ch;font-size:16px;line-height:1.75;color:var(--muted)}
+  .hero-actions{display:flex;gap:14px;margin-top:38px;flex-wrap:wrap}
+  .hero-meta{display:flex;gap:36px;margin-top:52px;padding-top:24px;border-top:1px solid var(--line-soft)}
+  .hero-meta div b{display:block;font-family:"Cormorant Garamond",Georgia,serif;font-size:28px;font-weight:500;letter-spacing:-.01em}
+  .hero-meta div span{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2)}
+
+  /* Ink invitation card */
+  .invite{
+    position:relative;background:
+      radial-gradient(90% 70% at 20% 0%,#332b25 0%,transparent 60%),
+      linear-gradient(160deg,#241f1a 0%,#15110e 100%);
+    color:#f6f1e8;border-radius:10px;padding:44px 40px;box-shadow:var(--shadow-lg);
+    border:1px solid rgba(196,162,101,.35);
+  }
+  .invite:after{content:"";position:absolute;inset:8px;border:1px solid rgba(196,162,101,.18);border-radius:6px;pointer-events:none}
+  .invite .eyebrow{color:#d9bd8a}
+  .invite h3{font-size:34px;font-weight:400;margin-top:14px;line-height:1.12}
+  .invite .sub{color:#b7ac9e;font-size:13px;margin-top:12px;line-height:1.7}
+  .invite .mini{margin-top:30px;border-top:1px solid rgba(246,241,232,.12);padding-top:22px;display:grid;gap:16px}
+  .mini-row{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:12.5px}
+  .mini-row .who{display:flex;align-items:center;gap:12px}
+  .av{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;font-size:11px;letter-spacing:.06em;background:rgba(196,162,101,.16);color:#e2c795;border:1px solid rgba(196,162,101,.32)}
+  .mini-row .tag{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#b7ac9e}
+
+  /* ============ Section furniture ============ */
+  section{padding:108px 0}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:40px;margin-bottom:46px}
+  .sec-head h2{font-size:clamp(30px,3.4vw,44px);font-weight:400;margin-top:14px;max-width:22ch}
+  .sec-head p{max-width:42ch;color:var(--muted);font-size:14px;line-height:1.75}
+
+  /* ============ App mock ============ */
+  .app{border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--shadow-lg);overflow:hidden;display:grid;grid-template-columns:236px 1fr}
+  .rail{background:linear-gradient(170deg,#211c18 0%,#15110e 100%);color:#e9e2d6;padding:26px 18px;position:relative}
+  .rail .brand b{font-size:19px;letter-spacing:.28em;color:#f7f2ea}
+  .rail .brand span{color:#8b8175}
+  .rail nav{margin-top:34px;display:grid;gap:2px}
+  .rail a{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:5px;font-size:12.5px;color:#b9ae9f;transition:all 420ms var(--ease);position:relative}
+  .rail a .dot{width:4px;height:4px;border-radius:99px;background:transparent;transition:background 420ms var(--ease)}
+  .rail a:hover{color:#f3ece0;background:rgba(246,241,232,.05)}
+  .rail a.active{color:#f7f2ea;background:rgba(196,162,101,.12)}
+  .rail a.active:before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:2px;background:var(--gold);border-radius:2px}
+  .rail a.active .dot{background:var(--gold)}
+  .rail .rail-foot{margin-top:38px;border-top:1px solid rgba(246,241,232,.1);padding-top:18px;font-size:11px;color:#8b8175;line-height:1.7}
+  .rail .rail-foot b{display:block;color:#e9e2d6;font-weight:500;font-size:12px;letter-spacing:.02em}
+
+  .main{padding:30px 32px 34px;background:
+    radial-gradient(120% 80% at 100% 0%,rgba(196,162,101,.07) 0%,transparent 55%),var(--card)}
+  .main-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:26px;border-bottom:1px solid var(--line-soft)}
+  .main-top h3{font-size:31px;font-weight:400;margin-top:8px;letter-spacing:-.015em}
+  .main-top .sub{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;padding:7px 12px;border:1px solid var(--line);border-radius:99px;color:var(--muted);background:#fff}
+  .pill i{width:5px;height:5px;border-radius:99px;background:var(--sage);display:block}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:24px;border:1px solid var(--line-soft);border-radius:8px;overflow:hidden;background:#fff}
+  .kpi{padding:18px 20px;border-right:1px solid var(--line-soft)}
+  .kpi:last-child{border-right:0}
+  .kpi span{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2)}
+  .kpi b{display:block;font-family:"Cormorant Garamond",Georgia,serif;font-size:30px;font-weight:500;margin-top:8px;letter-spacing:-.01em}
+  .kpi em{font-style:normal;font-size:11px;color:var(--sage);letter-spacing:.02em}
+  .kpi em.up{color:var(--gold-ink)}
+  .kpi em.down{color:var(--terra)}
+
+  .cols{display:grid;grid-template-columns:1.25fr .75fr;gap:18px;margin-top:18px}
+  .panel{border:1px solid var(--line-soft);border-radius:8px;background:#fff;overflow:hidden}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line-soft)}
+  .panel-head h4{font-size:19px;font-weight:500}
+  .panel-head a{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-ink)}
+  .guest{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line-soft);transition:background 420ms var(--ease)}
+  .guest:last-child{border-bottom:0}
+  .guest:hover{background:#fdfbf7}
+  .guest .av{width:34px;height:34px;background:var(--gold-soft);color:#7d6437;border-color:#e2d3b4;font-size:11.5px}
+  .guest .who{flex:1;min-width:0}
+  .guest .who b{display:block;font-size:13px;font-weight:500;letter-spacing:0}
+  .guest .who span{font-size:11.5px;color:var(--muted-2)}
+  .chip{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .chip.gold{border-color:#e4d3ae;background:#fbf5e9;color:#7a5c26}
+  .chip.sage{border-color:#d6e0d6;background:#f3f7f3;color:#5d7361}
+  .amt{font-size:12px;color:var(--muted);width:74px;text-align:right}
+
+  .chart{padding:18px 20px 20px}
+  .chart .bignum{font-family:"Cormorant Garamond",Georgia,serif;font-size:34px;font-weight:500;letter-spacing:-.01em}
+  .chart .cap{font-size:11px;color:var(--muted-2);margin-top:2px}
+  .bars{display:flex;align-items:flex-end;gap:9px;height:104px;margin-top:20px}
+  .bars i{flex:1;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#e8dcc4,#f2ebdd);transition:filter 420ms var(--ease)}
+  .bars i.hi{background:linear-gradient(180deg,#cdae74,#b9954f)}
+  .bars i:hover{filter:brightness(.96)}
+  .axis{display:flex;gap:9px;margin-top:8px}
+  .axis span{flex:1;text-align:center;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)}
+
+  .composer{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}
+  .compose-card{border:1px solid var(--line-soft);border-radius:8px;background:#fff;padding:20px}
+  .compose-card h4{font-size:20px;font-weight:500}
+  .compose-card p{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.65}
+  .bubble{margin-top:16px;background:#f4f0e7;border-radius:4px 12px 12px 12px;padding:14px 16px;font-size:12.5px;line-height:1.7;color:#3a332c;border:1px solid #e9e2d5}
+  .bubble b{font-weight:600}
+  .compose-foot{display:flex;align-items:center;justify-content:space-between;margin-top:16px;gap:12px}
+  .compose-foot .est{font-size:10.5px;letter-spacing:.06em;color:var(--muted-2)}
+  .btn-sm{padding:9px 16px;font-size:10px;letter-spacing:.14em}
+
+  /* ============ Compare ============ */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .cmp{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .cmp .lab{padding:14px 20px;border-bottom:1px solid var(--line-soft);display:flex;justify-content:space-between;align-items:center}
+  .cmp .lab span{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted-2)}
+  .cmp .lab b{font-size:12px;font-weight:500;letter-spacing:.04em}
+  .cmp .body{padding:24px}
+  /* old look: amber, heavy radius, drop shadow */
+  .old-btn{display:inline-block;background:#e08a1e;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 8px 18px -8px rgba(224,138,30,.8)}
+  .old-card{margin-top:16px;border:1px solid #eee;border-radius:16px;padding:16px;box-shadow:0 10px 24px -18px rgba(0,0,0,.4)}
+  .old-card b{font-family:Geist,sans-serif;font-size:18px;font-weight:700;letter-spacing:-.02em}
+  .old-card span{display:block;font-size:12px;color:#8a8a8a;margin-top:4px}
+  .new-card{margin-top:16px;border:1px solid #e6ddcc;border-radius:6px;padding:18px;background:linear-gradient(180deg,#fffdf9,#fbf8f2);box-shadow:var(--shadow)}
+  .new-card b{font-family:"Cormorant Garamond",Georgia,serif;font-size:24px;font-weight:500;letter-spacing:-.01em}
+  .new-card span{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);margin-top:6px}
+
+  /* ============ Spec cards ============ */
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .spec{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:26px 24px;box-shadow:var(--shadow)}
+  .spec h4{font-size:22px;font-weight:500;margin-top:10px}
+  .spec p{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.7}
+  .swatches{display:flex;gap:6px;margin-top:18px}
+  .swatches i{flex:1;height:44px;border-radius:3px;border:1px solid rgba(0,0,0,.05)}
+  .specimen{font-family:"Cormorant Garamond",Georgia,serif;margin-top:14px}
+  .specimen .l1{font-size:40px;line-height:1.05;font-weight:400;letter-spacing:-.02em}
+  .specimen .l2{font-size:20px;font-weight:500;margin-top:8px;color:#3e372f}
+  .specimen .l3{font-family:Geist,sans-serif;font-size:12px;color:var(--muted);margin-top:10px;line-height:1.7}
+  .rules{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:10px}
+  .rules li{font-size:12.5px;color:#4a423a;padding-left:18px;position:relative;line-height:1.55}
+  .rules li:before{content:"";position:absolute;left:0;top:8px;width:6px;height:1px;background:var(--gold)}
+
+  /* ============ QR / guest panel ============ */
+  .qr-band{display:grid;grid-template-columns:1.1fr .9fr;gap:0;border-radius:12px;overflow:hidden;border:1px solid rgba(196,162,101,.28);box-shadow:var(--shadow-lg)}
+  .qr-copy{background:linear-gradient(160deg,#241f1a,#15110e);color:#f6f1e8;padding:56px 52px}
+  .qr-copy .eyebrow{color:#d9bd8a}
+  .qr-copy h2{font-size:clamp(30px,3vw,42px);font-weight:400;margin-top:14px;line-height:1.1}
+  .qr-copy p{color:#b7ac9e;font-size:13.5px;line-height:1.8;margin-top:16px;max-width:38ch}
+  .qr-copy .sign{margin-top:34px;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:19px;color:#e2c795}
+  .qr-side{background:linear-gradient(180deg,#f7f2e8,#efe7d8);display:grid;place-items:center;padding:44px}
+  .qr-card{background:#fffdfa;border:1px solid #e4d8c1;border-radius:8px;padding:26px 26px 22px;text-align:center;box-shadow:var(--shadow-lg);width:100%;max-width:290px}
+  .qr-card .eyebrow{color:var(--gold-deep);font-size:9px}
+  .qr-card h4{font-size:24px;font-weight:400;margin-top:8px}
+  .qr-card .q{margin:18px auto 14px;width:148px;height:148px;padding:10px;background:#fff;border:1px solid #eee5d6;border-radius:4px}
+  .qr-card .hint{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2)}
+
+  /* ============ Pricing ============ */
+  .prices{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .price{background:#fff;border:1px solid var(--line);border-radius:10px;padding:32px 28px;display:flex;flex-direction:column;transition:all 420ms var(--ease)}
+  .price:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+  .price h4{font-size:26px;font-weight:400;margin-top:12px}
+  .price .amt{font-family:"Cormorant Garamond",Georgia,serif;font-size:44px;font-weight:500;letter-spacing:-.02em;margin-top:18px;text-align:left;width:auto;color:var(--ink)}
+  .price .amt small{font-family:Geist,sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);margin-left:8px}
+  .price ul{list-style:none;padding:0;margin:22px 0 26px;display:grid;gap:11px;font-size:12.5px;color:#4a423a}
+  .price li{padding-left:18px;position:relative}
+  .price li:before{content:"";position:absolute;left:0;top:8px;width:7px;height:1px;background:var(--gold)}
+  .price .btn{justify-content:center;margin-top:auto}
+  .price.feature{background:linear-gradient(170deg,#241f1a,#15110e);border-color:rgba(196,162,101,.4);color:#f6f1e8;box-shadow:var(--shadow-lg)}
+  .price.feature h4,.price.feature .amt{color:#f6f1e8}
+  .price.feature .row-label{color:#d9bd8a}
+  .price.feature ul{color:#c8bdae}
+  .price.feature li:before{background:#cfae74}
+  .price.feature small{color:#8b8175}
+  .price .tagline{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6}
+  .price.feature .tagline{color:#b7ac9e}
+
+  footer{border-top:1px solid var(--line-soft);padding:44px 0 60px;color:var(--muted-2);font-size:11.5px}
+  .foot{display:flex;justify-content:space-between;gap:24px;align-items:center;flex-wrap:wrap}
+  .foot .brand b{font-size:18px;color:var(--ink)}
+
+  /* reveal */
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity 700ms var(--ease),transform 700ms var(--ease)}
+  .reveal.in{opacity:1;transform:none}
+
+  @media (max-width:980px){
+    .hero-grid{grid-template-columns:1fr;gap:44px}
+    .app{grid-template-columns:1fr}
+    .rail{display:none}
+    .kpis{grid-template-columns:1fr 1fr}
+    .kpi:nth-child(2){border-right:0}
+    .cols,.composer,.compare,.grid3,.prices,.qr-band{grid-template-columns:1fr}
+    .nav-links{display:none}
+    section{padding:72px 0}
+    .qr-copy{padding:40px 28px}
+    .sec-head{flex-direction:column;align-items:flex-start;gap:16px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand"><b>Beyto</b><span>Guest Intelligence</span></div>
+    <div class="nav-links">
+      <a href="#product">Product</a>
+      <a href="#system">Design system</a>
+      <a href="#qr">QR experience</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <a class="btn btn-ghost" href="#compare">Before / After</a>
+      <a class="btn btn-ink" href="#product">Open the app</a>
+    </div>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" style="padding-bottom:0">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">The quiet art of returning guests</div>
+      <h1>Luxury is not <em>more</em>.<br/>It is restraint.</h1>
+      <p class="lead">
+        A hospitality CRM should feel like the lobby it serves — calm, unhurried, precise.
+        Ivory paper, espresso ink, a single line of champagne gold. Nothing shouts.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-ink" href="#product">See the product</a>
+        <a class="btn btn-ghost" href="#system">Read the system</a>
+      </div>
+      <div class="hero-meta">
+        <div><b class="num">4,218</b><span>Guests</span></div>
+        <div><b class="num">38.4%</b><span>Repeat rate</span></div>
+        <div><b class="num">₹6.4L</b><span>Recovered</span></div>
+      </div>
+    </div>
+
+    <aside class="invite">
+      <div class="eyebrow">Tonight · 19:40</div>
+      <h3>Three guests worth<br/>a quiet word.</h3>
+      <p class="sub">Lapsed more than 90 days, average spend above ₹4,200. One template, approved, ready.</p>
+      <div class="mini">
+        <div class="mini-row">
+          <div class="who"><span class="av">RM</span><div><b style="font-weight:500;font-size:12.5px">Rahul Mehta</b></div></div>
+          <span class="tag">94 days</span>
+        </div>
+        <div class="mini-row">
+          <div class="who"><span class="av">AS</span><div><b style="font-weight:500;font-size:12.5px">Aditi Sharma</b></div></div>
+          <span class="tag">112 days</span>
+        </div>
+        <div class="mini-row">
+          <div class="who"><span class="av">KV</span><div><b style="font-weight:500;font-size:12.5px">Kabir Verma</b></div></div>
+          <span class="tag">127 days</span>
+        </div>
+      </div>
+      <div style="margin-top:28px">
+        <a class="btn btn-gold" href="#product" style="width:100%;justify-content:center">Compose win-back · 214 guests</a>
+      </div>
+    </aside>
+  </div>
+  <div class="wrap"><hr class="rule" style="margin-top:86px"/></div>
+</section>
+
+<!-- ================= PRODUCT ================= -->
+<section id="product">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow">The product, dressed properly</div>
+        <h2>The same screens. A different room.</h2>
+      </div>
+      <p>Tokens change, layout calms, type leads. No feature removed — the dashboard simply behaves like a five-star concierge instead of a growth dashboard.</p>
+    </div>
+
+    <div class="app reveal">
+      <div class="rail">
+        <div class="brand"><b>Beyto</b><span>Jaipur</span></div>
+        <nav>
+          <a class="active"><span class="dot"></span>Overview</a>
+          <a><span class="dot"></span>Guests</a>
+          <a><span class="dot"></span>Campaigns</a>
+          <a><span class="dot"></span>Loyalty</a>
+          <a><span class="dot"></span>Feedback</a>
+          <a><span class="dot"></span>Reports</a>
+          <a><span class="dot"></span>Settings</a>
+        </nav>
+        <div class="rail-foot">
+          <b>The Rose Court</b>
+          Boutique · 1 outlet<br/>Plan: Signature
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="main-top">
+          <div>
+            <div class="eyebrow">October · Week 4</div>
+            <h3>Good evening, Ankit</h3>
+            <div class="sub">214 guests are ready for a quiet nudge.</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="pill"><i></i>Live</span>
+            <span class="pill">Last sync 2m</span>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><span>Guests</span><b class="num">4,218</b><em class="up">+128 this month</em></div>
+          <div class="kpi"><span>Repeat rate</span><b class="num">38.4%</b><em class="up">+4.2 pts</em></div>
+          <div class="kpi"><span>At risk</span><b class="num">412</b><em class="down">90+ days lapsed</em></div>
+          <div class="kpi"><span>Recovered</span><b class="num">₹6.42L</b><em class="up">₹1.9L margin</em></div>
+        </div>
+
+        <div class="cols">
+          <div class="panel">
+            <div class="panel-head"><h4>Guests worth a nudge</h4><a href="#">View all</a></div>
+            <div class="guest">
+              <span class="av">RM</span>
+              <div class="who"><b>Rahul Mehta</b><span>Last visit 12 Jul · 6 visits</span></div>
+              <span class="chip gold">Lapsed 94d</span>
+              <span class="amt num">₹28,400</span>
+            </div>
+            <div class="guest">
+              <span class="av">AS</span>
+              <div class="who"><b>Aditi Sharma</b><span>Last visit 24 Jun · 4 visits</span></div>
+              <span class="chip gold">Lapsed 112d</span>
+              <span class="amt num">₹19,120</span>
+            </div>
+            <div class="guest">
+              <span class="av">KV</span>
+              <div class="who"><b>Kabir Verma</b><span>Last visit 09 Jun · 9 visits</span></div>
+              <span class="chip sage">High value</span>
+              <span class="amt num">₹64,800</span>
+            </div>
+            <div class="guest">
+              <span class="av">NP</span>
+              <div class="who"><b>Naina Puri</b><span>Last visit 03 Aug · 2 visits</span></div>
+              <span class="chip">New</span>
+              <span class="amt num">₹7,600</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="chart">
+              <span class="eyebrow" style="font-size:9.5px">Returning guests</span>
+              <div class="bignum num">286</div>
+              <div class="cap">Came back after a campaign · 30 days</div>
+              <div class="bars">
+                <i style="height:38%"></i><i style="height:52%"></i><i style="height:44%"></i>
+                <i class="hi" style="height:78%"></i><i style="height:61%"></i><i style="height:88%"></i>
+                <i style="height:56%"></i><i class="hi" style="height:96%"></i>
+              </div>
+              <div class="axis"><span>W1</span><span>W2</span><span>W3</span><span>W4</span><span>W5</span><span>W6</span><span>W7</span><span>W8</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="compose-card">
+            <div class="eyebrow">Template · approved</div>
+            <h4 style="margin-top:8px">The quiet invitation</h4>
+            <p>Hindi + English · WhatsApp utility template · consent verified</p>
+            <div class="bubble">
+              <b>नमस्ते राहुल जी,</b><br/>
+              The Rose Court में आपका स्वागत फिर से। आपकी पिछली पसंद याद है — इस बार शेफ का tasting menu आपके लिए तैयार है।<br/>
+              <span style="color:#8a7f72">— Team Rose Court</span>
+            </div>
+            <div class="compose-foot">
+              <span class="est">214 guests · est. ₹171</span>
+              <button class="btn btn-ink btn-sm">Approve &amp; send</button>
+            </div>
+          </div>
+          <div class="compose-card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="eyebrow">Guardrails</div>
+              <h4 style="margin-top:8px">Nothing sends by accident.</h4>
+              <ul class="rules">
+                <li>Consent is checked per guest before every send.</li>
+                <li>Cost and audience size shown before approval.</li>
+                <li>Simulation mode is labelled — never disguised as delivery.</li>
+              </ul>
+            </div>
+            <a class="btn btn-ghost btn-sm" href="#pricing" style="align-self:flex-start">Message credits &amp; plans</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= COMPARE ================= -->
+<section id="compare" style="background:linear-gradient(180deg,#f7f3ec,#fbf9f5)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow">Why it reads expensive</div>
+        <h2>Five changes. No new features.</h2>
+      </div>
+      <p>Luxury is a set of small refusals: refuse saturation, refuse heavy shadows, refuse three accents, refuse fast motion.</p>
+    </div>
+
+    <div class="compare reveal">
+      <div class="cmp">
+        <div class="lab"><b>Generic SaaS</b><span>Before</span></div>
+        <div class="body">
+          <span class="old-btn">Send Campaign</span>
+          <div class="old-card">
+            <b>Returning Guests</b>
+            <span>+18.2% vs last month</span>
+            <div style="display:flex;gap:6px;margin-top:14px">
+              <i style="flex:1;height:26px;border-radius:6px;background:#f59e0b"></i>
+              <i style="flex:1;height:40px;border-radius:6px;background:#fbbf24"></i>
+              <i style="flex:1;height:32px;border-radius:6px;background:#fcd34d"></i>
+            </div>
+          </div>
+          <p style="font-size:11.5px;color:#8a8a8a;margin-top:14px;line-height:1.7">Saturated amber, 16px radii, loud shadow, sans headings, emoji accents, three colours competing.</p>
+        </div>
+      </div>
+      <div class="cmp" style="border-color:#e4d8c1">
+        <div class="lab"><b>Beyto · Signature</b><span>After</span></div>
+        <div class="body">
+          <span class="btn btn-ink btn-sm">Send campaign</span>
+          <div class="new-card">
+            <b>Returning guests</b>
+            <span class="num">286 · +18.2%</span>
+            <div style="display:flex;gap:6px;margin-top:16px">
+              <i style="flex:1;height:26px;border-radius:2px;background:linear-gradient(180deg,#e8dcc4,#f2ebdd)"></i>
+              <i style="flex:1;height:40px;border-radius:2px;background:linear-gradient(180deg,#e8dcc4,#f2ebdd)"></i>
+              <i style="flex:1;height:32px;border-radius:2px;background:linear-gradient(180deg,#cdae74,#b9954f)"></i>
+            </div>
+          </div>
+          <p style="font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.7">Ink CTA, 6px radii, hairline border, serif numerals, one champagne accent, tabular figures.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SYSTEM ================= -->
+<section id="system">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow">Design system</div>
+        <h2>Tokens, type, rules.</h2>
+      </div>
+      <p>Everything lives in <code style="font-size:12px;background:#f1ece3;padding:2px 6px;border-radius:3px">globals.css</code> as CSS variables — components inherit the new mood without being rewritten.</p>
+    </div>
+
+    <div class="grid3">
+      <div class="spec reveal">
+        <div class="eyebrow">01 · Palette</div>
+        <h4>Ivory, ink &amp; one gold</h4>
+        <p>Warm paper instead of pure white; espresso instead of black; champagne only for rules, eyebrows and focus.</p>
+        <div class="swatches">
+          <i style="background:#1b1714"></i>
+          <i style="background:#241f1a"></i>
+          <i style="background:#6e655c"></i>
+          <i style="background:#c4a265"></i>
+          <i style="background:#ece0c9"></i>
+          <i style="background:#fbf9f5"></i>
+        </div>
+        <p style="font-size:10.5px;letter-spacing:.08em;margin-top:10px;color:var(--muted-2)">INK · GRAPHITE · STONE · CHAMPAGNE · GOLD WASH · IVORY</p>
+      </div>
+
+      <div class="spec reveal">
+        <div class="eyebrow">02 · Typography</div>
+        <h4>Cormorant + Geist</h4>
+        <div class="specimen">
+          <div class="l1">Good evening</div>
+          <div class="l2">Guest intelligence, quietly kept</div>
+          <div class="l3">Functional text stays in Geist — labels, tables, inputs, buttons. Serif is reserved for headlines, KPI numerals and the brand.</div>
+        </div>
+      </div>
+
+      <div class="spec reveal">
+        <div class="eyebrow">03 · Rules</div>
+        <h4>Restraint, codified</h4>
+        <ul class="rules">
+          <li>One accent per screen. Gold never fills a large area.</li>
+          <li>Hairlines instead of shadows for structure.</li>
+          <li>6px radii. Buttons and cards share the same corner.</li>
+          <li>420ms easing — nothing snaps.</li>
+          <li>8pt spacing scale; generous 108px section rhythm.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= QR ================= -->
+<section id="qr" style="padding-top:0">
+  <div class="wrap">
+    <div class="qr-band reveal">
+      <div class="qr-copy">
+        <div class="eyebrow">The table card</div>
+        <h2>A guest experience<br/>that matches the room.</h2>
+        <p>The QR card is the only Beyto surface your guest actually touches. It should look like it belongs on the table — not like a marketing sticker.</p>
+        <div class="sign">“Tell us how the evening felt.”</div>
+      </div>
+      <div class="qr-side">
+        <div class="qr-card">
+          <div class="eyebrow">The Rose Court</div>
+          <h4>How was tonight?</h4>
+          <div class="q">
+            <svg viewBox="0 0 100 100" width="100%" height="100%" aria-label="QR placeholder">
+              <rect width="100" height="100" fill="#fff"/>
+              <g fill="#1b1714">
+                <rect x="6" y="6" width="26" height="26"/><rect x="68" y="6" width="26" height="26"/><rect x="6" y="68" width="26" height="26"/>
+                <rect x="12" y="12" width="14" height="14" fill="#fff"/><rect x="74" y="12" width="14" height="14" fill="#fff"/><rect x="12" y="74" width="14" height="14" fill="#fff"/>
+                <rect x="18" y="18" width="6" height="6"/><rect x="80" y="18" width="6" height="6"/><rect x="18" y="80" width="6" height="6"/>
+                <rect x="40" y="8" width="5" height="5"/><rect x="52" y="8" width="5" height="5"/><rect x="44" y="18" width="5" height="5"/><rect x="56" y="22" width="5" height="5"/>
+                <rect x="38" y="32" width="5" height="5"/><rect x="50" y="38" width="5" height="5"/><rect x="62" y="34" width="5" height="5"/><rect x="72" y="42" width="5" height="5"/>
+                <rect x="8" y="40" width="5" height="5"/><rect x="20" y="46" width="5" height="5"/><rect x="32" y="44" width="5" height="5"/>
+                <rect x="12" y="56" width="5" height="5"/><rect x="24" y="60" width="5" height="5"/><rect x="38" y="54" width="5" height="5"/>
+                <rect x="44" y="62" width="5" height="5"/><rect x="56" y="58" width="5" height="5"/><rect x="68" y="62" width="5" height="5"/>
+                <rect x="80" y="54" width="5" height="5"/><rect x="88" y="68" width="5" height="5"/><rect x="74" y="78" width="5" height="5"/>
+                <rect x="46" y="78" width="5" height="5"/><rect x="58" y="84" width="5" height="5"/><rect x="36" y="88" width="5" height="5"/>
+                <rect x="84" y="88" width="6" height="6"/><rect x="8" y="88" width="5" height="5"/>
+              </g>
+            </svg>
+          </div>
+          <div class="hint">Scan · 20 seconds</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PRICING ================= -->
+<section id="pricing" style="background:linear-gradient(180deg,#fbf9f5,#f7f3ec)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow">Positioning</div>
+        <h2>Luxury is a price, not a gradient.</h2>
+      </div>
+      <p>A premium skin only earns its keep if the offer is premium too: fewer modules, named support, an onboarding visit — and a price that signals the room you serve.</p>
+    </div>
+
+    <div class="prices reveal">
+      <div class="price">
+        <div class="eyebrow">Table</div>
+        <h4>Essential</h4>
+        <div class="tagline">For a single café finding its rhythm.</div>
+        <div class="amt num">₹999<small>/ outlet / mo</small></div>
+        <ul>
+          <li>Up to 1,500 guests</li>
+          <li>QR feedback + loyalty</li>
+          <li>500 WhatsApp credits</li>
+          <li>Email support</li>
+        </ul>
+        <a class="btn btn-ghost" href="#">Start 14 days</a>
+      </div>
+
+      <div class="price feature">
+        <div class="eyebrow" style="color:#d9bd8a">Room</div>
+        <h4>Signature</h4>
+        <div class="tagline" style="color:#b7ac9e">For restaurants that live on regulars.</div>
+        <div class="amt num">₹2,499<small>/ outlet / mo</small></div>
+        <ul>
+          <li>Unlimited guests</li>
+          <li>Win-back journeys + lead scoring</li>
+          <li>3,000 WhatsApp credits</li>
+          <li>Onboarding call + template setup</li>
+          <li>Named support on WhatsApp</li>
+        </ul>
+        <a class="btn btn-gold" href="#">Book a walkthrough</a>
+      </div>
+
+      <div class="price">
+        <div class="eyebrow">Suite</div>
+        <h4>Maison</h4>
+        <div class="tagline">For boutique hotels with several outlets.</div>
+        <div class="amt num">₹6,999<small>/ property / mo</small></div>
+        <ul>
+          <li>Multi-outlet + branches</li>
+          <li>White-label QR &amp; guest portal</li>
+          <li>10,000 WhatsApp credits</li>
+          <li>Quarterly retention review</li>
+          <li>Priority support, 4h response</li>
+        </ul>
+        <a class="btn btn-ghost" href="#">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div class="brand"><b>Beyto</b><span>Guest Intelligence</span></div>
+    <div>Design preview · tokens live in <code>src/app/globals.css</code> · fonts: Cormorant Garamond &amp; Geist (SIL OFL)</div>
+    <div>Jaipur · 2026</div>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+</script>
+</body>
+</html>
