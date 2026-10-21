@@ -182,7 +182,7 @@ function CampaignsSection({
       />
 
       {providerMode === "SIMULATION" && (
-        <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+        <div className="mb-5 rounded-[6px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[13px] text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] flex items-start gap-2.5">
           <FlaskConical className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold">Simulation mode</p>
@@ -198,7 +198,7 @@ function CampaignsSection({
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-[6px]" />
           ))}
         </div>
       ) : campaigns.length === 0 ? (
@@ -1084,7 +1084,7 @@ function CampaignDetailDialog({
                     description="Send the campaign to generate messages."
                   />
                 ) : (
-                  <div className="max-h-[360px] overflow-y-auto rounded-xl border">
+                  <div className="max-h-[360px] overflow-y-auto rounded-[6px] border">
                     <Table>
                       <TableHeader className="sticky top-0 bg-card z-10">
                         <TableRow>
@@ -1233,7 +1233,7 @@ function FunnelTile({
   hint?: string;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-[6px] border bg-card p-4">
       <div className="flex items-center justify-between">
         <p className="text-[11.5px] text-muted-foreground">{label}</p>
         <Icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1265,7 +1265,9 @@ function MessageStatusBadge({
       <div className="flex flex-col gap-0.5">
         <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Sent</span>
         {provider === "SIMULATION" && (
-          <span className="text-[9.5px] text-amber-600 dark:text-amber-400">simulated</span>
+          <span className="text-[9.5px] text-[color:var(--gold-ink)] dark:text-[color:var(--gold)]">
+            simulated
+          </span>
         )}
       </div>
     );
@@ -1274,7 +1276,9 @@ function MessageStatusBadge({
   if (status === "SIMULATED") {
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Simulated</span>
+        <span className="text-xs font-medium text-[color:var(--gold-ink)] dark:text-[color:var(--gold)]">
+          Simulated
+        </span>
         <span className="text-[9.5px] text-muted-foreground">no real message sent</span>
       </div>
     );
@@ -1389,7 +1393,7 @@ function FollowUpSection({ user }: { user: SessionUser }) {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+            <Skeleton key={i} className="h-16 rounded-[6px]" />
           ))}
         </div>
       ) : (
@@ -1397,7 +1401,7 @@ function FollowUpSection({ user }: { user: SessionUser }) {
           {(data?.steps ?? []).map((step, idx) => (
             <div key={step.id}>
               {editingId === step.id ? (
-                <div className="rounded-xl border-2 border-primary/40 bg-card p-4 space-y-3">
+                <div className="rounded-[6px] border-2 border-primary/40 bg-card p-4 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1.5">
                       <Label htmlFor={`fu-label-${step.id}`}>Step name</Label>
@@ -1476,8 +1480,8 @@ function FollowUpSection({ user }: { user: SessionUser }) {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border bg-card p-4 flex flex-wrap items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/12 text-violet-600 dark:text-violet-400 shrink-0">
+                <div className="rounded-[6px] border bg-card p-4 flex flex-wrap items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-violet-500/12 text-violet-600 dark:text-violet-400 shrink-0">
                     <Bot className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">

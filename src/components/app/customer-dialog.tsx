@@ -271,7 +271,7 @@ function CustomerForm({
       )}
 
       {duplicate && (
-        <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+        <Alert className="border-amber-500/40 bg-amber-500/10 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)]">
           <AlertDescription className="space-y-3">
             <p>{duplicate.message}</p>
             {duplicate.id && onOpenCustomer && (

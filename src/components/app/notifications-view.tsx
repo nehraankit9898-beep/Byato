@@ -32,7 +32,7 @@ const LEVEL_STYLE: Record<
 > = {
   INFO: { badge: "bg-sky-500/12 text-sky-600 dark:text-sky-400 border-0", icon: Info },
   WARNING: {
-    badge: "bg-amber-500/12 text-amber-600 dark:text-amber-400 border-0",
+    badge: "bg-amber-500/12 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] border-0",
     icon: AlertTriangle,
   },
   ERROR: { badge: "bg-rose-500/12 text-rose-600 dark:text-rose-400 border-0", icon: XCircle },
@@ -122,7 +122,7 @@ export function NotificationsView() {
                 type="button"
                 onClick={() => !n.read && markRead.mutate(n.id)}
                 className={cn(
-                  "w-full text-left rounded-xl border bg-card p-4 transition-colors",
+                  "w-full text-left rounded-[6px] border bg-card p-4 transition-colors",
                   !n.read && "border-primary/35 bg-primary/[0.04] hover:bg-primary/[0.07]",
                   n.read && "opacity-75 hover:opacity-100",
                 )}

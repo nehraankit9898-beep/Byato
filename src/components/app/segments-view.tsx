@@ -187,7 +187,7 @@ export function SegmentsView({ onOpenCustomer }: { onOpenCustomer: (id: string) 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
+            <Skeleton key={i} className="h-28 rounded-[6px]" />
           ))}
         </div>
       ) : segments.length === 0 ? (
@@ -215,7 +215,7 @@ export function SegmentsView({ onOpenCustomer }: { onOpenCustomer: (id: string) 
                   key={s.id}
                   type="button"
                   onClick={() => setSelectedId(s.id)}
-                  className="text-left rounded-xl border bg-card p-5 hover:shadow-md hover:border-primary/40 transition-all focus-visible:ring-2 focus-visible:ring-ring focus:outline-none"
+                  className="text-left rounded-[6px] border bg-card p-5 hover:shadow-md hover:border-primary/40 transition-all focus-visible:ring-2 focus-visible:ring-ring focus:outline-none"
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -255,7 +255,7 @@ export function SegmentsView({ onOpenCustomer }: { onOpenCustomer: (id: string) 
               }
             />
             {manualSegments.length === 0 ? (
-              <div className="rounded-xl border border-dashed bg-card/50 px-6 py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-[6px] border border-dashed bg-card/50 px-6 py-8 text-center text-sm text-muted-foreground">
                 No manual segments yet. Create one to group guests your way.
               </div>
             ) : (
@@ -424,7 +424,7 @@ function SegmentDetail({
       </button>
 
       {isLoading ? (
-        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-[6px]" />
       ) : !data ? (
         <EmptyState
           icon={UsersRound}
@@ -433,7 +433,7 @@ function SegmentDetail({
         />
       ) : (
         <>
-          <div className="rounded-xl border bg-card p-6">
+          <div className="rounded-[6px] border bg-card p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
@@ -462,7 +462,7 @@ function SegmentDetail({
               description="As guests stay, spend and share details, they will appear here automatically."
             />
           ) : (
-            <div className="rounded-xl border bg-card overflow-hidden">
+            <div className="rounded-[6px] border bg-card overflow-hidden">
               <div className="max-h-[480px] overflow-y-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-card z-10">
@@ -486,7 +486,7 @@ function SegmentDetail({
                           <span className="font-medium flex items-center gap-1.5">
                             {m.name}
                             {m.vip && (
-                              <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 px-1.5 py-0 text-[10px]">
+                              <Badge className="bg-amber-500/15 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] border-0 px-1.5 py-0 text-[10px]">
                                 VIP
                               </Badge>
                             )}

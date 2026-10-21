@@ -18,7 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmptyState, SectionHeading } from "@/components/app/shared-ui";
 import { ROLE_LABELS } from "@/lib/types";
 import type { AppRole } from "@/lib/types";
@@ -65,7 +71,16 @@ export function StaffView({ user }: { user: { role: string } }) {
       api.patch(`/api/staff/${id}`, body),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ["staff"] });
-      const action = vars.body.role !== undefined ? "Role updated" : vars.body.deactivate ? "Staff member deactivated" : vars.body.reactivate ? "Staff member reactivated" : vars.body.revokeSessions ? "Sessions revoked" : "Updated";
+      const action =
+        vars.body.role !== undefined
+          ? "Role updated"
+          : vars.body.deactivate
+            ? "Staff member deactivated"
+            : vars.body.reactivate
+              ? "Staff member reactivated"
+              : vars.body.revokeSessions
+                ? "Sessions revoked"
+                : "Updated";
       toast.success(action);
     },
     onError: (e) => toast.error(e.message),
@@ -105,11 +120,15 @@ export function StaffView({ user }: { user: { role: string } }) {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-[6px]" />
           ))}
         </div>
       ) : staff.length === 0 ? (
-        <EmptyState icon={UserPlus} title="No staff accounts" description="Invite waiters, kitchen and cashier staff to run the floor." />
+        <EmptyState
+          icon={UserPlus}
+          title="No staff accounts"
+          description="Invite waiters, kitchen and cashier staff to run the floor."
+        />
       ) : (
         <div className="space-y-3">
           {staff.map((member) => (
@@ -118,9 +137,15 @@ export function StaffView({ user }: { user: { role: string } }) {
                 <div className="min-w-48 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">{member.name}</p>
-                    {member.status === "PENDING" && <Badge variant="outline">Invited — not activated</Badge>}
-                    {member.status === "SUSPENDED" && <Badge variant="destructive">Deactivated</Badge>}
-                    {member.status === "ACTIVE" && <Badge className="bg-emerald-600 hover:bg-emerald-600">Active</Badge>}
+                    {member.status === "PENDING" && (
+                      <Badge variant="outline">Invited — not activated</Badge>
+                    )}
+                    {member.status === "SUSPENDED" && (
+                      <Badge variant="destructive">Deactivated</Badge>
+                    )}
+                    {member.status === "ACTIVE" && (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600">Active</Badge>
+                    )}
                     {member.mfaEnabled && <Badge variant="secondary">MFA on</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground">{member.email}</p>
@@ -137,7 +162,9 @@ export function StaffView({ user }: { user: { role: string } }) {
                     <Select
                       value={member.role}
                       onValueChange={(role) => update.mutate({ id: member.id, body: { role } })}
-                      disabled={update.isPending || member.id === (user as { userId?: string }).userId}
+                      disabled={
+                        update.isPending || member.id === (user as { userId?: string }).userId
+                      }
                     >
                       <SelectTrigger className="h-9 w-48" aria-label={`Role for ${member.name}`}>
                         <SelectValue />
@@ -151,13 +178,24 @@ export function StaffView({ user }: { user: { role: string } }) {
                       </SelectContent>
                     </Select>
                     {member.status === "PENDING" && (
-                      <Button size="sm" variant="outline" disabled={resetInvite.isPending} onClick={() => resetInvite.mutate(member.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={resetInvite.isPending}
+                        onClick={() => resetInvite.mutate(member.id)}
+                      >
                         <RefreshCw className="mr-1 h-3.5 w-3.5" /> Re-invite
                       </Button>
                     )}
                     {member.status === "ACTIVE" && (
                       <>
-                        <Button size="sm" variant="ghost" onClick={() => update.mutate({ id: member.id, body: { revokeSessions: true } })}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            update.mutate({ id: member.id, body: { revokeSessions: true } })
+                          }
+                        >
                           <KeyRound className="mr-1 h-3.5 w-3.5" /> Revoke sessions
                         </Button>
                         <Button
@@ -165,7 +203,9 @@ export function StaffView({ user }: { user: { role: string } }) {
                           variant="ghost"
                           className="text-destructive hover:text-destructive"
                           onClick={() => {
-                            if (confirm(`Deactivate ${member.name}? Their sessions end immediately.`)) {
+                            if (
+                              confirm(`Deactivate ${member.name}? Their sessions end immediately.`)
+                            ) {
                               update.mutate({ id: member.id, body: { deactivate: true } });
                             }
                           }}
@@ -175,7 +215,11 @@ export function StaffView({ user }: { user: { role: string } }) {
                       </>
                     )}
                     {member.status === "SUSPENDED" && (
-                      <Button size="sm" variant="outline" onClick={() => update.mutate({ id: member.id, body: { reactivate: true } })}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => update.mutate({ id: member.id, body: { reactivate: true } })}
+                      >
                         Reactivate
                       </Button>
                     )}
@@ -202,8 +246,8 @@ export function StaffView({ user }: { user: { role: string } }) {
           <DialogHeader>
             <DialogTitle>One-time invitation link</DialogTitle>
             <DialogDescription>
-              Share this link with your staff member now — it expires in 72 hours, works once, and is shown only this
-              time. They choose their own password when they activate.
+              Share this link with your staff member now — it expires in 72 hours, works once, and
+              is shown only this time. They choose their own password when they activate.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border bg-muted px-3 py-2">
@@ -243,7 +287,8 @@ function InviteDialog({
   const [role, setRole] = useState("WAITER");
 
   const invite = useMutation({
-    mutationFn: () => api.post<{ invitation: { url: string } }>("/api/staff", { name, email, role }),
+    mutationFn: () =>
+      api.post<{ invitation: { url: string } }>("/api/staff", { name, email, role }),
     onSuccess: (data) => {
       toast.success("Invitation created");
       onInvited(data.invitation.url);
@@ -257,17 +302,29 @@ function InviteDialog({
         <DialogHeader>
           <DialogTitle>Invite a staff member</DialogTitle>
           <DialogDescription>
-            They receive a one-time activation link and set their own password. No shared or default passwords.
+            They receive a one-time activation link and set their own password. No shared or default
+            passwords.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="staff-name">Name</Label>
-            <Input id="staff-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ravi Kumar" />
+            <Input
+              id="staff-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ravi Kumar"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="staff-email">Email</Label>
-            <Input id="staff-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ravi@restaurant.com" />
+            <Input
+              id="staff-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ravi@restaurant.com"
+            />
           </div>
           <div className="space-y-2">
             <Label>Role</Label>

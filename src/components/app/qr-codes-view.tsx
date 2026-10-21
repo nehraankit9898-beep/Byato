@@ -125,7 +125,7 @@ export function QrCodesView() {
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 rounded-xl" />
+            <Skeleton key={i} className="h-44 rounded-[6px]" />
           ))}
         </div>
       ) : codes.length === 0 ? (
@@ -224,7 +224,7 @@ export function QrCodesView() {
                     : ""}
                 </DialogDescription>
               </DialogHeader>
-              <div className="flex justify-center rounded-xl border bg-white p-4">
+              <div className="flex justify-center rounded-[6px] border bg-white p-4">
                 <QrImage url={previewOf.url} size={180} />
               </div>
               <p className="break-all rounded-lg bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
@@ -384,7 +384,8 @@ async function printQr(q: QrCodeRow) {
   // (MERGE CONSOLIDATION: escapeHtml now lives in src/lib/html-escape.ts so
   // the QR print window, receipts, and transactional email share ONE
   // implementation — see tests/qr-injection-regression.test.ts.)
-  w.document.write(`<!doctype html><html><head><title>StayLoop QR — ${escapeHtml(q.label ?? q.code)}</title>
+  w.document
+    .write(`<!doctype html><html><head><title>StayLoop QR — ${escapeHtml(q.label ?? q.code)}</title>
   <style>body{font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:16px}
   h1{font-size:22px;margin:0}p{color:#555;font-size:14px;margin:0;word-break:break-all}img{width:340px;height:340px}</style></head>
   <body><h1>Scan &amp; Join Rewards</h1><img src="${dataUrl}" alt="QR code"/><p>${escapeHtml(q.url)}</p>

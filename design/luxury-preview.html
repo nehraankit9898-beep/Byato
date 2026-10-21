@@ -243,6 +243,55 @@
   .price .tagline{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6}
   .price.feature .tagline{color:#b7ac9e}
 
+
+
+  /* ============ Guests table ============ */
+  .tablecard{border:1px solid var(--line);border-radius:6px;background:#fff;overflow:hidden;box-shadow:var(--shadow)}
+  table.guests{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  table.guests th{text-align:left;height:38px;padding:0 14px;font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);border-bottom:1px solid var(--line)}
+  table.guests td{padding:13px 14px;border-bottom:1px solid var(--line-soft);color:#3a332c;vertical-align:middle}
+  table.guests tr:last-child td{border-bottom:0}
+  table.guests tbody tr{transition:background 420ms var(--ease)}
+  table.guests tbody tr:hover{background:#fdfbf7}
+  table.guests .who{display:flex;align-items:center;gap:12px}
+  table.guests .who b{font-weight:500;font-size:13px;display:block}
+  table.guests .who span{font-size:11px;color:var(--muted-2)}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;border:1px solid var(--line);color:var(--muted)}
+  .tag.gold{border-color:rgba(196,162,101,.5);color:#7a5c26}
+  .tag.sage{border-color:rgba(127,148,131,.5);color:#5d7361}
+  .tag.rose{border-color:rgba(181,122,92,.5);color:#9a5a3c}
+  .money{text-align:right;font-weight:500}
+
+  /* ============ Sign-in ============ */
+  .auth{display:grid;grid-template-columns:1fr 1fr;border-radius:12px;overflow:hidden;border:1px solid rgba(196,162,101,.28);box-shadow:var(--shadow-lg);min-height:580px}
+  .auth-brand{position:relative;padding:44px;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(90% 70% at 20% 0%,#332b25 0%,transparent 60%),linear-gradient(160deg,#241f1a 0%,#15110e 100%);color:#f6f1e8}
+  .auth-brand:after{content:"";position:absolute;inset:14px;border:1px solid rgba(196,162,101,.18);pointer-events:none}
+  .auth-brand .wordmark{font-family:"Cormorant Garamond",Georgia,serif;font-size:24px;font-weight:600;letter-spacing:.28em;text-transform:uppercase;margin-top:10px}
+  .auth-brand h2{font-size:clamp(30px,3.2vw,44px);font-weight:400;line-height:1.06;margin-top:26px}
+  .auth-brand h2 em{font-style:italic;color:#d9bd8a}
+  .auth-brand .lede{color:#b7ac9e;font-size:13px;line-height:1.85;margin-top:16px;max-width:32ch}
+  .proof{margin-top:30px;border-top:1px solid rgba(246,241,232,.12)}
+  .proof div{display:flex;gap:12px;align-items:center;border-bottom:1px solid rgba(246,241,232,.12);padding:13px 0;font-size:12px;color:#e9e2d6}
+  .proof svg{width:15px;height:15px;flex:none;stroke:#d9bd8a;fill:none;stroke-width:1.4}
+  .auth-form{background:var(--card);padding:44px 44px 38px;display:flex;flex-direction:column;justify-content:center}
+  .auth-form .eyebrow{color:var(--gold-ink)}
+  .auth-form h3{font-size:34px;font-weight:400;margin-top:10px}
+  .auth-form .sub{font-size:13px;color:var(--muted);margin-top:10px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);margin-top:26px}
+  .seg span{padding-bottom:12px;font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);border-bottom:1px solid transparent;text-align:center}
+  .seg span.on{border-bottom-color:var(--gold);color:var(--ink)}
+  .field{margin-top:20px}
+  .field label{display:block;font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .field input{width:100%;height:44px;border:1px solid var(--line);border-radius:4px;background:#fff;padding:0 12px 0 38px;font-family:Geist,sans-serif;font-size:13.5px;color:var(--ink);outline:none;transition:border-color 420ms var(--ease),box-shadow 420ms var(--ease)}
+  .field input:focus{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+  .field .wrap{position:relative}
+  .field .wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:#a89e93;fill:none;stroke-width:1.4}
+  .auth-form .btn{width:100%;justify-content:center;margin-top:24px}
+  .note{margin-top:24px;border-left:2px solid rgba(196,162,101,.6);padding-left:14px;font-size:11.5px;line-height:1.7;color:var(--muted)}
+  .below{margin-top:26px;border-top:1px solid var(--line);padding-top:20px;font-size:12.5px;color:var(--muted)}
+  .below b{color:var(--gold-ink);font-weight:500}
+  @media (max-width:980px){.auth{grid-template-columns:1fr;min-height:0}.auth-brand{display:none}.auth-form{padding:32px 24px}}
+
   footer{border-top:1px solid var(--line-soft);padding:44px 0 60px;color:var(--muted-2);font-size:11.5px}
   .foot{display:flex;justify-content:space-between;gap:24px;align-items:center;flex-wrap:wrap}
   .foot .brand b{font-size:18px;color:var(--ink)}
@@ -273,6 +322,8 @@
     <div class="nav-links">
       <a href="#product">Product</a>
       <a href="#system">Design system</a>
+      <a href="#signin">Sign in</a>
+      <a href="#guests">Guests</a>
       <a href="#qr">QR experience</a>
       <a href="#pricing">Pricing</a>
     </div>
@@ -456,6 +507,75 @@
   </div>
 </section>
 
+
+<!-- ================= SIGN IN ================= -->
+<section id="signin" style="background:linear-gradient(180deg,#fbf9f5,#f7f3ec)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow">First impression</div>
+        <h2>The sign-in screen,<br/>rewritten.</h2>
+      </div>
+      <p>Left: an ink panel with a hairline gold frame and one editorial line. Right: paper, uppercase micro-labels, a single ink action. This is the exact treatment now implemented in <code style="font-size:12px;background:#f1ece3;padding:2px 6px;border-radius:3px">login-screen.tsx</code> and <code style="font-size:12px;background:#f1ece3;padding:2px 6px;border-radius:3px">register-screen.tsx</code>.</p>
+    </div>
+
+    <div class="auth reveal">
+      <div class="auth-brand">
+        <div>
+          <div class="eyebrow" style="color:#d9bd8a">Guest intelligence</div>
+          <div class="wordmark">Beyto</div>
+        </div>
+        <div>
+          <h2>Turn one-time guests<br/>into <em>regulars</em>.</h2>
+          <p class="lede">Know every guest who walks through your doors. Record visits, keep consent honest, and watch your repeat rate rise — quietly, in one place.</p>
+          <div class="proof">
+            <div><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 01-4 4H3"/></svg>Every visit remembered, automatically</div>
+            <div><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>Consent-first campaigns — never a cold message</div>
+            <div><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Retention measured on your own data</div>
+            <div><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"/></svg>Role-based access, tenant-level privacy</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(246,241,232,.35)">
+          <span>© 2026 Beyto</span><span>Hospitality, held quietly</span>
+        </div>
+      </div>
+
+      <div class="auth-form">
+        <div class="eyebrow">Welcome back</div>
+        <h3>Sign in</h3>
+        <p class="sub">Continue to your guests, campaigns and reports.</p>
+
+        <div class="seg">
+          <span class="on">Hotel sign-in</span>
+          <span>Platform admin</span>
+        </div>
+
+        <div class="field">
+          <label>Email address</label>
+          <div class="wrap">
+            <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg>
+            <input value="owner@therosecourt.in" readonly />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Password</label>
+          <div class="wrap">
+            <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+            <input type="password" value="hr-warm-paper" readonly />
+          </div>
+        </div>
+
+        <button class="btn btn-ink">Sign in &nbsp;→</button>
+
+        <div class="note">Sign in with the account created for your hotel. Hotel owners receive a one-time invitation link; platform super admins are provisioned through a secure bootstrap process.</div>
+
+        <div class="below">New restaurant? <b>Register your restaurant →</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ================= COMPARE ================= -->
 <section id="compare" style="background:linear-gradient(180deg,#f7f3ec,#fbf9f5)">
   <div class="wrap">
@@ -500,6 +620,69 @@
           <p style="font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.7">Ink CTA, 6px radii, hairline border, serif numerals, one champagne accent, tabular figures.</p>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ================= GUESTS ================= -->
+<section id="guests">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow">Lists &amp; tables</div>
+        <h2>A ledger, not a spreadsheet.</h2>
+      </div>
+      <p>Uppercase micro-headers, hairline rows, tabular numerals so money never jitters, outlined status chips instead of coloured fills. This is what <code style="font-size:12px;background:#f1ece3;padding:2px 6px;border-radius:3px">table.tsx</code> and <code style="font-size:12px;background:#f1ece3;padding:2px 6px;border-radius:3px">customers-view.tsx</code> now render.</p>
+    </div>
+
+    <div class="tablecard reveal">
+      <table class="guests">
+        <thead>
+          <tr>
+            <th style="width:46px"></th>
+            <th>Guest</th>
+            <th>Phone</th>
+            <th>Visits</th>
+            <th>Last visit</th>
+            <th>Consent</th>
+            <th>Status</th>
+            <th style="text-align:right">Spend</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="av">RM</span></td>
+            <td><div class="who"><div><b>Rahul Mehta</b><span>Returning · VIP</span></div></div></td>
+            <td style="color:var(--muted)">+91 98290 •• 214</td>
+            <td><span class="tag sage">6</span></td>
+            <td style="color:var(--muted)">12 Jul</td>
+            <td><span class="tag sage">Opted in</span></td>
+            <td><span class="tag sage">Active</span></td>
+            <td class="money">₹28,400</td>
+          </tr>
+          <tr>
+            <td><span class="av">AS</span></td>
+            <td><div class="who"><div><b>Aditi Sharma</b><span>Lapsed 112 days</span></div></div></td>
+            <td style="color:var(--muted)">+91 99820 •• 701</td>
+            <td><span class="tag gold">4</span></td>
+            <td style="color:var(--muted)">24 Jun</td>
+            <td><span class="tag">No consent</span></td>
+            <td><span class="tag sage">Active</span></td>
+            <td class="money">₹19,120</td>
+          </tr>
+          <tr>
+            <td><span class="av">KV</span></td>
+            <td><div class="who"><div><b>Kabir Verma</b><span>High value · 9 visits</span></div></div></td>
+            <td style="color:var(--muted)">+91 90014 •• 388</td>
+            <td><span class="tag sage">9</span></td>
+            <td style="color:var(--muted)">09 Jun</td>
+            <td><span class="tag rose">Opted out</span></td>
+            <td><span class="tag">Inactive</span></td>
+            <td class="money">₹64,800</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>

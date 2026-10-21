@@ -109,7 +109,7 @@ function methodBadge(method: string) {
     method === "GET"
       ? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 border-0"
       : method === "POST"
-        ? "bg-amber-500/12 text-amber-600 dark:text-amber-400 border-0"
+        ? "bg-amber-500/12 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] border-0"
         : "bg-rose-500/12 text-rose-600 dark:text-rose-400 border-0";
   return (
     <Badge className={`${cls} font-mono text-[10.5px] w-[52px] justify-center`}>{method}</Badge>
@@ -183,7 +183,7 @@ export function DeveloperView() {
       {/* Plan gate notice */}
       {data && !data.apiAccess && (
         <Alert className="border-amber-500/40 bg-amber-500/[0.06]">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTriangle className="h-4 w-4 text-[color:var(--gold-ink)]" />
           <AlertDescription className="text-[13px]">
             Developer API access is{" "}
             <span className="font-semibold">not included in your current plan</span>. Upgrade your
@@ -194,7 +194,7 @@ export function DeveloperView() {
       )}
 
       {/* Keys card */}
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-[6px] border bg-card">
         <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <KeyRound className="h-[18px] w-[18px]" />
@@ -229,7 +229,7 @@ export function DeveloperView() {
             </p>
           ) : !data || data.keys.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[6px] bg-muted">
                 <Code2 className="h-5 w-5 text-muted-foreground" />
               </div>
               <p className="text-sm font-semibold">No API keys yet</p>
@@ -324,7 +324,7 @@ export function DeveloperView() {
       </div>
 
       {/* Docs card */}
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-[6px] border bg-card">
         <div className="flex items-center gap-3 border-b px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <BookOpen className="h-[18px] w-[18px]" />

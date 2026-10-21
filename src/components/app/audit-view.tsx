@@ -51,7 +51,7 @@ const ACTION_TONES: Record<string, string> = {
   CONSENT_GRANTED: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
   OPT_OUT: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
   CUSTOMER_DEACTIVATED: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
-  VISIT_CREATED: "bg-amber-500/12 text-amber-600 dark:text-amber-400",
+  VISIT_CREATED: "bg-amber-500/12 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)]",
   VISIT_DELETED: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
   CUSTOMERS_IMPORTED: "bg-primary/12 text-primary",
   VISITS_IMPORTED: "bg-primary/12 text-primary",
@@ -99,7 +99,7 @@ export function AuditView() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-[6px] border bg-card">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 border-b last:border-0 px-4 py-3.5">
               <Skeleton className="h-5 w-28" />
@@ -122,7 +122,7 @@ export function AuditView() {
           description="Actions like sign-ins, customer changes, and consent updates will appear here automatically."
         />
       ) : (
-        <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="rounded-[6px] border bg-card overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

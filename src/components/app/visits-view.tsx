@@ -191,7 +191,7 @@ export function VisitsView({ onOpenCustomer }: { onOpenCustomer: (id: string) =>
 
       {/* Table */}
       {isLoading ? (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-[6px] border bg-card">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 border-b last:border-0 px-4 py-3.5">
               <Skeleton className="h-9 w-9 rounded-full" />
@@ -234,7 +234,7 @@ export function VisitsView({ onOpenCustomer }: { onOpenCustomer: (id: string) =>
           }
         />
       ) : (
-        <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="rounded-[6px] border bg-card overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

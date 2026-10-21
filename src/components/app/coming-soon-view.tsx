@@ -105,7 +105,7 @@ export function ComingSoonView({ view }: { view: ViewId }) {
       <Card className="w-full max-w-xl overflow-hidden">
         <div className="brand-pattern h-36 bg-[linear-gradient(130deg,oklch(0.96_0.03_75),oklch(0.93_0.05_65))] dark:bg-[linear-gradient(130deg,oklch(0.26_0.04_55),oklch(0.3_0.05_50))] relative">
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-background/85 backdrop-blur border shadow-lg text-primary">
+            <div className="flex h-20 w-20 items-center justify-center rounded-[10px] bg-background/85 backdrop-blur border shadow-lg text-primary">
               <Icon className="h-10 w-10" />
             </div>
           </div>

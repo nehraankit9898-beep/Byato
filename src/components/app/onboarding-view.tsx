@@ -242,7 +242,7 @@ export function OnboardingView({
               type="button"
               onClick={() => setStep(i + 1)}
               className={cn(
-                "flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-colors",
+                "flex flex-col items-start gap-1.5 rounded-[6px] border p-3 text-left transition-colors",
                 active
                   ? "border-primary bg-primary/5"
                   : isDone
@@ -382,9 +382,9 @@ function WelcomeStep({
   ];
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5 sm:p-6">
+      <div className="rounded-[8px] bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5 sm:p-6">
         <div className="flex items-start gap-4">
-          <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-primary text-primary-foreground">
             <Rocket className="h-6 w-6" />
           </div>
           <div className="space-y-1">
@@ -400,13 +400,13 @@ function WelcomeStep({
       <div className="space-y-2.5">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 rounded-xl" />
+              <Skeleton key={i} className="h-14 rounded-[6px]" />
             ))
           : rows.map((r) => (
               <div
                 key={r.key}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl border p-3.5",
+                  "flex items-center gap-3 rounded-[6px] border p-3.5",
                   done[r.key]
                     ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/40"
                     : "border-border",
@@ -525,7 +525,7 @@ function MenuStep({
     return (
       <div className="space-y-3 py-4">
         <Skeleton className="h-10 w-2/3" />
-        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-[6px]" />
       </div>
     );
   }
@@ -573,7 +573,7 @@ function MenuStep({
             e.preventDefault();
             if (categoryName.trim().length >= 2) createCategory.mutate(categoryName.trim());
           }}
-          className="space-y-3 rounded-xl border p-4"
+          className="space-y-3 rounded-[6px] border p-4"
         >
           <Label htmlFor="ob-category">First menu category</Label>
           <div className="flex flex-wrap gap-1.5">
@@ -619,7 +619,7 @@ function MenuStep({
                 dietaryTags: [itemDiet],
               });
           }}
-          className="space-y-4 rounded-xl border p-4"
+          className="space-y-4 rounded-[6px] border p-4"
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -747,7 +747,7 @@ function QrStep({
     return (
       <div className="space-y-3 py-4">
         <Skeleton className="h-10 w-2/3" />
-        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-[6px]" />
       </div>
     );
   }
@@ -755,7 +755,7 @@ function QrStep({
   if (showQr) {
     return (
       <div className="grid gap-6 sm:grid-cols-[auto,1fr] sm:items-center">
-        <div className="mx-auto rounded-2xl border bg-white p-4 shadow-sm">
+        <div className="mx-auto rounded-[8px] border bg-white p-4 shadow-sm">
           <QrImage url={showQr.url} size={180} />
           <p className="mt-2 text-center text-[11px] font-medium text-zinc-500">
             {showQr.label ?? hotelName}
@@ -823,7 +823,7 @@ function QrStep({
           e.preventDefault();
           if (labelValid) createQr.mutate({ type, label: label.trim() });
         }}
-        className="space-y-4 rounded-xl border p-4 max-w-lg"
+        className="space-y-4 rounded-[6px] border p-4 max-w-lg"
       >
         <div>
           <Label>What should the QR do?</Label>
@@ -999,7 +999,7 @@ function CustomerStep({
               whatsappOptIn: consent,
             });
         }}
-        className="space-y-4 rounded-xl border p-4 max-w-lg"
+        className="space-y-4 rounded-[6px] border p-4 max-w-lg"
       >
         <div>
           <Label htmlFor="ob-cust-name">Guest name</Label>
@@ -1145,7 +1145,7 @@ function CampaignStep({
               scheduleType: "NOW",
             });
         }}
-        className="space-y-4 rounded-xl border p-4"
+        className="space-y-4 rounded-[6px] border p-4"
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -1192,7 +1192,7 @@ function CampaignStep({
         </div>
 
         {simulated && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-[color:var(--gold-ink)] dark:border-amber-900 dark:bg-amber-950/50 dark:text-[color:var(--gold)]">
             <p className="font-semibold">WhatsApp is not connected yet</p>
             <p className="mt-0.5">
               Until you add your WhatsApp credentials, messages stay in simulation mode — great for
@@ -1289,7 +1289,7 @@ function FinishStep({
             key={n.label}
             type="button"
             onClick={() => setView(n.view)}
-            className="rounded-xl border p-4 text-left hover:bg-muted/50 transition-colors"
+            className="rounded-[6px] border p-4 text-left hover:bg-muted/50 transition-colors"
           >
             <n.icon className="h-5 w-5 text-primary" />
             <p className="mt-2 text-sm font-semibold">{n.label}</p>

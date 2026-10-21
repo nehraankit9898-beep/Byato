@@ -8,7 +8,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmptyState, SectionHeading } from "@/components/app/shared-ui";
 import { ClipboardList, CheckCheck } from "lucide-react";
 
@@ -46,7 +52,11 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 const rupees = (minor: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(minor / 100);
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(minor / 100);
 
 /**
  * Phase 13 — floor / orders view (waiter + manager).
@@ -106,7 +116,7 @@ export function OrdersView({ user }: { user: { role: string; userId: string } })
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
+            <Skeleton key={i} className="h-32 rounded-[6px]" />
           ))}
         </div>
       ) : orders.length === 0 ? (
@@ -124,22 +134,34 @@ export function OrdersView({ user }: { user: { role: string; userId: string } })
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-base font-bold">#{order.orderNumber}</p>
                     <Badge className={STATUS_TONE[order.status] ?? ""}>{order.status}</Badge>
-                    <Badge variant="outline">{order.source === "QR_CUSTOMER" ? "QR" : "Staff"}</Badge>
+                    <Badge variant="outline">
+                      {order.source === "QR_CUSTOMER" ? "QR" : "Staff"}
+                    </Badge>
                     {order.table && <Badge variant="secondary">Table {order.table.number}</Badge>}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(order.placedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(order.placedAt).toLocaleTimeString("en-IN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                     {order.customerName ? ` · ${order.customerName}` : ""}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                     {order.items.map((item) => (
                       <span key={item.id} className="text-sm">
-                        <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.nameSnapshot}
-                        {item.status === "CANCELLED" && <span className="ml-1 text-xs text-destructive">(cancelled)</span>}
+                        <span className="font-semibold tabular-nums">{item.quantity}×</span>{" "}
+                        {item.nameSnapshot}
+                        {item.status === "CANCELLED" && (
+                          <span className="ml-1 text-xs text-destructive">(cancelled)</span>
+                        )}
                       </span>
                     ))}
                   </div>
-                  {order.notes && <p className="mt-1.5 text-xs text-amber-700">Note: {order.notes}</p>}
+                  {order.notes && (
+                    <p className="mt-1.5 text-xs text-[color:var(--gold-ink)]">
+                      Note: {order.notes}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
@@ -155,16 +177,24 @@ export function OrdersView({ user }: { user: { role: string; userId: string } })
                         <CheckCheck className="mr-1 h-4 w-4" /> Mark served
                       </Button>
                     )}
-                    {(order.status === "PLACED" || order.status === "PREPARING" || order.status === "READY") && (
+                    {(order.status === "PLACED" ||
+                      order.status === "PREPARING" ||
+                      order.status === "READY") && (
                       <Button
                         size="sm"
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
                         disabled={transition.isPending}
                         onClick={() => {
-                          const reason = prompt("Cancellation reason (recorded in the audit trail):");
+                          const reason = prompt(
+                            "Cancellation reason (recorded in the audit trail):",
+                          );
                           if (reason && reason.trim().length >= 3) {
-                            transition.mutate({ id: order.id, to: "CANCELLED", reason: reason.trim() });
+                            transition.mutate({
+                              id: order.id,
+                              to: "CANCELLED",
+                              reason: reason.trim(),
+                            });
                           } else if (reason !== null) {
                             toast.error("A reason of at least 3 characters is required.");
                           }
@@ -175,7 +205,13 @@ export function OrdersView({ user }: { user: { role: string; userId: string } })
                     )}
                     {order.status === "SERVED" && (
                       <span className="text-xs text-muted-foreground">
-                        Served {order.servedAt ? new Date(order.servedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
+                        Served{" "}
+                        {order.servedAt
+                          ? new Date(order.servedAt).toLocaleTimeString("en-IN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : ""}
                       </span>
                     )}
                   </div>

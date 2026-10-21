@@ -20,7 +20,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmptyState, SectionHeading } from "@/components/app/shared-ui";
 import { Utensils, Plus, Pencil, Archive, Leaf, Flame } from "lucide-react";
 
@@ -59,9 +65,11 @@ interface MenuItem {
 }
 
 const rupees = (minor: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(
-    minor / 100,
-  );
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(minor / 100);
 
 function parseTags(raw: string | null): string[] {
   try {
@@ -74,7 +82,9 @@ function parseTags(raw: string | null): string[] {
 
 export function MenuView({ user }: { user: { role: string } }) {
   const queryClient = useQueryClient();
-  const canManage = ["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER"].includes(user.role);
+  const canManage = ["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER"].includes(
+    user.role,
+  );
   const canToggleAvailability = canManage || user.role === "KITCHEN_STAFF";
 
   const [categoryDialog, setCategoryDialog] = useState(false);
@@ -152,7 +162,7 @@ export function MenuView({ user }: { user: { role: string } }) {
       {catsLoading || itemsLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
+            <Skeleton key={i} className="h-28 rounded-[6px]" />
           ))}
         </div>
       ) : categories.length === 0 ? (
@@ -199,53 +209,78 @@ export function MenuView({ user }: { user: { role: string } }) {
                       {catItems.map((item) => {
                         const tags = parseTags(item.dietaryTags);
                         return (
-                          <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                          <div
+                            key={item.id}
+                            className="flex flex-wrap items-center gap-3 px-4 py-3"
+                          >
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-sm font-medium">{item.name}</p>
                                 {tags.includes("VEG") && (
-                                  <Badge variant="outline" className="gap-1 border-green-600/40 text-green-700">
+                                  <Badge
+                                    variant="outline"
+                                    className="gap-1 border-green-600/40 text-green-700"
+                                  >
                                     <Leaf className="h-3 w-3" /> Veg
                                   </Badge>
                                 )}
                                 {tags.includes("NON_VEG") && (
-                                  <Badge variant="outline" className="gap-1 border-red-600/40 text-red-700">
+                                  <Badge
+                                    variant="outline"
+                                    className="gap-1 border-red-600/40 text-red-700"
+                                  >
                                     Non-veg
                                   </Badge>
                                 )}
                                 {tags.includes("SPICY") && (
-                                  <Badge variant="outline" className="gap-1 border-orange-500/40 text-orange-600">
+                                  <Badge
+                                    variant="outline"
+                                    className="gap-1 border-orange-500/40 text-orange-600"
+                                  >
                                     <Flame className="h-3 w-3" /> Spicy
                                   </Badge>
                                 )}
                                 {item.optionGroups && item.optionGroups.length > 0 && (
-                                  <Badge variant="secondary">{item.optionGroups.length} option group(s)</Badge>
+                                  <Badge variant="secondary">
+                                    {item.optionGroups.length} option group(s)
+                                  </Badge>
                                 )}
                                 {!item.active && <Badge variant="destructive">Archived</Badge>}
                               </div>
                               {item.description && (
-                                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
+                                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                                  {item.description}
+                                </p>
                               )}
                               <p className="mt-0.5 text-xs text-muted-foreground">
                                 ~{item.prepMinutes} min prep · #{item.sortOrder}
                               </p>
                             </div>
-                            <p className="text-sm font-semibold tabular-nums">{rupees(item.priceMinor)}</p>
+                            <p className="text-sm font-semibold tabular-nums">
+                              {rupees(item.priceMinor)}
+                            </p>
                             <div className="flex items-center gap-2">
                               {canToggleAvailability && item.active && (
                                 <Switch
                                   checked={item.available}
                                   disabled={availability.isPending}
                                   aria-label={`Toggle availability for ${item.name}`}
-                                  onCheckedChange={(v) => availability.mutate({ id: item.id, available: v })}
+                                  onCheckedChange={(v) =>
+                                    availability.mutate({ id: item.id, available: v })
+                                  }
                                 />
                               )}
                               {canManage && (
                                 <>
-                                  <Button variant="ghost" size="icon" aria-label={`Edit ${item.name}`} onClick={() => {
-                                    setEditingItem(item);
-                                    setItemDialog(true);
-                                  }}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={`Edit ${item.name}`}
+                                    onClick={() => {
+                                      setEditingItem(item);
+                                      setItemDialog(true);
+                                    }}
+                                  >
                                     <Pencil className="h-4 w-4" />
                                   </Button>
                                   <Button
@@ -298,8 +333,8 @@ export function MenuView({ user }: { user: { role: string } }) {
           <DialogHeader>
             <DialogTitle>Archive “{confirmArchive?.name}”?</DialogTitle>
             <DialogDescription>
-              The item disappears from the QR menu immediately. Past orders keep their line-item history. This can be
-              undone only by creating the item again.
+              The item disappears from the QR menu immediately. Past orders keep their line-item
+              history. This can be undone only by creating the item again.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -361,13 +396,19 @@ function CategoryDialog({
         <DialogHeader>
           <DialogTitle>{editing ? "Rename category" : "New category"}</DialogTitle>
           <DialogDescription>
-            Categories order the QR menu. Keep names short — they are the section headers diners see.
+            Categories order the QR menu. Keep names short — they are the section headers diners
+            see.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cat-name">Name</Label>
-            <Input id="cat-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Starters" />
+            <Input
+              id="cat-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Starters"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="cat-desc">Description (optional)</Label>
@@ -490,7 +531,8 @@ function ItemDialog({
         <DialogHeader>
           <DialogTitle>{editing ? `Edit “${editing.name}”` : "New menu item"}</DialogTitle>
           <DialogDescription>
-            Prices are stored in paise (integer minor units) and always re-validated server-side on every order.
+            Prices are stored in paise (integer minor units) and always re-validated server-side on
+            every order.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -527,7 +569,10 @@ function ItemDialog({
           {!editing && (
             <div className="space-y-2">
               <Label>Category</Label>
-              <Select value={form.categoryId} onValueChange={(v) => setForm({ ...form, categoryId: v })}>
+              <Select
+                value={form.categoryId}
+                onValueChange={(v) => setForm({ ...form, categoryId: v })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a category" />
                 </SelectTrigger>
@@ -557,7 +602,13 @@ function ItemDialog({
                 type="checkbox"
                 className="h-4 w-4 accent-[hsl(var(--primary))]"
                 checked={form.veg && !form.nonVeg}
-                onChange={(e) => setForm({ ...form, veg: e.target.checked, nonVeg: e.target.checked ? false : form.nonVeg })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    veg: e.target.checked,
+                    nonVeg: e.target.checked ? false : form.nonVeg,
+                  })
+                }
               />
               Veg
             </label>
@@ -566,7 +617,13 @@ function ItemDialog({
                 type="checkbox"
                 className="h-4 w-4 accent-[hsl(var(--primary))]"
                 checked={form.nonVeg}
-                onChange={(e) => setForm({ ...form, nonVeg: e.target.checked, veg: e.target.checked ? false : form.veg })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    nonVeg: e.target.checked,
+                    veg: e.target.checked ? false : form.veg,
+                  })
+                }
               />
               Non-veg
             </label>
@@ -587,7 +644,12 @@ function ItemDialog({
           </Button>
           <Button
             onClick={() => save.mutate()}
-            disabled={save.isPending || form.name.trim().length < 2 || !form.priceRupees || (!editing && !form.categoryId)}
+            disabled={
+              save.isPending ||
+              form.name.trim().length < 2 ||
+              !form.priceRupees ||
+              (!editing && !form.categoryId)
+            }
           >
             {editing ? "Save changes" : "Add to menu"}
           </Button>

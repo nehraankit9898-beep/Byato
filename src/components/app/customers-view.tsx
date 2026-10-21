@@ -348,7 +348,7 @@ export function CustomersView({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {isLoading && !summary ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[92px] rounded-xl" />
+            <Skeleton key={i} className="h-[92px] rounded-[6px]" />
           ))
         ) : (
           <>
@@ -517,7 +517,7 @@ export function CustomersView({
 
       {/* Loading / error / empty / list */}
       {isLoading ? (
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-[6px] border bg-card">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 border-b last:border-0 px-4 py-3.5">
               <Skeleton className="h-9 w-9 rounded-full" />
@@ -571,13 +571,13 @@ export function CustomersView({
           }
         />
       ) : (
-        <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="rounded-[6px] border bg-card overflow-hidden">
           {/* Mobile / tablet: card list */}
           <ul className="divide-y md:hidden">
             {customers.map((c) => (
               <li key={c.id}>
                 <button
-                  className="flex w-full items-start gap-3 px-4 py-3.5 text-left hover:bg-accent/40 transition-colors"
+                  className="flex w-full items-start gap-3 px-4 py-3.5 text-left hover:bg-[color:var(--porcelain)] transition-colors duration-[420ms]"
                   onClick={() => onOpenCustomer(c.id)}
                 >
                   <Avatar className="h-10 w-10 shrink-0">
@@ -585,7 +585,7 @@ export function CustomersView({
                       className={cn(
                         "text-[11px] font-bold",
                         c.status === "ACTIVE"
-                          ? "bg-primary/10 text-primary"
+                          ? "bg-[color:var(--gold-soft)] text-[color:var(--gold-ink)]"
                           : "bg-muted text-muted-foreground",
                       )}
                     >
@@ -595,7 +595,9 @@ export function CustomersView({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-[14px] flex items-center gap-1">
                       {c.name}
-                      {c.vip && <Crown className="h-3 w-3 text-amber-500" aria-label="VIP" />}
+                      {c.vip && (
+                        <Crown className="h-3 w-3 text-[color:var(--gold-ink)]" aria-label="VIP" />
+                      )}
                     </p>
                     <p className="text-[12px] text-muted-foreground font-mono">
                       {showPhones ? phoneDisplay(c.phone) : maskPhoneDisplay(c.phone)}
@@ -678,7 +680,7 @@ export function CustomersView({
           <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-accent/40 hover:bg-accent/40">
+                <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[40px]"></TableHead>
                   <TableHead>
                     <button
@@ -725,7 +727,7 @@ export function CustomersView({
                           className={cn(
                             "text-[11px] font-bold",
                             c.status === "ACTIVE"
-                              ? "bg-primary/10 text-primary"
+                              ? "bg-[color:var(--gold-soft)] text-[color:var(--gold-ink)]"
                               : "bg-muted text-muted-foreground",
                           )}
                         >
@@ -736,10 +738,15 @@ export function CustomersView({
                     <TableCell className="max-w-[180px]">
                       <p className="truncate font-semibold text-[13.5px] flex items-center gap-1">
                         {c.name}
-                        {c.vip && <Crown className="h-3 w-3 text-amber-500" aria-label="VIP" />}
+                        {c.vip && (
+                          <Crown
+                            className="h-3 w-3 text-[color:var(--gold-ink)]"
+                            aria-label="VIP"
+                          />
+                        )}
                       </p>
                       {c.isReturning && (
-                        <p className="text-[10.5px] font-medium text-emerald-600 dark:text-emerald-400">
+                        <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[color:var(--sage)]">
                           Returning
                         </p>
                       )}
@@ -756,10 +763,10 @@ export function CustomersView({
                       <Badge
                         variant="secondary"
                         className={cn(
-                          "tabular-nums font-semibold",
+                          "tabular-nums",
                           c.totalVisits >= 3 &&
-                            "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400",
-                          c.totalVisits === 0 && "bg-muted text-muted-foreground",
+                            "border-[color:var(--sage)]/45 bg-transparent text-[color:var(--sage)]",
+                          c.totalVisits === 0 && "bg-transparent text-muted-foreground",
                         )}
                       >
                         {c.totalVisits}
@@ -770,12 +777,12 @@ export function CustomersView({
                     </TableCell>
                     <TableCell>
                       {c.optOut ? (
-                        <Badge className="bg-rose-500/12 text-rose-600 dark:text-rose-400 hover:bg-rose-500/12 border-0">
-                          <BellOff className="h-3 w-3 mr-1" /> Opted out
+                        <Badge className="border-[color:var(--destructive)]/40 bg-transparent text-[color:var(--destructive)] hover:bg-transparent">
+                          <BellOff className="h-3 w-3" /> Opted out
                         </Badge>
                       ) : c.marketingConsent ? (
-                        <Badge className="bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/12 border-0">
-                          <BellRing className="h-3 w-3 mr-1" /> Opted in
+                        <Badge className="border-[color:var(--sage)]/45 bg-transparent text-[color:var(--sage)] hover:bg-transparent">
+                          <BellRing className="h-3 w-3" /> Opted in
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="text-muted-foreground">
@@ -788,8 +795,8 @@ export function CustomersView({
                         variant="outline"
                         className={cn(
                           c.status === "ACTIVE"
-                            ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5"
-                            : "border-muted-foreground/30 text-muted-foreground",
+                            ? "border-[color:var(--sage)]/45 bg-transparent text-[color:var(--sage)]"
+                            : "border-[color:var(--border)] bg-transparent text-muted-foreground",
                         )}
                       >
                         {c.status === "ACTIVE" ? "Active" : "Inactive"}
@@ -980,7 +987,7 @@ function SummaryTile({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "text-left rounded-xl border bg-card p-4 transition-colors hover:bg-accent/40",
+        "text-left rounded-[6px] border bg-card p-4 transition-colors hover:bg-[color:var(--porcelain)]",
         active && "ring-2 ring-primary/40",
       )}
     >

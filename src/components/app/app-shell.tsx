@@ -164,30 +164,69 @@ const NAV_OPS16: NavItem[] = [
 
 // Phase 18 — AI console (role-filtered: AI_READ holders — owner/admin/manager/
 // marketing; the API enforces the same matrix server-side).
-const NAV_AI: NavItem[] = [
-  { id: "ai", label: "AI Assistant", icon: Sparkles },
-];
+const NAV_AI: NavItem[] = [{ id: "ai", label: "AI Assistant", icon: Sparkles }];
 
 const POS_NAV_ROLES: Record<string, ReadonlySet<string>> = {
   pos: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "CASHIER"]),
-  bills: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "CASHIER", "WAITER"]),
+  bills: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "CASHIER",
+    "WAITER",
+  ]),
   tax_rules: new Set(["HOTEL_OWNER", "HOTEL_ADMIN"]),
 };
 
 const RETENTION_NAV_ROLES: Record<string, ReadonlySet<string>> = {
-  promotions: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "MARKETING_MANAGER"]),
+  promotions: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "MARKETING_MANAGER",
+  ]),
   referrals: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "MARKETING_MANAGER"]),
   reports: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "MARKETING_MANAGER"]),
 };
 
 const AI_NAV_ROLES: Record<string, ReadonlySet<string>> = {
-  ai: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "MARKETING_MANAGER"]),
+  ai: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "MARKETING_MANAGER",
+  ]),
 };
 
 const OPS16_NAV_ROLES: Record<string, ReadonlySet<string>> = {
-  reservations: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "WAITER", "CASHIER", "FRONT_DESK"]),
-  inventory: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "KITCHEN_STAFF"]),
-  attendance: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "WAITER", "CASHIER", "KITCHEN_STAFF"]),
+  reservations: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "WAITER",
+    "CASHIER",
+    "FRONT_DESK",
+  ]),
+  inventory: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "KITCHEN_STAFF",
+  ]),
+  attendance: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "WAITER",
+    "CASHIER",
+    "KITCHEN_STAFF",
+  ]),
   branches: new Set(["HOTEL_OWNER", "HOTEL_ADMIN"]),
 };
 
@@ -207,12 +246,39 @@ function aiNavFor(role: string): NavItem[] {
 /** Which roles may see each operations nav item (mirrors server permissions). */
 const OPERATIONS_NAV_ROLES: Record<string, ReadonlySet<string>> = {
   orders: new Set([
-    "HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER",
-    "FRONT_DESK", "WAITER", "CASHIER", "HOTEL_STAFF",
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "FRONT_DESK",
+    "WAITER",
+    "CASHIER",
+    "HOTEL_STAFF",
   ]),
-  kds: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "KITCHEN_STAFF"]),
-  menu: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "KITCHEN_STAFF", "WAITER", "CASHIER"]),
-  tables: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER", "FRONT_DESK", "WAITER"]),
+  kds: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "KITCHEN_STAFF",
+  ]),
+  menu: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "KITCHEN_STAFF",
+    "WAITER",
+    "CASHIER",
+  ]),
+  tables: new Set([
+    "HOTEL_OWNER",
+    "HOTEL_ADMIN",
+    "HOTEL_MANAGER",
+    "RESTAURANT_MANAGER",
+    "FRONT_DESK",
+    "WAITER",
+  ]),
   staff: new Set(["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER"]),
 };
 
@@ -347,7 +413,10 @@ const VIEW_TITLES: Record<ViewId, { title: string; subtitle: string }> = {
   tables: { title: "Tables & QR", subtitle: "Your floor map and table ordering codes" },
   staff: { title: "Staff", subtitle: "Invite your team and manage their roles" },
   // Phase 14/15/16
-  pos: { title: "POS Terminal", subtitle: "Create bills, take split/mixed payments, print receipts" },
+  pos: {
+    title: "POS Terminal",
+    subtitle: "Create bills, take split/mixed payments, print receipts",
+  },
   bills: { title: "Bills & Refunds", subtitle: "Invoice history, refunds and voids — audited" },
   tax_rules: { title: "GST & Tax Rules", subtitle: "Effective-dated CGST/SGST/IGST configuration" },
   promotions: { title: "Promotions", subtitle: "Happy hours, combos and offers" },
@@ -355,9 +424,15 @@ const VIEW_TITLES: Record<ViewId, { title: string; subtitle: string }> = {
   reports: { title: "Owner Reports", subtitle: "Business-day sales and email digests" },
   reservations: { title: "Reservations", subtitle: "Table bookings with slot conflict protection" },
   inventory: { title: "Inventory", subtitle: "Stock ledger, recipes and wastage" },
-  attendance: { title: "Attendance & Shifts", subtitle: "Clock in/out, corrections and shift plans" },
+  attendance: {
+    title: "Attendance & Shifts",
+    subtitle: "Clock in/out, corrections and shift plans",
+  },
   branches: { title: "Branch Dashboard", subtitle: "Consolidated view across your branch group" },
-  ai: { title: "AI Assistant", subtitle: "Rule-based automation, forecasting and ordering — human-approved" },
+  ai: {
+    title: "AI Assistant",
+    subtitle: "Rule-based automation, forecasting and ordering — human-approved",
+  },
 };
 
 function NotificationsBell({ setView }: { setView: (v: ViewId) => void }) {
@@ -422,10 +497,10 @@ function SidebarNav({
                 type="button"
                 onClick={() => setView(item.id)}
                 className={cn(
-                  "w-full group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+                  "relative w-full group flex items-center gap-3 rounded-[4px] px-3 py-2.5 text-[13px] font-medium transition-colors duration-[420ms]",
                   active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground before:absolute before:bottom-2 before:left-0 before:top-2 before:w-[2px] before:rounded-full before:bg-sidebar-primary"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
               >
                 <item.icon className={cn("h-[18px] w-[18px] shrink-0", !active && "opacity-80")} />
@@ -448,11 +523,13 @@ function SidebarNav({
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 pt-6 pb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
+        <div className="flex h-10 w-10 items-center justify-center rounded-[4px] border border-sidebar-primary/40 text-sidebar-primary">
           <Hotel className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <p className="text-[15px] font-bold tracking-tight leading-tight">Beyto</p>
+          <p className="font-serif text-[17px] font-semibold uppercase tracking-[0.22em] leading-tight">
+            Beyto
+          </p>
           <p className="text-[10.5px] text-sidebar-foreground/50 truncate">
             {user.hotelName || "Platform Control Centre"}
           </p>
@@ -477,16 +554,21 @@ function SidebarNav({
                 aria-expanded={moreExpanded}
                 aria-controls="owner-more-tools"
                 onClick={() => setMoreOpen((open) => (hasActiveMoreView ? true : !open))}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2.5 text-[13px] font-medium text-sidebar-foreground/70 transition-colors duration-[420ms] hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
               >
                 <LayoutGrid className="h-[18px] w-[18px] opacity-80" />
                 <span className="flex-1 text-left">More tools</span>
-                <ChevronDown className={cn("h-4 w-4 transition-transform", moreExpanded && "rotate-180")} />
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform", moreExpanded && "rotate-180")}
+                />
               </button>
             </div>
             {moreExpanded && (
               <div id="owner-more-tools" className="space-y-5">
-                {renderGroup(NAV_MAIN.filter((item) => !NAV_PRIMARY.some((primary) => primary.id === item.id)), "More")}
+                {renderGroup(
+                  NAV_MAIN.filter((item) => !NAV_PRIMARY.some((primary) => primary.id === item.id)),
+                  "More",
+                )}
                 {renderGroup(NAV_INTELLIGENCE, "Intelligence & Growth")}
                 {renderGroup(NAV_GROWTH, "Loyalty & Growth")}
                 {renderGroup(NAV_RESTAURANT, "Restaurant")}
@@ -504,7 +586,7 @@ function SidebarNav({
 
       {/* User card */}
       <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+        <div className="flex items-center gap-3 rounded-[6px] px-2 py-2">
           <Avatar className="h-9 w-9 border border-sidebar-border">
             <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold">
               {initials(user.name)}
@@ -590,7 +672,7 @@ export function AppShell({
           </Sheet>
 
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[17px] font-bold tracking-tight leading-tight">
+            <h1 className="truncate font-serif text-[19px] font-medium leading-tight tracking-[-0.005em]">
               {meta.title}
             </h1>
             <p className="hidden sm:block truncate text-xs text-muted-foreground">
@@ -630,7 +712,7 @@ export function AppShell({
                 aria-label="Account menu"
               >
                 <Avatar className="h-9 w-9 border">
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                  <AvatarFallback className="bg-[color:var(--gold-soft)] text-[color:var(--gold-ink)] text-[11px] font-medium">
                     {initials(user.name)}
                   </AvatarFallback>
                 </Avatar>

@@ -96,9 +96,9 @@ export function SettingsView({ user }: { user: SessionUser }) {
   return (
     <div className="max-w-3xl space-y-5">
       {forced && (
-        <Alert className="border-amber-300 bg-amber-50 text-amber-900 mb-4">
+        <Alert className="border-amber-300 bg-amber-50 text-[color:var(--gold-ink)] mb-4">
           <ShieldCheck className="h-4 w-4" />
-          <AlertDescription className="text-amber-900">
+          <AlertDescription className="text-[color:var(--gold-ink)]">
             For security you must set a new password before you can use StayLoop. Choose a strong
             password below — after saving, sign in again.
           </AlertDescription>

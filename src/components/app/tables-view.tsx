@@ -33,9 +33,15 @@ interface TableRow {
 
 export function TablesView({ user }: { user: { role: string } }) {
   const queryClient = useQueryClient();
-  const canManage = ["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER"].includes(user.role);
+  const canManage = ["HOTEL_OWNER", "HOTEL_ADMIN", "HOTEL_MANAGER", "RESTAURANT_MANAGER"].includes(
+    user.role,
+  );
   const [addOpen, setAddOpen] = useState(false);
-  const [qrPreview, setQrPreview] = useState<{ number: string; url: string; dataUrl: string } | null>(null);
+  const [qrPreview, setQrPreview] = useState<{
+    number: string;
+    url: string;
+    dataUrl: string;
+  } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["tables"],
@@ -101,7 +107,7 @@ export function TablesView({ user }: { user: { role: string } }) {
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
+            <Skeleton key={i} className="h-40 rounded-[6px]" />
           ))}
         </div>
       ) : tables.length === 0 ? (
@@ -130,7 +136,11 @@ export function TablesView({ user }: { user: { role: string } }) {
                 </div>
                 {t.activeSession && (
                   <p className="text-xs text-muted-foreground">
-                    Since {new Date(t.activeSession.openedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                    Since{" "}
+                    {new Date(t.activeSession.openedAt).toLocaleTimeString("en-IN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                     {t.activeSession.guestName ? ` · ${t.activeSession.guestName}` : ""}
                   </p>
                 )}
@@ -154,7 +164,11 @@ export function TablesView({ user }: { user: { role: string } }) {
                         className="text-destructive hover:text-destructive"
                         disabled={archiveTable.isPending}
                         onClick={() => {
-                          if (confirm(`Archive table ${t.number}? Its QR codes stop working immediately.`)) {
+                          if (
+                            confirm(
+                              `Archive table ${t.number}? Its QR codes stop working immediately.`,
+                            )
+                          ) {
                             archiveTable.mutate(t.id);
                           }
                         }}
@@ -184,14 +198,20 @@ export function TablesView({ user }: { user: { role: string } }) {
           <DialogHeader>
             <DialogTitle>Table {qrPreview?.number} QR</DialogTitle>
             <DialogDescription>
-              Print this and place it on the table. Scanning it opens the live menu bound to this table — the code is
-              unpredictable and can be revoked any time.
+              Print this and place it on the table. Scanning it opens the live menu bound to this
+              table — the code is unpredictable and can be revoked any time.
             </DialogDescription>
           </DialogHeader>
           {qrPreview && (
             <div className="flex flex-col items-center gap-3">
-              <img src={qrPreview.dataUrl} alt={`QR code for table ${qrPreview.number}`} className="h-56 w-56" />
-              <p className="break-all text-center text-[10px] text-muted-foreground">{qrPreview.url}</p>
+              <img
+                src={qrPreview.dataUrl}
+                alt={`QR code for table ${qrPreview.number}`}
+                className="h-56 w-56"
+              />
+              <p className="break-all text-center text-[10px] text-muted-foreground">
+                {qrPreview.url}
+              </p>
             </div>
           )}
           <DialogFooter>
@@ -265,19 +285,32 @@ function AddTableDialogInner({
             </div>
             <div className="space-y-2">
               <Label htmlFor="table-capacity">Seats</Label>
-              <Input id="table-capacity" inputMode="numeric" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+              <Input
+                id="table-capacity"
+                inputMode="numeric"
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value)}
+              />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="table-zone">Zone (optional)</Label>
-            <Input id="table-zone" value={zone} onChange={(e) => setZone(e.target.value)} placeholder="Garden / Floor 2" />
+            <Input
+              id="table-zone"
+              value={zone}
+              onChange={(e) => setZone(e.target.value)}
+              placeholder="Garden / Floor 2"
+            />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending || number.trim().length < 1}>
+          <Button
+            onClick={() => save.mutate()}
+            disabled={save.isPending || number.trim().length < 1}
+          >
             Add table
           </Button>
         </DialogFooter>
