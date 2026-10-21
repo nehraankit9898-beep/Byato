@@ -28,7 +28,7 @@ import { db } from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
 import { parseCsvDate } from "@/lib/csv";
 import { authenticateApiKey, requireScope } from "@/lib/api-keys";
-import { createCustomerWithinLimit } from "@/lib/saas/limits";
+import { createCustomerWithinLimit, withHotelWriteLock } from "@/lib/saas/limits";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
@@ -274,14 +274,15 @@ async function handle(req: Request, ctx: Ctx): Promise<Response> {
         const phoneResult = normalizePhone(phoneRaw);
         if (!phoneResult.ok)
           return err(422, "VALIDATION_ERROR", phoneResult.error || "Invalid 'phone'.");
-        const customer = await db.customer.findUnique({
-          where: { hotelId_phone: { hotelId: auth.hotelId, phone: phoneResult.normalized! } },
-        });
-        if (!customer) {
-          return err(404, "NOT_FOUND", "No customer with this phone. Create the customer first.");
-        }
         const checkin = parseCsvDate(typeof body?.checkin === "string" ? body.checkin : "");
         if (!checkin) return err(422, "VALIDATION_ERROR", "'checkin' is required (YYYY-MM-DD).");
+        // The API's duplicate contract is per check-in DATE, not timestamp.
+        // parseCsvDate also accepts times, so use a UTC day range below to
+        // prevent timestamp variants on the same date from bypassing it.
+        const checkinDayStart = new Date(
+          Date.UTC(checkin.getUTCFullYear(), checkin.getUTCMonth(), checkin.getUTCDate()),
+        );
+        const checkinDayEnd = new Date(checkinDayStart.getTime() + 24 * 60 * 60 * 1000);
         const checkoutRaw = typeof body?.checkout === "string" ? body.checkout : "";
         let checkout: Date | null = null;
         if (checkoutRaw) {
@@ -295,29 +296,51 @@ async function handle(req: Request, ctx: Ctx): Promise<Response> {
             ? body.amount
             : null;
 
-        const dup = await db.visit.findFirst({
-          where: { hotelId: auth.hotelId, customerId: customer.id, checkin },
+        // The duplicate check is part of the hotel write lock. Without this,
+        // simultaneous API calls can both observe no matching visit and create
+        // duplicates because Visit has no unique index on this business key.
+        const result = await withHotelWriteLock(auth.hotelId, async (tx) => {
+          const customer = await tx.customer.findUnique({
+            where: { hotelId_phone: { hotelId: auth.hotelId, phone: phoneResult.normalized! } },
+          });
+          if (!customer) return { kind: "customer_missing" as const };
+
+          const duplicate = await tx.visit.findFirst({
+            where: {
+              hotelId: auth.hotelId,
+              customerId: customer.id,
+              checkin: { gte: checkinDayStart, lt: checkinDayEnd },
+            },
+            select: { id: true },
+          });
+          if (duplicate) return { kind: "duplicate" as const };
+
+          const visit = await tx.visit.create({
+            data: {
+              hotelId: auth.hotelId,
+              customerId: customer.id,
+              checkin,
+              checkout,
+              amount,
+              source: "API",
+              notes: typeof body?.notes === "string" ? body.notes.slice(0, 500) : null,
+            },
+            select: { id: true, checkin: true, checkout: true, amount: true, createdAt: true },
+          });
+          return { kind: "created" as const, visit };
         });
-        if (dup)
+
+        if (result.kind === "customer_missing") {
+          return err(404, "NOT_FOUND", "No customer with this phone. Create the customer first.");
+        }
+        if (result.kind === "duplicate") {
           return err(
             409,
             "ALREADY_EXISTS",
             "A visit with this check-in date already exists for this customer.",
           );
-
-        const visit = await db.visit.create({
-          data: {
-            hotelId: auth.hotelId,
-            customerId: customer.id,
-            checkin,
-            checkout,
-            amount,
-            source: "API",
-            notes: typeof body?.notes === "string" ? body.notes.slice(0, 500) : null,
-          },
-          select: { id: true, checkin: true, checkout: true, amount: true, createdAt: true },
-        });
-        return json(visit, 201);
+        }
+        return json(result.visit, 201);
       }
 
       if (method === "GET") {
