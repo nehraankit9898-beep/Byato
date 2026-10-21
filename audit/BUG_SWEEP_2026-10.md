@@ -302,3 +302,22 @@ rollout/rollback and honest verification limits are in
 All five have fixes and regressions. No new schema migration. DEP-002 remains
 an existing dependency finding, not a sixth new bug. Production build and real
 PostgreSQL/provider/browser checks remain gates, not claimed passes.
+
+## 2026-10-21 follow-up — BUG-19
+
+| ID | Severity | Area | Summary |
+|---|---|---|---|
+| BUG-19 | Medium | Developer API | Concurrent or timestamp-variant visit requests bypassed the documented per-customer, per-check-in-date duplicate rule |
+
+`POST /api/v1/visits` performed a `findFirst` and then `create` as separate
+operations despite having no unique database constraint, so concurrent calls
+could both create a visit. Its exact-timestamp predicate also let a date-only
+request and an accepted datetime request for the same calendar date coexist.
+The route now performs customer lookup, day-range duplicate detection and insert
+inside the existing per-hotel write lock. The date range is normalized in UTC,
+matching `parseCsvDate`'s stored representation. No migration was needed.
+
+Regression: `tests/api-v1-visits-regression.test.ts` races timestamp variants
+and identical requests; it asserts one 201, one 409 and one stored visit for
+each calendar date. The test is registered in `scripts/run-tests.ts` and passed
+against a fresh disposable SQLite test database and the real HTTP route.

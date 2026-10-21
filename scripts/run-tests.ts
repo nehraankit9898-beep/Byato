@@ -288,6 +288,7 @@ async function main() {
       "tests/dashboard-regressions.test.ts",
       "tests/build-mode-contract.test.ts",
       "tests/audit-current-regressions.test.ts",
+      "tests/api-v1-visits-regression.test.ts",
       "tests/auth.test.ts",
       "tests/lockout.test.ts",
       "tests/navigation-rbac.test.ts",
