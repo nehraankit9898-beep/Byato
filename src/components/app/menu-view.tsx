@@ -92,6 +92,26 @@ function PhotoPlaceholder({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Owner-side photo thumbnail. A legacy external URL (blocked by the
+ * production CSP) falls back to the same neutral placeholder as a missing
+ * photo instead of a broken-image icon.
+ */
+function Thumb({ src, alt }: { src: string | null; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return <PhotoPlaceholder className="h-full w-full" />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="h-full w-full object-cover"
+    />
+  );
+}
+
 const rupees = (minor: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -242,16 +262,7 @@ export function MenuView({ user }: { user: { role: string } }) {
                             className="flex flex-wrap items-center gap-3 px-4 py-3"
                           >
                             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-md border">
-                              {item.imageUrl ? (
-                                <img
-                                  src={item.imageUrl}
-                                  alt={`${item.name} photo`}
-                                  loading="lazy"
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <PhotoPlaceholder className="h-full w-full" />
-                              )}
+                              <Thumb src={item.imageUrl} alt={`${item.name} photo`} />
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
@@ -694,15 +705,7 @@ function ItemDialog({
             <Label>Food photo (optional)</Label>
             <div className="flex gap-3">
               <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border">
-                {shownPhoto ? (
-                  <img
-                    src={shownPhoto}
-                    alt="Menu item photo preview"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <PhotoPlaceholder className="h-full w-full" />
-                )}
+                <Thumb src={shownPhoto} alt="Menu item photo preview" />
               </div>
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">

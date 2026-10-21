@@ -143,7 +143,7 @@ server, exactly like CI.
 
 Command / scope | Result
 ---|---
-`bun test tests/menu-photos.test.ts` | **22 pass / 0 fail**, 107 assertions
+`bun test tests/menu-photos.test.ts` | **22 pass / 0 fail**, 109 assertions
 `bun test tests/phase12-menu.test.ts` | 10 pass / 0 fail (catalog + public QR regression)
 `bun test tests/phase13-orders.test.ts` | 16 pass / 0 fail (ordering regression)
 `bun test tests/body-cap-route-coverage.test.ts` | 5 pass / 0 fail (all API routes still use capped body readers)
@@ -193,9 +193,10 @@ What the 22 tests specifically prove:
 - **Image optimizer on Vercel**: `next/image` needs the optimizer enabled
   (default). Managed URLs are same-origin, so no `remotePatterns` entry is
   required. Legacy external URLs bypass the optimizer deliberately.
-- **Legacy external URLs** remain CSP-blocked in production; the card shows
-  "Photo unavailable" rather than a broken image. Owners can replace them with
-  an upload.
+- **Legacy external URLs** remain CSP-blocked in production; the public card
+  shows "Photo unavailable" and the owner thumbnail falls back to the same
+  neutral placeholder rather than a broken-image icon. Owners can replace them
+  with an upload.
 - **Migration 0016 is new** — the `postgres-migrations` CI job validates it
   against a clean PostgreSQL 16 (apply + empty drift + table assertions).
 - No new environment variables or secrets were introduced.

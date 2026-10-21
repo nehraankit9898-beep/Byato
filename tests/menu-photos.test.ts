@@ -490,5 +490,9 @@ describe("menu photo — public QR menu and responsive presentation", () => {
     expect(src).toContain("No photo");
     expect(src).toContain("api.upload");
     expect(src).toContain('accept={PHOTO_ACCEPT.join(",")}');
+    // A legacy/external URL that CSP blocks degrades to the placeholder
+    // instead of a broken-image icon.
+    expect(src).toContain("onError={() => setFailed(true)}");
+    expect(src).toContain("<Thumb");
   });
 });
