@@ -27,7 +27,8 @@
     "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.postgres.prisma",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"*.{ts,mjs,json}\" \".prettierrc.json\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"scripts/**/*.ts\" \"tests/**/*.ts\" \"*.{ts,mjs,json}\" \".prettierrc.json\"",
-    "start:standalone": "NODE_ENV=production node .next/standalone/server.js"
+    "start:standalone": "NODE_ENV=production node .next/standalone/server.js",
+    "preview:design": "node scripts/serve-design.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
