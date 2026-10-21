@@ -1,13 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { VoiceOrder } from "@/components/public/voice-order";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Leaf, Flame, ShoppingCart, Minus, Plus, CheckCircle2, ChefHat, Utensils, AlertCircle } from "lucide-react";
+import {
+  Leaf,
+  Flame,
+  ShoppingCart,
+  Minus,
+  Plus,
+  CheckCircle2,
+  ChefHat,
+  Utensils,
+  AlertCircle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -53,7 +64,13 @@ interface PublicCategory {
 }
 
 interface MenuResponse {
-  restaurant: { id: string; name: string; city: string | null; location: string | null; currency: string };
+  restaurant: {
+    id: string;
+    name: string;
+    city: string | null;
+    location: string | null;
+    currency: string;
+  };
   table: { id: string; number: string; zone: string | null } | null;
   session: { id: string; publicToken: string } | null;
   orderingEnabled: boolean;
@@ -63,7 +80,12 @@ interface MenuResponse {
   categories: PublicCategory[];
   // Phase 18 — display-safe AI features (optional; older deployments omit them)
   voiceEnabled?: boolean;
-  sustainability?: Array<{ label: string; description: string | null; methodRef: string | null; source: string }>;
+  sustainability?: Array<{
+    label: string;
+    description: string | null;
+    methodRef: string | null;
+    source: string;
+  }>;
 }
 
 interface CartLine {
@@ -75,11 +97,167 @@ interface CartLine {
 }
 
 const rupees = (minor: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(minor / 100);
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(minor / 100);
 
 function lineTotal(line: CartLine): number {
-  const unit = line.item.priceMinor + line.selectedOptions.reduce((s, o) => s + o.priceDeltaMinor, 0);
+  const unit =
+    line.item.priceMinor + line.selectedOptions.reduce((s, o) => s + o.priceDeltaMinor, 0);
   return unit * line.quantity;
+}
+
+/**
+ * Food photo for a public menu card.
+ *
+ * The photo is served from this app (/api/media/<id>), so it is same-origin and
+ * allowed by the production CSP. next/image produces responsive srcsets (the
+ * right size for a phone, tablet or desktop) and lazy-loads below-the-fold
+ * cards — the stored WebP is already <=1600 px, so the optimizer only has to
+ * downscale.
+ *
+ * When an item has no photo, a NEUTRAL placeholder is shown. It is deliberately
+ * not a stock/AI food picture: an invented dish photo would misrepresent what
+ * the kitchen actually serves. If a legacy external URL fails to load (for
+ * example, blocked by CSP), the same placeholder is shown with an honest
+ * "photo unavailable" label instead of an empty box.
+ */
+function FoodPhoto({ item }: { item: PublicItem }) {
+  const [failed, setFailed] = useState(false);
+  // Photos uploaded through the app are same-origin (/api/media/<id>) and can
+  // go through next/image for responsive srcsets. Legacy/external URLs are
+  // rendered as a plain <img>: the optimizer would need a remotePatterns entry
+  // per restaurant CDN, and production CSP only allows same-origin images
+  // anyway (the honest fallback below covers ones that fail to load).
+  const isManaged = item.imageUrl?.startsWith("/api/media/") ?? false;
+
+  return (
+    <div className="relative aspect-[4/3] w-full overflow-hidden bg-[color:var(--porcelain)] sm:aspect-[16/9]">
+      {item.imageUrl && !failed ? (
+        isManaged ? (
+          <Image
+            src={item.imageUrl}
+            alt={item.name}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 60vw, 480px"
+            className="object-cover"
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <img
+            src={item.imageUrl}
+            alt={item.name}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => setFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        )
+      ) : (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground">
+          <Utensils className="h-7 w-7 opacity-40" aria-hidden />
+          <span className="text-[10px] uppercase tracking-[0.14em]">
+            {failed ? "Photo unavailable" : "No photo yet"}
+          </span>
+        </div>
+      )}
+      {!item.available && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/70">
+          <Badge variant="outline">Sold out</Badge>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Mobile-first menu card: photo on top, then name, price, description,
+ * availability and an explicit Add to Cart action (the whole card used to be
+ * one big button with an unlabelled "+" — unusable with a screen reader and
+ * ambiguous on touch).
+ */
+function MenuCard({
+  item,
+  orderingEnabled,
+  onAdd,
+}: {
+  item: PublicItem;
+  orderingEnabled: boolean;
+  onAdd: () => void;
+}) {
+  const hasOptions = item.optionGroups.length > 0;
+  const actionable = item.available && (hasOptions || orderingEnabled);
+
+  return (
+    <article
+      className={cn(
+        "overflow-hidden rounded-xl border bg-card transition",
+        !item.available && "opacity-70",
+      )}
+    >
+      <FoodPhoto item={item} />
+      <div className="space-y-1 p-3.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="text-sm font-semibold">{item.name}</p>
+              {item.dietaryTags.includes("VEG") && (
+                <Leaf className="h-3.5 w-3.5 text-green-600" aria-label="Vegetarian" />
+              )}
+              {item.dietaryTags.includes("NON_VEG") && (
+                <span className="text-xs font-bold text-red-600" aria-label="Non-vegetarian">
+                  •NV
+                </span>
+              )}
+              {item.dietaryTags.includes("SPICY") && (
+                <Flame className="h-3.5 w-3.5 text-orange-500" aria-label="Spicy" />
+              )}
+            </div>
+            {item.description && (
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                {item.description}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              ~{item.prepMinutes} min
+              {item.available ? "" : " · Currently unavailable"}
+            </p>
+          </div>
+          <p className="flex-none text-sm font-bold tabular-nums">{rupees(item.priceMinor)}</p>
+        </div>
+        <div className="flex items-center justify-end pt-1.5">
+          <Button
+            type="button"
+            size="sm"
+            disabled={!actionable}
+            onClick={onAdd}
+            aria-label={
+              !item.available
+                ? `${item.name} is sold out`
+                : hasOptions
+                  ? `Choose options for ${item.name}`
+                  : `Add ${item.name} to cart`
+            }
+          >
+            {!item.available ? (
+              "Sold out"
+            ) : hasOptions ? (
+              "Choose options"
+            ) : orderingEnabled ? (
+              <>
+                <Plus className="mr-1 h-4 w-4" /> Add to cart
+              </>
+            ) : (
+              "View only"
+            )}
+          </Button>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 export function PublicMenuClient({ code }: { code: string }) {
@@ -135,7 +313,10 @@ export function PublicMenuClient({ code }: { code: string }) {
   const cartTotal = cart.reduce((s, l) => s + lineTotal(l), 0);
 
   function addToCart(item: PublicItem, options: PublicOption[], notes: string) {
-    const key = `${item.id}:${options.map((o) => o.id).sort().join(",")}`;
+    const key = `${item.id}:${options
+      .map((o) => o.id)
+      .sort()
+      .join(",")}`;
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);
       if (existing) {
@@ -158,7 +339,9 @@ export function PublicMenuClient({ code }: { code: string }) {
         setCart((prev) => {
           const existing = prev.find((l) => l.key === key);
           if (existing) {
-            return prev.map((l) => (l.key === key ? { ...l, quantity: Math.min(50, l.quantity + line.quantity) } : l));
+            return prev.map((l) =>
+              l.key === key ? { ...l, quantity: Math.min(50, l.quantity + line.quantity) } : l,
+            );
           }
           return [...prev, { key, item, quantity: line.quantity, selectedOptions: [], notes: "" }];
         });
@@ -172,23 +355,25 @@ export function PublicMenuClient({ code }: { code: string }) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await api.post<{ created: boolean; order: { publicToken: string; orderNumber: number } }>(
-        "/api/public/orders",
-        {
-          sessionToken: data.session.publicToken,
-          idempotencyKey,
-          cart: cart.map((l) => ({
-            menuItemId: l.item.id,
-            quantity: l.quantity,
-            optionIds: l.selectedOptions.map((o) => o.id),
-            notes: l.notes || undefined,
-          })),
-        },
-      );
+      const res = await api.post<{
+        created: boolean;
+        order: { publicToken: string; orderNumber: number };
+      }>("/api/public/orders", {
+        sessionToken: data.session.publicToken,
+        idempotencyKey,
+        cart: cart.map((l) => ({
+          menuItemId: l.item.id,
+          quantity: l.quantity,
+          optionIds: l.selectedOptions.map((o) => o.id),
+          notes: l.notes || undefined,
+        })),
+      });
       rememberPlacedToken(res.order.publicToken);
       setCart([]);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Could not place the order. Please try again.");
+      setSubmitError(
+        err instanceof Error ? err.message : "Could not place the order. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -211,7 +396,9 @@ export function PublicMenuClient({ code }: { code: string }) {
         <AlertCircle className="h-12 w-12 text-muted-foreground/40" />
         <h1 className="text-lg font-semibold">Menu unavailable</h1>
         <p className="text-sm text-muted-foreground">
-          {error instanceof Error ? error.message : "This QR code is no longer active. Please ask the restaurant staff."}
+          {error instanceof Error
+            ? error.message
+            : "This QR code is no longer active. Please ask the restaurant staff."}
         </p>
       </div>
     );
@@ -245,11 +432,7 @@ export function PublicMenuClient({ code }: { code: string }) {
       {/* Phase 18 — voice/text ordering (tenant-gated) */}
       {data.voiceEnabled && (
         <div className="px-4 pt-4">
-          <VoiceOrder
-            code={code}
-            formatMoney={rupees}
-            onConfirm={addVoiceItems}
-          />
+          <VoiceOrder code={code} formatMoney={rupees} onConfirm={addVoiceItems} />
         </div>
       )}
 
@@ -264,14 +447,16 @@ export function PublicMenuClient({ code }: { code: string }) {
         )}
         {data.categories.map((cat) => (
           <section key={cat.id}>
-            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">{cat.name}</h2>
+            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              {cat.name}
+            </h2>
             <div className="space-y-2">
               {cat.items.map((item) => (
-                <button
+                <MenuCard
                   key={item.id}
-                  type="button"
-                  disabled={!item.available}
-                  onClick={() => {
+                  item={item}
+                  orderingEnabled={hasOrdering}
+                  onAdd={() => {
                     if (item.optionGroups.length > 0) {
                       setDetailItem(item);
                       setDetailOptions({});
@@ -279,49 +464,7 @@ export function PublicMenuClient({ code }: { code: string }) {
                       addToCart(item, [], "");
                     }
                   }}
-                  className={cn(
-                    "w-full rounded-xl border bg-card p-3.5 text-left transition active:scale-[0.99]",
-                    !item.available && "opacity-50",
-                    item.optionGroups.length === 0 && !hasOrdering && "cursor-default",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="text-sm font-semibold">{item.name}</p>
-                        {item.dietaryTags.includes("VEG") && <Leaf className="h-3.5 w-3.5 text-green-600" aria-label="Vegetarian" />}
-                        {item.dietaryTags.includes("NON_VEG") && (
-                          <span className="text-xs font-bold text-red-600" aria-label="Non-vegetarian">•NV</span>
-                        )}
-                        {item.dietaryTags.includes("SPICY") && <Flame className="h-3.5 w-3.5 text-orange-500" aria-label="Spicy" />}
-                      </div>
-                      {item.description && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
-                      <p className="mt-1 text-xs text-muted-foreground">~{item.prepMinutes} min</p>
-                    </div>
-                    {/* Audit fix (Phase 12): the fixture's photo URL rendered 0
-                        <img> elements — the owner-uploaded photo was stored but
-                        never displayed. Plain <img> (CSP img-src allows https:). */}
-                    {item.imageUrl && (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        className="h-16 w-16 flex-none rounded-lg border object-cover"
-                      />
-                    )}
-                    <div className="flex flex-col items-end gap-1.5">
-                      <p className="text-sm font-bold tabular-nums">{rupees(item.priceMinor)}</p>
-                      {!item.available ? (
-                        <Badge variant="outline">Sold out</Badge>
-                      ) : hasOrdering ? (
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                          <Plus className="h-4 w-4" />
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                </button>
+                />
               ))}
             </div>
           </section>
@@ -345,7 +488,12 @@ export function PublicMenuClient({ code }: { code: string }) {
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {data.sustainability!.map((b, i) => (
-                <Badge key={i} variant="outline" className="text-[11px]" title={b.methodRef ?? b.description ?? undefined}>
+                <Badge
+                  key={i}
+                  variant="outline"
+                  className="text-[11px]"
+                  title={b.methodRef ?? b.description ?? undefined}
+                >
                   {b.label} · {b.source === "SELF_REPORTED" ? "self-reported" : b.source}
                 </Badge>
               ))}
@@ -356,7 +504,10 @@ export function PublicMenuClient({ code }: { code: string }) {
 
       {/* Item options sheet */}
       {detailItem && (
-        <div className="fixed inset-0 z-40 flex items-end bg-black/50" onClick={() => setDetailItem(null)}>
+        <div
+          className="fixed inset-0 z-40 flex items-end bg-black/50"
+          onClick={() => setDetailItem(null)}
+        >
           <div
             className="mx-auto max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-background p-5"
             onClick={(e) => e.stopPropagation()}
@@ -366,7 +517,12 @@ export function PublicMenuClient({ code }: { code: string }) {
                 <p className="text-base font-bold">{detailItem.name}</p>
                 <p className="text-sm text-muted-foreground">{rupees(detailItem.priceMinor)}</p>
               </div>
-              <Button variant="ghost" size="icon" aria-label="Close" onClick={() => setDetailItem(null)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close"
+                onClick={() => setDetailItem(null)}
+              >
                 ✕
               </Button>
             </div>
@@ -374,7 +530,9 @@ export function PublicMenuClient({ code }: { code: string }) {
               <div key={group.id} className="mb-5">
                 <p className="mb-1.5 text-sm font-semibold">
                   {group.name}
-                  {group.required && <span className="ml-1 text-xs text-destructive">*required</span>}
+                  {group.required && (
+                    <span className="ml-1 text-xs text-destructive">*required</span>
+                  )}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
                     {group.maxSelect > 1 ? `choose up to ${group.maxSelect}` : "choose 1"}
                   </span>
@@ -410,7 +568,11 @@ export function PublicMenuClient({ code }: { code: string }) {
                           />
                           {opt.name}
                         </span>
-                        {opt.priceDeltaMinor > 0 && <span className="text-xs text-muted-foreground">+{rupees(opt.priceDeltaMinor)}</span>}
+                        {opt.priceDeltaMinor > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{rupees(opt.priceDeltaMinor)}
+                          </span>
+                        )}
                       </label>
                     );
                   })}
@@ -421,10 +583,13 @@ export function PublicMenuClient({ code }: { code: string }) {
               className="w-full"
               onClick={() => {
                 const selected = detailItem.optionGroups.flatMap((g) =>
-                  (detailOptions[g.id] ?? []).map((id) => g.options.find((o) => o.id === id)!).filter(Boolean),
+                  (detailOptions[g.id] ?? [])
+                    .map((id) => g.options.find((o) => o.id === id)!)
+                    .filter(Boolean),
                 );
                 const missing = detailItem.optionGroups.find(
-                  (g) => g.required && (detailOptions[g.id] ?? []).length < Math.max(1, g.minSelect),
+                  (g) =>
+                    g.required && (detailOptions[g.id] ?? []).length < Math.max(1, g.minSelect),
                 );
                 if (missing) return;
                 addToCart(detailItem, selected, "");
@@ -439,7 +604,11 @@ export function PublicMenuClient({ code }: { code: string }) {
       {/* Cart bar */}
       {cartCount > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md border-t bg-background/95 p-3 backdrop-blur">
-          {submitError && <p className="mb-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{submitError}</p>}
+          {submitError && (
+            <p className="mb-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {submitError}
+            </p>
+          )}
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <ShoppingCart className="h-5 w-5" />
@@ -451,7 +620,10 @@ export function PublicMenuClient({ code }: { code: string }) {
               <p className="text-sm font-bold tabular-nums">{rupees(cartTotal)}</p>
               <div className="flex gap-1">
                 {cart.slice(0, 3).map((l) => (
-                  <span key={l.key} className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                  <span
+                    key={l.key}
+                    className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+                  >
                     {l.quantity}× {l.item.name}
                   </span>
                 ))}
@@ -479,7 +651,13 @@ interface TrackingResponse {
     totalMinor: number;
     placedAt: string;
     tableNumber: string | null;
-    items: { name: string; quantity: number; lineTotalMinor: number; options: unknown[]; status: string }[];
+    items: {
+      name: string;
+      quantity: number;
+      lineTotalMinor: number;
+      options: unknown[];
+      status: string;
+    }[];
   };
 }
 
@@ -496,36 +674,52 @@ function OrderTracking({ token, restaurant }: { token: string; restaurant: strin
   const order = data?.order;
   const status = order?.status ?? "PLACED";
 
-  const steps: { key: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { key: "PLACED", label: "Order placed", icon: CheckCircle2 },
-    { key: "PREPARING", label: "Kitchen preparing", icon: ChefHat },
-    { key: "READY", label: "Ready", icon: Utensils },
-    { key: "SERVED", label: "Served", icon: CheckCircle2 },
-  ];
-  const stepIndex = status === "PLACED" ? 0 : status === "PREPARING" ? 1 : status === "READY" ? 2 : 3;
+  const steps: { key: string; label: string; icon: React.ComponentType<{ className?: string }> }[] =
+    [
+      { key: "PLACED", label: "Order placed", icon: CheckCircle2 },
+      { key: "PREPARING", label: "Kitchen preparing", icon: ChefHat },
+      { key: "READY", label: "Ready", icon: Utensils },
+      { key: "SERVED", label: "Served", icon: CheckCircle2 },
+    ];
+  const stepIndex =
+    status === "PLACED" ? 0 : status === "PREPARING" ? 1 : status === "READY" ? 2 : 3;
 
   return (
     <div className="mx-auto min-h-screen max-w-md bg-background p-4">
       <div className="mb-6 text-center">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">{restaurant}</p>
         <h1 className="mt-1 text-2xl font-bold">Order #{order?.orderNumber ?? "…"}</h1>
-        {order?.tableNumber && <p className="text-sm text-muted-foreground">Table {order.tableNumber}</p>}
+        {order?.tableNumber && (
+          <p className="text-sm text-muted-foreground">Table {order.tableNumber}</p>
+        )}
       </div>
 
       {status === "CANCELLED" ? (
         <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center">
           <AlertCircle className="mx-auto mb-2 h-10 w-10 text-destructive" />
           <p className="font-semibold">This order was cancelled</p>
-          <p className="text-sm text-muted-foreground">Please speak to our staff if this is unexpected.</p>
+          <p className="text-sm text-muted-foreground">
+            Please speak to our staff if this is unexpected.
+          </p>
         </div>
       ) : (
         <div className="mb-6 space-y-3">
           {steps.map((step, i) => {
             const done = i <= stepIndex;
             return (
-              <div key={step.key} className={cn("flex items-center gap-3 rounded-xl border p-3.5", done && "border-primary/40 bg-primary/5")}>
-                <step.icon className={cn("h-5 w-5", done ? "text-primary" : "text-muted-foreground/40")} />
-                <p className={cn("text-sm font-medium", !done && "text-muted-foreground/60")}>{step.label}</p>
+              <div
+                key={step.key}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border p-3.5",
+                  done && "border-primary/40 bg-primary/5",
+                )}
+              >
+                <step.icon
+                  className={cn("h-5 w-5", done ? "text-primary" : "text-muted-foreground/40")}
+                />
+                <p className={cn("text-sm font-medium", !done && "text-muted-foreground/60")}>
+                  {step.label}
+                </p>
                 {i === stepIndex && (
                   <span className="ml-auto flex items-center gap-1 text-xs text-primary">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" /> now
@@ -546,7 +740,9 @@ function OrderTracking({ token, restaurant }: { token: string; restaurant: strin
                 <span>
                   <span className="font-semibold tabular-nums">{item.quantity}×</span> {item.name}
                 </span>
-                <span className="tabular-nums text-muted-foreground">{rupees(item.lineTotalMinor)}</span>
+                <span className="tabular-nums text-muted-foreground">
+                  {rupees(item.lineTotalMinor)}
+                </span>
               </div>
             ))}
           </div>

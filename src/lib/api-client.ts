@@ -115,4 +115,16 @@ export const api = {
   patch: <T>(url: string, body?: unknown) =>
     request<T>(url, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(url: string) => request<T>(url, { method: "DELETE" }),
+  /**
+   * Upload a binary body (menu photo). The JSON default is overridden with the
+   * file's own MIME type, so the server can fast-reject the wrong kind before
+   * reading the body — the authoritative type check is still done on the magic
+   * bytes server-side.
+   */
+  upload: <T>(url: string, file: Blob) =>
+    request<T>(url, {
+      method: "POST",
+      body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    }),
 };

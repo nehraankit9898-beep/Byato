@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
@@ -28,7 +28,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState, SectionHeading } from "@/components/app/shared-ui";
-import { Utensils, Plus, Pencil, Archive, Leaf, Flame } from "lucide-react";
+import {
+  Utensils,
+  Plus,
+  Pencil,
+  Archive,
+  Leaf,
+  Flame,
+  ImagePlus,
+  ImageOff,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 
 interface MenuCategory {
   id: string;
@@ -62,6 +73,23 @@ interface MenuItem {
   prepMinutes: number;
   sortOrder: number;
   optionGroups?: OptionGroup[];
+}
+
+/** Mirrors src/lib/media.ts — the server re-checks all of it. */
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const PHOTO_ACCEPT = ["image/jpeg", "image/png", "image/webp"];
+
+/** Neutral placeholder — never a stock photo standing in for a real dish. */
+function PhotoPlaceholder({ className }: { className?: string }) {
+  return (
+    <div
+      className={`flex flex-col items-center justify-center gap-1 bg-muted text-muted-foreground ${className ?? ""}`}
+      aria-label="No photo added"
+    >
+      <ImageOff className="h-4 w-4" aria-hidden />
+      <span className="text-[9px] uppercase tracking-[0.12em]">No photo</span>
+    </div>
+  );
 }
 
 const rupees = (minor: number) =>
@@ -213,6 +241,18 @@ export function MenuView({ user }: { user: { role: string } }) {
                             key={item.id}
                             className="flex flex-wrap items-center gap-3 px-4 py-3"
                           >
+                            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-md border">
+                              {item.imageUrl ? (
+                                <img
+                                  src={item.imageUrl}
+                                  alt={`${item.name} photo`}
+                                  loading="lazy"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <PhotoPlaceholder className="h-full w-full" />
+                              )}
+                            </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-sm font-medium">{item.name}</p>
@@ -469,11 +509,26 @@ function ItemDialog({
     spicy: false,
   });
   const [key, setKey] = useState("");
+  // Photo management: a freshly chosen file is uploaded AFTER the item exists
+  // (create → id → upload), so a new item can be created with a photo in one
+  // user action without a second "edit" round-trip.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  // Set after a create succeeds but the photo step fails: a retry must PATCH
+  // that item instead of creating a duplicate.
+  const [createdItemId, setCreatedItemId] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const tags = editing ? parseTags(editing.dietaryTags) : [];
   const targetKey = `${editing?.id ?? "new"}-${open}`;
   if (key !== targetKey) {
     setKey(targetKey);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPhotoFile(null);
+    setRemovePhoto(false);
+    setPreviewUrl(null);
+    setCreatedItemId(null);
     setForm({
       name: editing?.name ?? "",
       description: editing?.description ?? "",
@@ -487,7 +542,7 @@ function ItemDialog({
   }
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const dietaryTags = [
         ...(form.veg && !form.nonVeg ? ["VEG"] : []),
         ...(form.nonVeg ? ["NON_VEG"] : []),
@@ -497,33 +552,82 @@ function ItemDialog({
       // BUG-7: an invalid price ("2.5.5" → NaN → JSON null → ₹0 item on the
       // server) is rejected CLIENT-side before the request is sent.
       if (!Number.isFinite(priceMinor) || priceMinor < 0) {
-        toast.error("Enter a valid price in rupees (e.g. 250 or 250.50).");
-        return Promise.reject(new Error("invalid price"));
+        throw new Error("Enter a valid price in rupees (e.g. 250 or 250.50).");
       }
-      if (editing) {
-        return api.patch(`/api/menu/items/${editing.id}`, {
-          name: form.name,
-          description: form.description,
-          priceMinor,
-          prepMinutes: Number(form.prepMinutes),
-          dietaryTags,
-        });
-      }
-      return api.post("/api/menu/items", {
+
+      const targetId = editing?.id ?? createdItemId;
+      let itemId = targetId;
+      const fields = {
         name: form.name,
         description: form.description,
-        categoryId: form.categoryId,
         priceMinor,
         prepMinutes: Number(form.prepMinutes),
         dietaryTags,
-      });
+      };
+      if (targetId) {
+        await api.patch(`/api/menu/items/${targetId}`, fields);
+      } else {
+        const created = await api.post<{ item: { id: string } }>("/api/menu/items", {
+          ...fields,
+          categoryId: form.categoryId,
+        });
+        itemId = created.item.id;
+        setCreatedItemId(created.item.id);
+      }
+
+      if (!itemId) return;
+      // The item now exists; attach, replace or clear its photo. A failure
+      // here is reported as a PARTIAL save so the owner knows the item itself
+      // was saved and only the photo needs a retry.
+      try {
+        if (photoFile) {
+          await api.upload(`/api/menu/items/${itemId}/photo`, photoFile);
+        } else if (editing && removePhoto) {
+          await api.delete(`/api/menu/items/${itemId}/photo`);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Please try again.";
+        throw new Error(`Item saved, but the photo could not be updated: ${message}`);
+      }
     },
     onSuccess: () => {
-      toast.success(editing ? "Item updated" : "Item added to the menu");
+      toast.success(
+        photoFile
+          ? editing
+            ? "Item and photo updated"
+            : "Item added with photo"
+          : editing
+            ? "Item updated"
+            : "Item added to the menu",
+      );
       onSaved();
     },
     onError: (e) => toast.error(e.message),
   });
+
+  const shownPhoto = previewUrl ?? (removePhoto ? null : (editing?.imageUrl ?? null));
+
+  function pickPhoto(file: File) {
+    if (!PHOTO_ACCEPT.includes(file.type)) {
+      toast.error("Choose a JPEG, PNG or WebP image.");
+      return;
+    }
+    if (file.size > PHOTO_MAX_BYTES) {
+      toast.error("Photos must be 5 MB or smaller.");
+      return;
+    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(file));
+    setPhotoFile(file);
+    setRemovePhoto(false);
+  }
+
+  function clearPhoto() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPhotoFile(null);
+    setRemovePhoto(true);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -586,6 +690,68 @@ function ItemDialog({
               </Select>
             </div>
           )}
+          <div className="space-y-2">
+            <Label>Food photo (optional)</Label>
+            <div className="flex gap-3">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border">
+                {shownPhoto ? (
+                  <img
+                    src={shownPhoto}
+                    alt="Menu item photo preview"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <PhotoPlaceholder className="h-full w-full" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={PHOTO_ACCEPT.join(",")}
+                    className="sr-only"
+                    aria-label="Choose a food photo"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) pickPhoto(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={save.isPending}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImagePlus className="mr-1 h-4 w-4" />
+                    {shownPhoto ? "Replace photo" : "Upload photo"}
+                  </Button>
+                  {shownPhoto && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={save.isPending}
+                      onClick={clearPhoto}
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" /> Remove
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  JPEG, PNG or WebP · up to 5 MB. Photos are resized to 1600 px and converted to
+                  WebP so the QR menu stays fast on phones.
+                </p>
+                {photoFile && (
+                  <p className="text-xs font-medium">
+                    New photo ready — it uploads when you {editing ? "save" : "add the item"}.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="item-desc">Description (optional)</Label>
             <Textarea
@@ -651,7 +817,16 @@ function ItemDialog({
               (!editing && !form.categoryId)
             }
           >
-            {editing ? "Save changes" : "Add to menu"}
+            {save.isPending ? (
+              <>
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                {editing ? "Saving…" : "Adding…"}
+              </>
+            ) : editing ? (
+              "Save changes"
+            ) : (
+              "Add to menu"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

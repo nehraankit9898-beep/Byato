@@ -358,6 +358,10 @@ async function main() {
       "tests/phase11-scheduler.test.ts",
       // Phase 12 — menu & tables (catalog RBAC, QR binding, public menu).
       "tests/phase12-menu.test.ts",
+      // Food-photo management: upload → preview → replace → remove, format /
+      // size validation, tenant-scoped media, authz, public QR payload and
+      // responsive card contract. Uses synthetic frames (no stock food pics).
+      "tests/menu-photos.test.ts",
       // Phase 13 — ordering, staff & KDS (idempotency, state machine, roles).
       "tests/phase13-orders.test.ts",
       // Phase 14 — POS, GST billing & payments (tax engine, splits, refunds,
