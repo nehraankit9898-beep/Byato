@@ -174,10 +174,12 @@ Workflow coverage in the same run (the product paths named in the task):
 | Gate | Status |
 |---|---|
 | `main` quality-and-security (pre-fix) | **FAIL** — `tests/dashboard-regressions.test.ts:168` (runs 39567564092 / 39567394841) |
+| **PR #29 CI run `39571312193` — quality-and-security** | **SUCCESS** in 13 m 31 s (deps audit, secret scan, typecheck, lint, full test suite, production build) |
+| **PR #29 CI — postgres-migrations** | **SUCCESS** in 51 s (migrations applied to clean PG 16 + empty drift diff + Phase 10 tables) |
+| **PR #29 CI — postgres-integration** | **SUCCESS** (web boot, worker heartbeat, export round-trip, pg_dump backup/restore) |
+| Production build | **exit 0 locally** (53 s) and in the PR's green quality job |
 | This branch (local verification) | typecheck ✓, lint ✓, secret scan ✓, dependency audit ✓, 57/57 suites ✓, functional ✓, production build ✓ |
-| Production build (CI) | skipped on the failing runs; **locally exit 0** (see D); the PR run will re-verify it in CI |
-| PostgreSQL migrations (CI) | green on the last run where tests passed (`39566066559`: 50 s); skipped on the red runs; **not runnable locally** |
-| PostgreSQL integration (CI) | green on `39566066559` (2 m 0 s); skipped on the red runs; **not runnable locally** |
+| PostgreSQL integration (local) | **not runnable locally** (no postgres/docker) — verified in the PR CI job above |
 | Docker / Trivy job | **still red, separately**: on `main` the action ref `aquasecurity/trivy-action@0.36.0` does not resolve (tags are `v`-prefixed). Open **PR #24** fixes the ref, but its docker job now fails at the actual Trivy scan (`Trivy vulnerability scan (web)` step, HIGH/CRITICAL findings). That is a different problem from the test failures and is **not** addressed here. |
 
 ---
@@ -208,10 +210,14 @@ Workflow coverage in the same run (the product paths named in the task):
 
 ## H. Remaining production risks and next recommended step
 
-1. **The docker gate is still red.** Merging PR #24 alone will not make CI green: it
+1. **The docker gate is the only red job on PR #29.** In run `39571312193`,
+   `quality-and-security`, `postgres-migrations` and `postgres-integration` are green;
+   `docker` still dies at "Set up job" because `aquasecurity/trivy-action@0.36.0` does not
+   resolve (tags are `v`-prefixed). Merging PR #24 alone will not make CI green: it
    converts "action cannot resolve" into "Trivy found HIGH/CRITICAL in the web image".
-   Next step: rebuild on an updated base image, and either patch the affected packages or
-   record an explicit, reviewed exception. Do not lower `severity`/`exit-code`.
+   Next step: land the `v`-prefix fix, rebuild on an updated base image, and either patch
+   the affected packages or record an explicit, reviewed exception. Do not lower
+   `severity`/`exit-code`.
 2. **SQLite test harness ≠ production PostgreSQL.** The WAL/retry fix makes the SQLite
    harness deterministic; it cannot prove PostgreSQL concurrency behaviour. The PG
    migration + integration jobs remain the authority and must stay required.
