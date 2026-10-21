@@ -234,22 +234,6 @@ jobs:
           docker build --target web -t stayloop-web:ci .
           docker build --target worker -t stayloop-worker:ci .
 
-      - name: Trivy vulnerability scan (web)
-        uses: aquasecurity/trivy-action@0.36.0
-        with:
-          image-ref: stayloop-web:ci
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: "true"
-
-      - name: Trivy vulnerability scan (worker)
-        uses: aquasecurity/trivy-action@0.36.0
-        with:
-          image-ref: stayloop-worker:ci
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: "true"
-
       # Full stack startup: postgres + redis + migrate + web + worker with
       # healthchecks, then probe the real endpoints. Uses ONLY generated
       # test secrets (no real credentials anywhere).
@@ -360,6 +344,52 @@ jobs:
           # restrictive permissions.
           docker compose -f docker-compose.prod.yml exec -T worker sh -c \
             'ls -la /app/var/backups/ && test "$(find /app/var/backups -name "*.slbkp.enc" | wc -l)" -ge 1'
+
+      # ------------------------------------------------------------------
+      # SECURITY GATE — deliberately runs AFTER the functional container
+      # checks above.
+      #
+      # CI-001 (2026-10-21): these steps used to sit immediately after the
+      # build, so a single vulnerability finding skipped the compose stack,
+      # health checks, export round-trip and the real pg_dump backup/restore
+      # drill — the only end-to-end verification of the container images.
+      # Order now: build → run the stack → scan → summary → teardown.
+      #
+      # The 2026-10-21 root cause of "docker job fails at Set up job" was the
+      # REF, not the scan: aquasecurity/trivy-action publishes tags WITH a `v`
+      # prefix (`v0.36.0`); a bare `@0.36.0` cannot be resolved, so GitHub
+      # aborted the job before any step ran and every docker gate stayed
+      # silently unexecuted while the other three jobs were green.
+      # `tests/deployment-config.test.ts` now guards the ref format AND the
+      # ordering below.
+      # ------------------------------------------------------------------
+      - name: Trivy vulnerability scan (web)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: stayloop-web:ci
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: "true"
+          format: json
+          output: trivy-web.json
+
+      - name: Trivy vulnerability scan (worker)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: stayloop-worker:ci
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: "true"
+          format: json
+          output: trivy-worker.json
+
+      # Informational only — never changes the verdict. The raw job log is
+      # served from a host that restricted environments cannot reach, so the
+      # findings are re-published as a job summary (UI) and as check-run
+      # annotations (api.github.com), which ARE readable.
+      - name: Trivy findings summary
+        if: always()
+        run: node scripts/trivy-summary.mjs trivy-web.json trivy-worker.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Teardown
         if: always()
