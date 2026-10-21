@@ -3,6 +3,7 @@
 **Date:** 2026-10-21
 **Repository:** `nehraankit9898-beep/Byato` (Next.js 16 · TypeScript · Prisma 6 · Vercel + Neon PostgreSQL)
 **Branch:** `arena/87c5d1fb-byato` (based on `main` @ `84c08ee`)
+**Pull request:** [#30](https://github.com/nehraankit9898-beep/Byato/pull/30)
 **Status:** implemented and verified locally — see §7 for the evidence log.
 
 ---
