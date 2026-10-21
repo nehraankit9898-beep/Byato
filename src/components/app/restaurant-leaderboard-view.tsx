@@ -91,9 +91,9 @@ export function RestaurantLeaderboardView() {
                   <TableRow key={c.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {c.rank === 1 && <Crown className="h-4 w-4 text-amber-500" />}
+                        {c.rank === 1 && <Crown className="h-4 w-4 text-[color:var(--gold-ink)]" />}
                         {c.rank === 2 && <Medal className="h-4 w-4 text-slate-400" />}
-                        {c.rank === 3 && <Medal className="h-4 w-4 text-amber-700" />}
+                        {c.rank === 3 && <Medal className="h-4 w-4 text-[color:var(--gold-ink)]" />}
                         <span className="font-bold tabular-nums">{c.rank}</span>
                       </div>
                     </TableCell>
@@ -114,7 +114,10 @@ export function RestaurantLeaderboardView() {
                     </TableCell>
                     <TableCell>
                       {c.vip ? (
-                        <Badge variant="default" className="bg-amber-500/15 text-amber-600">
+                        <Badge
+                          variant="default"
+                          className="bg-amber-500/15 text-[color:var(--gold-ink)]"
+                        >
                           <Crown className="h-3 w-3 mr-1" /> VIP
                         </Badge>
                       ) : (

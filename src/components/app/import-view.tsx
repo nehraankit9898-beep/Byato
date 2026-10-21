@@ -231,7 +231,7 @@ function ImportPanel({ mode }: { mode: "customers" | "visits" }) {
       {step === "upload" && (
         <div className="space-y-4">
           <div
-            className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary/35 bg-primary/[0.03] px-6 py-12 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/[0.06] transition-colors"
+            className="flex flex-col items-center justify-center rounded-[8px] border-2 border-dashed border-primary/35 bg-primary/[0.03] px-6 py-12 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/[0.06] transition-colors"
             onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
@@ -244,7 +244,7 @@ function ImportPanel({ mode }: { mode: "customers" | "visits" }) {
             aria-label="Upload CSV file"
             onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-[8px] bg-primary/10 text-primary mb-4">
               <Upload className="h-7 w-7" />
             </div>
             <p className="text-[15px] font-semibold">
@@ -302,7 +302,7 @@ function ImportPanel({ mode }: { mode: "customers" | "visits" }) {
           </div>
 
           {pasteOpen && (
-            <div className="space-y-3 rounded-xl border bg-card p-4">
+            <div className="space-y-3 rounded-[6px] border bg-card p-4">
               <textarea
                 className="w-full h-36 rounded-lg border bg-background p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder={template}
@@ -340,7 +340,7 @@ function ImportPanel({ mode }: { mode: "customers" | "visits" }) {
               <CheckCircle2 className="h-3.5 w-3.5" /> {validCount} ready to import
             </Badge>
             {isCustomers && dupCount > 0 && (
-              <Badge className="gap-1.5 py-1.5 px-3 bg-amber-500/12 text-amber-600 dark:text-amber-400 border-0">
+              <Badge className="gap-1.5 py-1.5 px-3 bg-amber-500/12 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] border-0">
                 <Copy className="h-3.5 w-3.5" /> {dupCount} duplicates (skipped)
               </Badge>
             )}
@@ -372,7 +372,7 @@ function ImportPanel({ mode }: { mode: "customers" | "visits" }) {
             </div>
           </div>
 
-          <div className="rounded-xl border bg-card overflow-hidden">
+          <div className="rounded-[6px] border bg-card overflow-hidden">
             <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
               <Table>
                 <TableHeader className="sticky top-0 z-10">
@@ -446,8 +446,8 @@ function ImportPanel({ mode }: { mode: "customers" | "visits" }) {
 
       {/* STEP 3: Done */}
       {step === "done" && resultSummary && (
-        <div className="rounded-2xl border bg-card p-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-600">
+        <div className="rounded-[8px] border bg-card p-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[8px] bg-emerald-500/12 text-emerald-600">
             <PartyPopper className="h-7 w-7" />
           </div>
           <h3 className="text-lg font-bold">Import complete</h3>
@@ -458,7 +458,7 @@ function ImportPanel({ mode }: { mode: "customers" | "visits" }) {
           </p>
 
           <div className="mx-auto mt-6 grid max-w-md grid-cols-3 gap-3">
-            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/25 p-4">
+            <div className="rounded-[6px] bg-emerald-500/10 border border-emerald-500/25 p-4">
               <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                 {resultSummary.imported}
               </p>
@@ -467,16 +467,16 @@ function ImportPanel({ mode }: { mode: "customers" | "visits" }) {
               </p>
             </div>
             {isCustomers && (
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-4">
-                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+              <div className="rounded-[6px] bg-amber-500/10 border border-amber-500/25 p-4">
+                <p className="text-2xl font-bold text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] tabular-nums">
                   {resultSummary.duplicates ?? 0}
                 </p>
-                <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400 mt-0.5">
+                <p className="text-[11px] font-medium text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] mt-0.5">
                   Duplicates
                 </p>
               </div>
             )}
-            <div className="rounded-xl bg-rose-500/10 border border-rose-500/25 p-4">
+            <div className="rounded-[6px] bg-rose-500/10 border border-rose-500/25 p-4">
               <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums">
                 {resultSummary.invalid}
               </p>
@@ -532,7 +532,7 @@ function RowRenderer({
           </Badge>
         ) : status === "duplicate" ? (
           <div>
-            <Badge className="bg-amber-500/12 text-amber-600 dark:text-amber-400 border-0 gap-1">
+            <Badge className="bg-amber-500/12 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] border-0 gap-1">
               <Copy className="h-3 w-3" /> Duplicate
             </Badge>
             {reason && (

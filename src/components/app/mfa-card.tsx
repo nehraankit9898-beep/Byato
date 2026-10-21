@@ -211,7 +211,7 @@ export function MfaCard({ user }: { user: SessionUser }) {
             </DialogHeader>
             {setupData && (
               <div className="space-y-4">
-                <div className="flex justify-center rounded-xl border bg-white p-3">
+                <div className="flex justify-center rounded-[6px] border bg-white p-3">
                   <img src={setupData.qrDataUrl} alt="TOTP QR code" width={220} height={220} />
                 </div>
                 <div className="space-y-1.5">

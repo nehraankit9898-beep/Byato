@@ -47,7 +47,7 @@ export function ActivateScreen({ token, onActivated }: { token: string; onActiva
         className="w-full max-w-md"
       >
         <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-primary text-primary-foreground">
             <Hotel className="h-5 w-5" />
           </div>
           <p className="text-lg font-bold">StayLoop</p>

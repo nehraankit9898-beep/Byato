@@ -44,10 +44,10 @@ export function AnalyticsView() {
       <div className="space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
+            <Skeleton key={i} className="h-28 rounded-[6px]" />
           ))}
         </div>
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-[6px]" />
       </div>
     );
   }
@@ -73,7 +73,7 @@ export function AnalyticsView() {
   return (
     <div className="space-y-8">
       {data.providerMode.mode === "SIMULATION" && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+        <div className="rounded-[6px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[13px] text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] flex items-start gap-2.5">
           <FlaskConical className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold">Simulation mode</p>
@@ -145,7 +145,7 @@ export function AnalyticsView() {
             description="Create and send a campaign — its performance will show up here."
           />
         ) : (
-          <div className="rounded-xl border bg-card overflow-hidden">
+          <div className="rounded-[6px] border bg-card overflow-hidden">
             <div className="divide-y">
               {data.topCampaigns.map((c, i) => (
                 <div key={c.id} className="flex items-center gap-4 px-5 py-3.5">
@@ -173,7 +173,7 @@ export function AnalyticsView() {
           title="Guest segments"
           description="How your guest book is distributed today."
         />
-        <div className="rounded-xl border bg-card p-5 space-y-3">
+        <div className="rounded-[6px] border bg-card p-5 space-y-3">
           {data.segmentSizes.map((seg) => (
             <div key={seg.name} className="flex items-center gap-3">
               <p className="w-36 shrink-0 text-sm truncate">{seg.name}</p>
@@ -247,7 +247,7 @@ function MetricTile({
   hint?: string;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-5 hover:shadow-md transition-shadow">
+    <div className="rounded-[6px] border bg-card p-5 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
         <p className="text-[12.5px] text-muted-foreground">{label}</p>
         <Icon className="h-4 w-4 text-muted-foreground" />
@@ -282,9 +282,11 @@ function ConsentTile({
     muted: "bg-primary/10 text-primary",
   };
   return (
-    <div className="rounded-xl border bg-card p-5">
+    <div className="rounded-[6px] border bg-card p-5">
       <div className="flex items-center gap-3">
-        <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", tones[tone])}>
+        <div
+          className={cn("flex h-10 w-10 items-center justify-center rounded-[6px]", tones[tone])}
+        >
           <Icon className="h-5 w-5" />
         </div>
         <div>

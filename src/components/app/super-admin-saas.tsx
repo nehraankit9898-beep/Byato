@@ -120,7 +120,7 @@ function StatusBadge({ status }: { status: string }) {
     },
     GRACE: {
       variant: "default",
-      className: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+      className: "bg-amber-500/15 text-[color:var(--gold-ink)] border-amber-500/30",
       label: "GRACE",
     },
     PAST_DUE: {
@@ -139,7 +139,7 @@ function StatusBadge({ status }: { status: string }) {
     },
     PENDING: {
       variant: "default",
-      className: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+      className: "bg-amber-500/15 text-[color:var(--gold-ink)] border-amber-500/30",
       label: "PENDING",
     },
     FAILED: { variant: "destructive", label: "FAILED" },
@@ -1921,7 +1921,7 @@ export function SaasUsageTab() {
                   </div>
                   <Progress value={r.percent} className="h-2" />
                   <p
-                    className={`text-[10px] ${r.percent >= 100 ? "text-rose-600 font-medium" : r.percent >= 90 ? "text-amber-600" : "text-muted-foreground"}`}
+                    className={`text-[10px] ${r.percent >= 100 ? "text-rose-600 font-medium" : r.percent >= 90 ? "text-[color:var(--gold-ink)]" : "text-muted-foreground"}`}
                   >
                     {r.limit
                       ? `${r.percent}% used${r.remaining !== null ? ` — ${formatNumber(r.remaining)} remaining` : ""}`
@@ -2531,7 +2531,7 @@ export function SaasTemplatesTab() {
                 key={t.id}
                 type="button"
                 onClick={() => openTemplate(t)}
-                className={`w-full text-left rounded-xl border p-3 transition-colors hover:bg-accent ${selectedKey === t.key ? "border-primary bg-primary/5" : ""}`}
+                className={`w-full text-left rounded-[6px] border p-3 transition-colors hover:bg-accent ${selectedKey === t.key ? "border-primary bg-primary/5" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">{t.name}</p>

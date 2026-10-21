@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { DashboardData, SessionUser, ViewId } from "@/lib/types";
-import { StatCard, EmptyState } from "./shared-ui";
+import { KpiStrip, EmptyState } from "./shared-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -18,18 +18,13 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell } fro
 import { formatDateKey, formatRelative, formatNumber } from "@/lib/format";
 import type { SubscriptionView } from "@/lib/types";
 import {
-  Users,
-  BellRing,
   CalendarCheck,
-  Repeat,
   ArrowRight,
   UserPlus,
   TrendingUp,
-  PieChart as PieIcon,
   Loader2,
   Clock,
   AlertTriangle,
-  Sparkles,
 } from "lucide-react";
 
 const chartConfig = {
@@ -73,12 +68,12 @@ export function DashboardView({
       <div className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-[110px] rounded-xl" />
+            <Skeleton key={i} className="h-[104px] rounded-[6px]" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-[300px] rounded-xl lg:col-span-2" />
-          <Skeleton className="h-[300px] rounded-xl" />
+          <Skeleton className="h-[300px] rounded-[6px] lg:col-span-2" />
+          <Skeleton className="h-[300px] rounded-[6px]" />
         </div>
       </div>
     );
@@ -135,38 +130,42 @@ export function DashboardView({
     <div className="space-y-6">
       {/* Phase 10 — trial / expiry banner (server-verified, never client-trusted) */}
       {showTrialBanner && (
-        <div className="rounded-xl border border-sky-500/40 bg-sky-500/5 p-4 sm:p-5 flex flex-wrap items-center gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-600">
-            <Clock className="h-5 w-5" />
+        <div className="flex flex-wrap items-center gap-4 rounded-[6px] border border-[color:var(--border)] border-l-2 border-l-[color:var(--gold)] bg-card px-5 py-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] border border-[color:var(--gold)]/35 text-[color:var(--gold-ink)]">
+            <Clock className="h-[15px] w-[15px]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">
+            <p className="font-serif text-[18px] font-medium leading-tight">
               Trial ending in {subscription?.trialDaysRemaining}{" "}
               {subscription?.trialDaysRemaining === 1 ? "day" : "days"}
               {subscription?.plan ? ` — ${subscription.plan.name} plan` : ""}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
               Keep your campaigns, loyalty program and guest insights after the trial — pick a plan
               in Billing.
             </p>
           </div>
-          <Button size="sm" onClick={() => setView("billing")}>
-            <Sparkles className="h-4 w-4 mr-1.5" /> Upgrade plan
+          <Button
+            size="sm"
+            className="uppercase tracking-[0.12em]"
+            onClick={() => setView("billing")}
+          >
+            Upgrade plan
           </Button>
         </div>
       )}
       {showExpiryBanner && (
-        <div className="rounded-xl border border-rose-500/40 bg-rose-500/5 p-4 sm:p-5 flex flex-wrap items-center gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600">
-            <AlertTriangle className="h-5 w-5" />
+        <div className="flex flex-wrap items-center gap-4 rounded-[6px] border border-[color:var(--border)] border-l-2 border-l-[color:var(--destructive)] bg-card px-5 py-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] border border-[color:var(--destructive)]/35 text-[color:var(--destructive)]">
+            <AlertTriangle className="h-[15px] w-[15px]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">
+            <p className="font-serif text-[18px] font-medium leading-tight">
               {subscription?.state === "GRACE"
                 ? "Grace period — renew now"
                 : "Your subscription has expired"}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
               {subscription?.state === "GRACE"
                 ? `Access continues until ${subscription?.graceEndsAt ? new Date(subscription.graceEndsAt).toLocaleDateString() : "the grace window ends"}.`
                 : "Choose a plan to restore full access to your workspace."}
@@ -178,74 +177,63 @@ export function DashboardView({
         </div>
       )}
       {/* Welcome strip: explain the page and make the two common actions obvious. */}
-      <section className="rounded-2xl border bg-[linear-gradient(120deg,oklch(0.98_0.02_85),oklch(0.955_0.035_75))] p-5 shadow-sm dark:bg-[linear-gradient(120deg,oklch(0.24_0.03_60),oklch(0.28_0.04_55))] sm:p-6">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+      <section className="lux-sheen rounded-[6px] border border-[color:var(--border)] px-5 py-6 sm:px-7 sm:py-7">
+        <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold tracking-tight">
-              Welcome back, {user.name.split(" ")[0]} 👋
+            <p className="lux-eyebrow">{user.hotelName}</p>
+            <h2 className="mt-2 font-serif text-[27px] font-medium leading-tight tracking-[-0.012em]">
+              Good to see you, {user.name.split(" ")[0]}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Here&apos;s your restaurant&apos;s customer activity for today.
+            <p className="mt-1.5 max-w-md text-[12.5px] leading-relaxed text-muted-foreground">
+              Here is your restaurant&apos;s guest activity for today.
             </p>
-            <p className="mt-1 text-sm font-medium text-foreground">{user.hotelName}</p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button className="w-full sm:w-auto" onClick={() => setView("customers")}>
-              <UserPlus className="h-4 w-4" /> Add customer
+            <Button
+              className="w-full uppercase tracking-[0.12em] sm:w-auto"
+              onClick={() => setView("customers")}
+            >
+              Add customer
             </Button>
             <Button
-              className="w-full sm:w-auto"
+              className="w-full uppercase tracking-[0.12em] sm:w-auto"
               variant="outline"
               onClick={() => setView("visits")}
             >
-              <CalendarCheck className="h-4 w-4" /> Record a visit
+              Record a visit
             </Button>
           </div>
         </div>
       </section>
 
       {/* Four owner-friendly numbers; detailed consent breakdown stays in the chart below. */}
-      <section aria-label="Restaurant summary" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard
-          title="Customers"
-          value={stats.totalCustomers}
-          hint="Active customer records"
-          icon={Users}
-          tone="default"
-          delay={0}
-        />
-        <StatCard
-          title="Repeat customers"
-          value={stats.repeatCustomers}
-          hint={`${stats.repeatRate}% have returned`}
-          icon={Repeat}
-          tone="emerald"
-          delay={0.05}
-        />
-        <StatCard
-          title="Visits recorded"
-          value={stats.totalVisits}
-          hint="All recorded visits"
-          icon={CalendarCheck}
-          tone="amber"
-          delay={0.1}
-        />
-        <StatCard
-          title="Can receive offers"
-          value={stats.marketingOptIn}
-          hint={`${pct(stats.marketingOptIn, stats.totalCustomers)}% of customers opted in`}
-          icon={BellRing}
-          tone="violet"
-          delay={0.15}
-        />
-      </section>
+      <KpiStrip
+        items={[
+          { label: "Customers", value: stats.totalCustomers, hint: "Active records" },
+          {
+            label: "Repeat customers",
+            value: stats.repeatCustomers,
+            hint: `${stats.repeatRate}% have returned`,
+            emphasis: true,
+          },
+          { label: "Visits recorded", value: stats.totalVisits, hint: "All recorded visits" },
+          {
+            label: "Can receive offers",
+            value: stats.marketingOptIn,
+            hint: `${pct(stats.marketingOptIn, stats.totalCustomers)}% opted in`,
+          },
+        ]}
+      />
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-[15px]">
-              <TrendingUp className="h-4 w-4 text-primary" /> Visits — last 14 days
+            <CardTitle className="flex items-center gap-2">
+              Visits
+              <span className="font-sans text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Last 14 days
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -272,7 +260,12 @@ export function DashboardView({
                       <stop offset="95%" stopColor="var(--color-visits)" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--border)" />
+                  <CartesianGrid
+                    vertical={false}
+                    strokeDasharray="2 5"
+                    stroke="var(--border)"
+                    opacity={0.7}
+                  />
                   <XAxis
                     dataKey="date"
                     tickLine={false}
@@ -293,7 +286,7 @@ export function DashboardView({
                     dataKey="visits"
                     type="monotone"
                     stroke="var(--color-visits)"
-                    strokeWidth={2.5}
+                    strokeWidth={1.75}
                     fill="url(#fillVisits)"
                     dot={false}
                     activeDot={{ r: 4 }}
@@ -306,8 +299,11 @@ export function DashboardView({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-[15px]">
-              <PieIcon className="h-4 w-4 text-primary" /> Marketing consent
+            <CardTitle className="flex items-center gap-2">
+              Consent
+              <span className="font-sans text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Opt-in split
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -326,8 +322,8 @@ export function DashboardView({
                       nameKey="label"
                       innerRadius={56}
                       outerRadius={84}
-                      paddingAngle={3}
-                      strokeWidth={2}
+                      paddingAngle={2}
+                      strokeWidth={1}
                     >
                       {consentData.map((entry) => (
                         <Cell
@@ -340,10 +336,12 @@ export function DashboardView({
                   </PieChart>
                 </ChartContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <p className="text-2xl font-bold tabular-nums leading-none">
+                  <p className="font-serif text-[30px] font-medium tabular-nums leading-none">
                     {pct(stats.marketingOptIn, stats.totalCustomers)}%
                   </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">opted in</p>
+                  <p className="mt-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                    opted in
+                  </p>
                 </div>
               </div>
             )}
@@ -366,7 +364,7 @@ export function DashboardView({
       {/* Recent activity */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-[15px]">Recent activity</CardTitle>
+          <CardTitle>Recent activity</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {activity.length === 0 ? (
@@ -389,34 +387,36 @@ export function DashboardView({
                   <button
                     type="button"
                     onClick={() => onOpenCustomer(a.id)}
-                    className="w-full flex items-center gap-3.5 px-6 py-3.5 hover:bg-accent/40 transition-colors text-left"
+                    className="flex w-full items-center gap-3.5 px-6 py-4 text-left transition-colors duration-[420ms] hover:bg-[color:var(--porcelain)]"
                   >
                     <div
                       className={
                         a.kind === "visit"
-                          ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-600"
-                          : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-600"
+                          ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border border-[color:var(--gold)]/35 text-[color:var(--gold-ink)]"
+                          : "flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border border-[color:var(--border)] text-muted-foreground"
                       }
                     >
                       {a.kind === "visit" ? (
-                        <CalendarCheck className="h-4 w-4" />
+                        <CalendarCheck className="h-[14px] w-[14px]" />
                       ) : (
-                        <UserPlus className="h-4 w-4" />
+                        <UserPlus className="h-[14px] w-[14px]" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">
+                      <p className="truncate text-[13px] font-medium">
                         {a.name}
                         <span className="ml-2 font-normal text-muted-foreground">{a.detail}</span>
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{formatRelative(a.at)}</p>
+                      <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
+                        {formatRelative(a.at)}
+                      </p>
                     </div>
                     {a.kind === "customer" && (
                       <Badge variant="secondary" className="hidden sm:inline-flex text-[10.5px]">
                         Customer
                       </Badge>
                     )}
-                    <ArrowRight className="h-4 w-4 text-muted-foreground/50" />
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40" />
                   </button>
                 </li>
               ))}

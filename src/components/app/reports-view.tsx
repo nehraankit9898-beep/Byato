@@ -122,7 +122,7 @@ export function ReportsView() {
       {reportQ.isLoading ? (
         <div className="grid gap-4 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-28 rounded-xl" />
+            <Skeleton key={index} className="h-28 rounded-[6px]" />
           ))}
         </div>
       ) : reportQ.isError || !r ? (

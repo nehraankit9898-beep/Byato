@@ -67,10 +67,22 @@ export function KdsView() {
   const preparing = queue.filter((o) => o.status === "PREPARING");
   const ready = queue.filter((o) => o.status === "READY");
 
-  const columns: { key: string; title: string; icon: React.ComponentType<{ className?: string }>; orders: KdsOrder[]; tone: string }[] = [
+  const columns: {
+    key: string;
+    title: string;
+    icon: React.ComponentType<{ className?: string }>;
+    orders: KdsOrder[];
+    tone: string;
+  }[] = [
     { key: "placed", title: "New", icon: Clock, orders: placed, tone: "bg-blue-500" },
     { key: "preparing", title: "Preparing", icon: Flame, orders: preparing, tone: "bg-amber-500" },
-    { key: "ready", title: "Ready to serve", icon: CheckCircle2, orders: ready, tone: "bg-emerald-600" },
+    {
+      key: "ready",
+      title: "Ready to serve",
+      icon: CheckCircle2,
+      orders: ready,
+      tone: "bg-emerald-600",
+    },
   ];
 
   return (
@@ -81,7 +93,8 @@ export function KdsView() {
             <ChefHat className="h-6 w-6" /> Kitchen Display
           </h1>
           <p className="text-sm text-muted-foreground">
-            Live queue · auto-refreshes every 10 s · {queue.length} active order{queue.length === 1 ? "" : "s"}
+            Live queue · auto-refreshes every 10 s · {queue.length} active order
+            {queue.length === 1 ? "" : "s"}
           </p>
         </div>
         <Badge variant="outline" className="gap-1.5">
@@ -96,7 +109,7 @@ export function KdsView() {
       {isLoading ? (
         <div className="grid gap-4 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-72 rounded-xl" />
+            <Skeleton key={i} className="h-72 rounded-[6px]" />
           ))}
         </div>
       ) : queue.length === 0 ? (
@@ -104,7 +117,9 @@ export function KdsView() {
           <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
             <ChefHat className="h-10 w-10 text-muted-foreground/40" />
             <p className="font-medium">All caught up</p>
-            <p className="text-sm text-muted-foreground">New orders appear here the moment diners place them.</p>
+            <p className="text-sm text-muted-foreground">
+              New orders appear here the moment diners place them.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -112,7 +127,12 @@ export function KdsView() {
           {columns.map((col) => (
             <div key={col.key} className="space-y-3">
               <div className="flex items-center gap-2 px-1">
-                <span className={cn("flex h-6 w-6 items-center justify-center rounded-md text-white", col.tone)}>
+                <span
+                  className={cn(
+                    "flex h-6 w-6 items-center justify-center rounded-md text-white",
+                    col.tone,
+                  )}
+                >
                   <col.icon className="h-3.5 w-3.5" />
                 </span>
                 <p className="text-sm font-semibold">
@@ -120,23 +140,41 @@ export function KdsView() {
                 </p>
               </div>
               {col.orders.length === 0 && (
-                <p className="rounded-xl border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">
+                <p className="rounded-[6px] border border-dashed px-3 py-8 text-center text-xs text-muted-foreground">
                   Nothing here
                 </p>
               )}
               {col.orders.map((order) => (
-                <Card key={order.id} className="border-l-4" style={{ borderLeftColor: order.minutesSincePlaced > 20 ? "rgb(220 38 38)" : order.minutesSincePlaced > 10 ? "rgb(245 158 11)" : undefined }}>
+                <Card
+                  key={order.id}
+                  className="border-l-4"
+                  style={{
+                    borderLeftColor:
+                      order.minutesSincePlaced > 20
+                        ? "rgb(220 38 38)"
+                        : order.minutesSincePlaced > 10
+                          ? "rgb(245 158 11)"
+                          : undefined,
+                  }}
+                >
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-bold">#{order.orderNumber}</p>
                         <p className="text-xs text-muted-foreground">
                           {order.tableNumber ? `Table ${order.tableNumber}` : "No table"}
-                          {order.zone ? ` · ${order.zone}` : ""} · {order.source === "QR_CUSTOMER" ? "QR order" : "Staff"}
+                          {order.zone ? ` · ${order.zone}` : ""} ·{" "}
+                          {order.source === "QR_CUSTOMER" ? "QR order" : "Staff"}
                         </p>
                       </div>
                       <Badge
-                        variant={order.minutesSincePlaced > 20 ? "destructive" : order.minutesSincePlaced > 10 ? "default" : "secondary"}
+                        variant={
+                          order.minutesSincePlaced > 20
+                            ? "destructive"
+                            : order.minutesSincePlaced > 10
+                              ? "default"
+                              : "secondary"
+                        }
                         className="tabular-nums"
                       >
                         {order.minutesSincePlaced} min
@@ -151,13 +189,16 @@ export function KdsView() {
                             key={item.id}
                             className={cn(
                               "rounded-lg border px-3 py-2",
-                              item.status === "READY" && "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30",
-                              item.status === "PREPARING" && "border-amber-300 bg-amber-50 dark:bg-amber-950/30",
+                              item.status === "READY" &&
+                                "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30",
+                              item.status === "PREPARING" &&
+                                "border-amber-300 bg-amber-50 dark:bg-amber-950/30",
                             )}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-sm font-medium">
-                                <span className="tabular-nums font-bold">{item.quantity}×</span> {item.nameSnapshot}
+                                <span className="tabular-nums font-bold">{item.quantity}×</span>{" "}
+                                {item.nameSnapshot}
                               </p>
                               <div className="flex gap-1">
                                 {item.status === "PENDING" && (
@@ -167,7 +208,11 @@ export function KdsView() {
                                     className="h-7 px-2 text-xs"
                                     disabled={itemTransition.isPending}
                                     onClick={() =>
-                                      itemTransition.mutate({ orderId: order.id, itemId: item.id, to: "PREPARING" })
+                                      itemTransition.mutate({
+                                        orderId: order.id,
+                                        itemId: item.id,
+                                        to: "PREPARING",
+                                      })
                                     }
                                   >
                                     Start
@@ -179,7 +224,11 @@ export function KdsView() {
                                     className="h-7 bg-emerald-600 px-2 text-xs hover:bg-emerald-700"
                                     disabled={itemTransition.isPending}
                                     onClick={() =>
-                                      itemTransition.mutate({ orderId: order.id, itemId: item.id, to: "READY" })
+                                      itemTransition.mutate({
+                                        orderId: order.id,
+                                        itemId: item.id,
+                                        to: "READY",
+                                      })
                                     }
                                   >
                                     Ready
@@ -189,16 +238,24 @@ export function KdsView() {
                             </div>
                             {Array.isArray(item.options) && item.options.length > 0 && (
                               <p className="mt-0.5 text-xs text-muted-foreground">
-                                {(item.options as { optionName: string }[]).map((o) => o.optionName).join(", ")}
+                                {(item.options as { optionName: string }[])
+                                  .map((o) => o.optionName)
+                                  .join(", ")}
                               </p>
                             )}
-                            {item.notes && <p className="mt-0.5 text-xs font-medium text-amber-700">“{item.notes}”</p>}
+                            {item.notes && (
+                              <p className="mt-0.5 text-xs font-medium text-[color:var(--gold-ink)]">
+                                “{item.notes}”
+                              </p>
+                            )}
                           </div>
                         ))}
                     </div>
 
                     {order.notes && (
-                      <p className="rounded-md bg-muted px-2 py-1.5 text-xs">Order note: {order.notes}</p>
+                      <p className="rounded-md bg-muted px-2 py-1.5 text-xs">
+                        Order note: {order.notes}
+                      </p>
                     )}
 
                     <div className="flex gap-2 pt-1">
@@ -218,9 +275,15 @@ export function KdsView() {
                         className="text-destructive hover:text-destructive"
                         disabled={orderTransition.isPending}
                         onClick={() => {
-                          const reason = prompt("Cancellation reason (recorded in the audit trail):");
+                          const reason = prompt(
+                            "Cancellation reason (recorded in the audit trail):",
+                          );
                           if (reason && reason.trim().length >= 3) {
-                            orderTransition.mutate({ orderId: order.id, to: "CANCELLED", reason: reason.trim() });
+                            orderTransition.mutate({
+                              orderId: order.id,
+                              to: "CANCELLED",
+                              reason: reason.trim(),
+                            });
                           } else if (reason !== null) {
                             toast.error("A reason of at least 3 characters is required.");
                           }

@@ -43,7 +43,7 @@ import { Gift, Plus, Loader2, Settings2, History, Minus, Award } from "lucide-re
 /** Tier badge colors — matches the public tier rules. */
 function TierBadge({ tier }: { tier: string }) {
   const map: Record<string, string> = {
-    VIP: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800",
+    VIP: "bg-amber-100 text-[color:var(--gold-ink)] border-amber-200 dark:bg-amber-900/40 dark:text-[color:var(--gold)] dark:border-amber-800",
     GOLD: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800",
     SILVER:
       "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
@@ -148,7 +148,7 @@ export function LoyaltyView() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading || !stats ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[110px] rounded-xl" />
+            <Skeleton key={i} className="h-[110px] rounded-[6px]" />
           ))
         ) : (
           <>
@@ -668,7 +668,7 @@ function HistoryDialog({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs text-amber-600 dark:text-amber-400"
+              className="h-7 text-xs text-[color:var(--gold-ink)] dark:text-[color:var(--gold)]"
               disabled={reconcileMutation.isPending || !account}
               onClick={() => reconcileMutation.mutate(true)}
               title="Repair any drift with an audited adjustment entry"

@@ -26,9 +26,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Sparkles, Bot, TrendingUp, ShieldCheck, Info, Check, X, RefreshCw, Wallet, Leaf,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Sparkles,
+  Bot,
+  TrendingUp,
+  ShieldCheck,
+  Info,
+  Check,
+  X,
+  RefreshCw,
+  Wallet,
+  Leaf,
 } from "lucide-react";
 import type { SessionUser } from "@/lib/types";
 import { useState } from "react";
@@ -104,7 +120,8 @@ export function AiView({ user }: { user: SessionUser }) {
   });
   const recsQ = useQuery({
     queryKey: ["ai", "recommendations"],
-    queryFn: () => api.get<{ recommendations: RecommendationRow[] }>("/api/ai/recommendations?status=PENDING"),
+    queryFn: () =>
+      api.get<{ recommendations: RecommendationRow[] }>("/api/ai/recommendations?status=PENDING"),
     refetchInterval: 30_000,
   });
   const forecastQ = useQuery({
@@ -134,19 +151,29 @@ export function AiView({ user }: { user: SessionUser }) {
         <ShieldCheck className="h-4 w-4" />
         <AlertTitle>Rule-based engine (modelProvider: NONE)</AlertTitle>
         <AlertDescription>
-          No external AI provider is configured. All features below are transparent,
-          deterministic rules over your own data — no invented probabilities, no automated
-          messages without approval, forecasts are advisory only.
+          No external AI provider is configured. All features below are transparent, deterministic
+          rules over your own data — no invented probabilities, no automated messages without
+          approval, forecasts are advisory only.
         </AlertDescription>
       </Alert>
 
       <Tabs defaultValue="governance" className="space-y-4">
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="governance" className="gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Governance</TabsTrigger>
-          <TabsTrigger value="recommendations" className="gap-1.5"><Bot className="h-3.5 w-3.5" /> Offers</TabsTrigger>
-          <TabsTrigger value="forecast" className="gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Forecast</TabsTrigger>
-          <TabsTrigger value="chatbot" className="gap-1.5"><Bot className="h-3.5 w-3.5" /> WhatsApp Bot</TabsTrigger>
-          <TabsTrigger value="wallet" className="gap-1.5"><Wallet className="h-3.5 w-3.5" /> Wallet</TabsTrigger>
+          <TabsTrigger value="governance" className="gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5" /> Governance
+          </TabsTrigger>
+          <TabsTrigger value="recommendations" className="gap-1.5">
+            <Bot className="h-3.5 w-3.5" /> Offers
+          </TabsTrigger>
+          <TabsTrigger value="forecast" className="gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5" /> Forecast
+          </TabsTrigger>
+          <TabsTrigger value="chatbot" className="gap-1.5">
+            <Bot className="h-3.5 w-3.5" /> WhatsApp Bot
+          </TabsTrigger>
+          <TabsTrigger value="wallet" className="gap-1.5">
+            <Wallet className="h-3.5 w-3.5" /> Wallet
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="governance">
@@ -166,9 +193,7 @@ export function AiView({ user }: { user: SessionUser }) {
         </TabsContent>
 
         <TabsContent value="forecast">
-          <ForecastPanel
-            query={forecastQ}
-          />
+          <ForecastPanel query={forecastQ} />
         </TabsContent>
 
         <TabsContent value="chatbot">
@@ -210,19 +235,43 @@ function GovernancePanel({
   if (loading || !settings) {
     return (
       <div className="grid gap-4 md:grid-cols-2">
-        <Skeleton className="h-64 rounded-xl" />
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-[6px]" />
+        <Skeleton className="h-64 rounded-[6px]" />
       </div>
     );
   }
 
   const flags: Array<{ key: keyof AISettingsData; label: string; hint: string }> = [
-    { key: "chatbotEnabled", label: "WhatsApp ordering chatbot", hint: "Customers can browse and order via your WhatsApp business number." },
-    { key: "recommendationsEnabled", label: "Offer recommendations", hint: "Rule-based offers for silent/birthday/loyal guests — approval required per send." },
-    { key: "forecastingEnabled", label: "Demand forecasting", hint: "Advisory per-item demand estimates from your order history." },
-    { key: "voiceEnabled", label: "Voice order support", hint: "Speech-to-cart on the staff POS (microphone stays on the device)." },
-    { key: "walletEnabled", label: "Loyalty wallet passes", hint: "Issue loyalty pass records (provider distribution needs credentials)." },
-    { key: "sustainabilityEnabled", label: "Sustainability badges", hint: "Self-reported badges shown on the public menu, clearly labelled." },
+    {
+      key: "chatbotEnabled",
+      label: "WhatsApp ordering chatbot",
+      hint: "Customers can browse and order via your WhatsApp business number.",
+    },
+    {
+      key: "recommendationsEnabled",
+      label: "Offer recommendations",
+      hint: "Rule-based offers for silent/birthday/loyal guests — approval required per send.",
+    },
+    {
+      key: "forecastingEnabled",
+      label: "Demand forecasting",
+      hint: "Advisory per-item demand estimates from your order history.",
+    },
+    {
+      key: "voiceEnabled",
+      label: "Voice order support",
+      hint: "Speech-to-cart on the staff POS (microphone stays on the device).",
+    },
+    {
+      key: "walletEnabled",
+      label: "Loyalty wallet passes",
+      hint: "Issue loyalty pass records (provider distribution needs credentials).",
+    },
+    {
+      key: "sustainabilityEnabled",
+      label: "Sustainability badges",
+      hint: "Self-reported badges shown on the public menu, clearly labelled.",
+    },
   ];
 
   return (
@@ -258,7 +307,9 @@ function GovernancePanel({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Daily budget cap</CardTitle>
-            <CardDescription>Billable AI requests per day (chatbot turns, generations, forecasts).</CardDescription>
+            <CardDescription>
+              Billable AI requests per day (chatbot turns, generations, forecasts).
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <CapEditor
@@ -313,7 +364,12 @@ function CapEditor({
         inputMode={max ? "numeric" : "text"}
         disabled={disabled}
       />
-      <Button size="sm" variant="outline" disabled={disabled || !val} onClick={() => onSave(val.trim())}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled || !val}
+        onClick={() => onSave(val.trim())}
+      >
         Save
       </Button>
     </div>
@@ -333,11 +389,18 @@ function RecommendationsPanel({
 }) {
   const qc = useQueryClient();
   const generate = useMutation({
-    mutationFn: () => api.post<{ created: number; skippedExisting: number }>("/api/ai/recommendations", { limit: 50 }),
+    mutationFn: () =>
+      api.post<{ created: number; skippedExisting: number }>("/api/ai/recommendations", {
+        limit: 50,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai", "recommendations"] }),
   });
   const approve = useMutation({
-    mutationFn: (id: string) => api.post<{ simulated?: boolean; message: string }>(`/api/ai/recommendations/${id}/approve`, {}),
+    mutationFn: (id: string) =>
+      api.post<{ simulated?: boolean; message: string }>(
+        `/api/ai/recommendations/${id}/approve`,
+        {},
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai", "recommendations"] }),
   });
   const dismiss = useMutation({
@@ -361,7 +424,11 @@ function RecommendationsPanel({
           onClick={() => generate.mutate()}
           disabled={!canManage || generate.isPending}
         >
-          {generate.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {generate.isPending ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
           Generate candidates
         </Button>
       </CardHeader>
@@ -370,7 +437,8 @@ function RecommendationsPanel({
           <Alert className="mb-4">
             <Info className="h-4 w-4" />
             <AlertDescription>
-              {generate.data.created} new candidate(s), {generate.data.skippedExisting} already generated for this window.
+              {generate.data.created} new candidate(s), {generate.data.skippedExisting} already
+              generated for this window.
             </AlertDescription>
           </Alert>
         )}
@@ -381,10 +449,11 @@ function RecommendationsPanel({
           </Alert>
         )}
         {query.isLoading ? (
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-[6px]" />
         ) : recs.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">
-            No pending offers. Click &quot;Generate candidates&quot; to scan your CRM with the rule set.
+            No pending offers. Click &quot;Generate candidates&quot; to scan your CRM with the rule
+            set.
           </p>
         ) : (
           <div className="max-h-96 overflow-y-auto rounded-lg border">
@@ -402,7 +471,9 @@ function RecommendationsPanel({
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.customer?.name ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="mr-1.5">{r.ruleId}</Badge>
+                      <Badge variant="outline" className="mr-1.5">
+                        {r.ruleId}
+                      </Badge>
                       <span className="text-xs text-muted-foreground">{r.reasonCode}</span>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
@@ -454,11 +525,14 @@ function ForecastPanel({
 }) {
   const qc = useQueryClient();
   const compute = useMutation({
-    mutationFn: () => api.post<{ computed: number; insufficient: number; note: string }>("/api/ai/forecast", {}),
+    mutationFn: () =>
+      api.post<{ computed: number; insufficient: number; note: string }>("/api/ai/forecast", {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai", "forecast"] }),
   });
 
-  const rows = (query.data?.forecasts ?? []).filter((f) => f.businessDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
+  const rows = (query.data?.forecasts ?? []).filter(
+    (f) => f.businessDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+  );
 
   return (
     <Card>
@@ -470,7 +544,11 @@ function ForecastPanel({
           </CardDescription>
         </div>
         <Button size="sm" onClick={() => compute.mutate()} disabled={compute.isPending}>
-          {compute.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
+          {compute.isPending ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <TrendingUp className="h-4 w-4" />
+          )}
           Recompute
         </Button>
       </CardHeader>
@@ -482,7 +560,7 @@ function ForecastPanel({
           </Alert>
         )}
         {query.isLoading ? (
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-[6px]" />
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">
             No forecasts yet — click &quot;Recompute&quot; after enabling forecasting in Governance.
@@ -508,7 +586,10 @@ function ForecastPanel({
                         <>
                           ~{Math.round(f.forecastQty)}
                           {f.upperBound !== null && (
-                            <span className="text-xs text-muted-foreground"> (up to {Math.round(f.upperBound)})</span>
+                            <span className="text-xs text-muted-foreground">
+                              {" "}
+                              (up to {Math.round(f.upperBound)})
+                            </span>
                           )}
                         </>
                       ) : (
@@ -553,10 +634,11 @@ function ChatbotPanel({
       </CardHeader>
       <CardContent>
         {query.isLoading ? (
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-[6px]" />
         ) : convs.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">
-            No conversations yet. Once the chatbot is enabled and your WhatsApp number receives a message, sessions appear here.
+            No conversations yet. Once the chatbot is enabled and your WhatsApp number receives a
+            message, sessions appear here.
           </p>
         ) : (
           <div className="max-h-96 overflow-y-auto rounded-lg border">
@@ -577,12 +659,18 @@ function ChatbotPanel({
                       <p className="font-medium">{c.customerName ?? "Guest"}</p>
                       <p className="text-xs text-muted-foreground">{c.phone}</p>
                     </TableCell>
-                    <TableCell><Badge variant="outline">{c.state}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{c.state}</Badge>
+                    </TableCell>
                     <TableCell className="text-xs">
-                      {c.cart.length === 0 ? "—" : (
+                      {c.cart.length === 0 ? (
+                        "—"
+                      ) : (
                         <>
                           {c.cart.map((l, i) => (
-                            <span key={i} className="block">{l.quantity} × {l.name}</span>
+                            <span key={i} className="block">
+                              {l.quantity} × {l.name}
+                            </span>
                           ))}
                           <span className="font-medium">{money(c.cartTotalMinor)}</span>
                         </>
@@ -620,7 +708,8 @@ function WalletPanel() {
   const qc = useQueryClient();
   const passesQ = useQuery({
     queryKey: ["ai", "wallet"],
-    queryFn: () => api.get<{ providerStatus: string; passes: WalletPassRow[] }>("/api/wallet/passes"),
+    queryFn: () =>
+      api.get<{ providerStatus: string; passes: WalletPassRow[] }>("/api/wallet/passes"),
   });
   const revoke = useMutation({
     mutationFn: (id: string) => api.post(`/api/wallet/passes/${id}/revoke`, {}),
@@ -637,17 +726,17 @@ function WalletPanel() {
         </CardTitle>
         <CardDescription>
           Pass records are live. Distribution through the real Apple/Google Wallet APIs is
-          <Badge variant="secondary" className="mx-1">BLOCKED_PROVIDER_ACCESS</Badge>
+          <Badge variant="secondary" className="mx-1">
+            BLOCKED_PROVIDER_ACCESS
+          </Badge>
           until provider credentials are configured — no fake integration is shown.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {passesQ.isLoading ? (
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-[6px]" />
         ) : passes.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            No passes issued yet.
-          </p>
+          <p className="text-sm text-muted-foreground py-8 text-center">No passes issued yet.</p>
         ) : (
           <div className="max-h-96 overflow-y-auto rounded-lg border">
             <Table>
@@ -667,11 +756,18 @@ function WalletPanel() {
                     <TableCell className="font-mono text-xs">{p.serialNumber}</TableCell>
                     <TableCell>{p.platform}</TableCell>
                     <TableCell>
-                      <Badge variant={p.status === "ACTIVE" ? "default" : "secondary"}>{p.status}</Badge>
+                      <Badge variant={p.status === "ACTIVE" ? "default" : "secondary"}>
+                        {p.status}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {p.status === "ACTIVE" && (
-                        <Button size="sm" variant="ghost" disabled={revoke.isPending} onClick={() => revoke.mutate(p.id)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={revoke.isPending}
+                          onClick={() => revoke.mutate(p.id)}
+                        >
                           Revoke
                         </Button>
                       )}

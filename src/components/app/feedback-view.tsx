@@ -14,7 +14,10 @@ import { Star, MessageSquareHeart, TrendingUp, Users } from "lucide-react";
 
 function StarRow({ rating }: { rating: number }) {
   return (
-    <span className="text-amber-500 tracking-tight" aria-label={`${rating} out of 5 stars`}>
+    <span
+      className="text-[color:var(--gold-ink)] tracking-tight"
+      aria-label={`${rating} out of 5 stars`}
+    >
       {"★".repeat(rating)}
       <span className="text-muted-foreground/30">{"★".repeat(5 - rating)}</span>
     </span>
@@ -45,7 +48,7 @@ export function FeedbackView() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading || !stats ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[110px] rounded-xl" />
+            <Skeleton key={i} className="h-[110px] rounded-[6px]" />
           ))
         ) : (
           <>

@@ -159,7 +159,7 @@ export function JourneysView() {
                               </Badge>
                             ))}
                             {s.offer && (
-                              <Badge className="gap-1 border-0 bg-amber-500/12 text-amber-600 text-[9.5px] px-1.5">
+                              <Badge className="gap-1 border-0 bg-amber-500/12 text-[color:var(--gold-ink)] text-[9.5px] px-1.5">
                                 <Tag className="h-3 w-3" /> {s.offer}
                               </Badge>
                             )}

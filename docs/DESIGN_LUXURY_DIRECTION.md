@@ -78,7 +78,7 @@ the perceived upgrade.
 - One ink button, full width, uppercase 12px, `0.12em` tracking.
 - Bottom line: "Already a member? Sign in" — never "Don't have an account? Sign up!!!".
 
-### 4.2 Dashboard (`dashboard-view.tsx`)
+### 4.2 Dashboard (`dashboard-view.tsx`) — ✅ implemented
 
 - Replace the 4 KPI cards with **one hairline-divided strip** (as in the mock): serif numeral,
   uppercase label, one delta line. Removes four competing card shadows.
@@ -95,13 +95,13 @@ the perceived upgrade.
   composer footer — luxury is confidence, and confidence means no surprises at send time.
 - Primary action label is a verb phrase: "Approve & send 214" not "Submit".
 
-### 4.4 Guests list / tables
+### 4.4 Guests list / tables — ✅ implemented
 
 - No zebra striping. Hairline row dividers, 14px vertical padding, hover `#fdfbf7`.
 - Numerals are tabular; money right-aligned; dates as `12 Jul`, not `07/12/2026`.
 - Segments as outlined chips (gold for lapsed/high-value, sage for new) — never coloured fills.
 
-### 4.5 Settings, forms and modals
+### 4.5 Settings, forms and modals — ✅ primitives implemented (per-screen polish still worth a pass)
 
 - Inputs: 44px height, 1px border, gold focus ring at 1px (no glow), inline errors in
   terracotta `--destructive`, helper text in `--muted`.
@@ -193,7 +193,20 @@ a user must read.
 
 ---
 
-## 9. Rollout (2 weeks, no feature work)
+## 9. Verification performed
+
+- `eslint` clean on every changed file; `prettier` applied.
+- TypeScript JSX parse check on all changed `.tsx` files (the project's own `tsc --noEmit`
+  cannot run in this environment — `prisma generate` is blocked by the sandbox network).
+- **Tailwind v4 compile of the real `src/` tree succeeded** (≈152 KB CSS), and every custom
+  arbitrary utility used by the new design (`rounded-[4px]`, `text-[color:var(--gold-ink)]`,
+  `bg-[oklch(0.2_0.01_70_/_45%)]`, custom easings, etc.) is emitted. This catches invalid
+  class syntax — the most common way a design change silently does nothing.
+- Contrast measured (see §7), not guessed.
+- ⚠️ Not verified: an actual browser render, because the app cannot be built here without the
+  Prisma engine. Run `npm run build` locally or in CI before merging.
+
+## 10. Rollout (2 weeks, no feature work)
 
 | Day   | Scope                                                                                          |
 | ----- | ---------------------------------------------------------------------------------------------- |

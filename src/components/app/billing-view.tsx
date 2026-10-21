@@ -316,7 +316,7 @@ export function BillingView() {
       {isTrial && (
         <Card className="border-sky-500/40 bg-sky-500/5">
           <CardContent className="flex flex-wrap items-center gap-4 py-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/15 text-sky-600">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[6px] bg-sky-500/15 text-sky-600">
               <Clock className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -344,7 +344,7 @@ export function BillingView() {
       {isExpired && (
         <Card className="border-rose-500/40 bg-rose-500/5">
           <CardContent className="flex flex-wrap items-center gap-4 py-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[6px] bg-rose-500/15 text-rose-600">
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -359,7 +359,7 @@ export function BillingView() {
       {sub.state === "GRACE" && (
         <Card className="border-amber-500/40 bg-amber-500/5">
           <CardContent className="flex flex-wrap items-center gap-4 py-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[6px] bg-amber-500/15 text-[color:var(--gold-ink)]">
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
@@ -591,7 +591,7 @@ export function BillingView() {
                               p.status === "PAID"
                                 ? "bg-emerald-500/10 text-emerald-600"
                                 : p.status === "PENDING"
-                                  ? "bg-amber-500/10 text-amber-600"
+                                  ? "bg-amber-500/10 text-[color:var(--gold-ink)]"
                                   : p.status === "FAILED"
                                     ? "bg-rose-500/10 text-rose-600"
                                     : ""
@@ -682,7 +682,7 @@ export function BillingView() {
                 </>
               ) : (
                 <>
-                  <Clock className="h-5 w-5 text-amber-600" /> Invoice created
+                  <Clock className="h-5 w-5 text-[color:var(--gold-ink)]" /> Invoice created
                 </>
               )}
             </DialogTitle>
@@ -705,7 +705,7 @@ export function BillingView() {
                     ? "bg-emerald-500/10 text-emerald-600"
                     : paymentStatusQuery.data?.payment.status === "FAILED"
                       ? "bg-rose-500/10 text-rose-600"
-                      : "bg-amber-500/10 text-amber-600"
+                      : "bg-amber-500/10 text-[color:var(--gold-ink)]"
                 }
               >
                 {paymentStatusQuery.isFetching

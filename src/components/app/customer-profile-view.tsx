@@ -150,20 +150,20 @@ export function CustomerProfileView({
     return (
       <div className="space-y-4">
         <Skeleton className="h-9 w-28" />
-        <Skeleton className="h-44 rounded-2xl" />
+        <Skeleton className="h-44 rounded-[8px]" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-[6px]" />
           ))}
         </div>
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-[6px]" />
       </div>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className="rounded-xl border bg-card p-10 text-center">
+      <div className="rounded-[6px] border bg-card p-10 text-center">
         <p className="font-semibold">Customer not found</p>
         <p className="mt-1 text-sm text-muted-foreground">
           This customer doesn&apos;t exist in your hotel, or you don&apos;t have access.
@@ -205,7 +205,7 @@ export function CustomerProfileView({
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-bold tracking-tight">{customer.name}</h2>
                 {customer.vip && (
-                  <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0">
+                  <Badge className="bg-amber-500/15 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] border-0">
                     <Crown className="h-3 w-3 mr-1" /> VIP
                   </Badge>
                 )}
@@ -296,7 +296,7 @@ export function CustomerProfileView({
 
       {/* Consent banner */}
       {customer.optOut && (
-        <div className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4">
+        <div className="flex items-start gap-3 rounded-[6px] border border-rose-500/30 bg-rose-500/5 p-4">
           <XCircle className="h-5 w-5 text-rose-600 mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">
@@ -310,10 +310,10 @@ export function CustomerProfileView({
         </div>
       )}
       {!customer.optOut && !customer.marketingConsent && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <Clock className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 rounded-[6px] border border-amber-500/30 bg-amber-500/5 p-4">
+          <Clock className="h-5 w-5 text-[color:var(--gold-ink)] mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+            <p className="text-sm font-semibold text-[color:var(--gold-ink)] dark:text-[color:var(--gold)]">
               No marketing consent recorded yet
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -346,7 +346,7 @@ export function CustomerProfileView({
                   : "New guest",
           },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border bg-card p-4">
+          <div key={s.label} className="rounded-[6px] border bg-card p-4">
             <div className="flex items-center gap-2 text-muted-foreground">
               <s.icon className="h-4 w-4" />
               <p className="text-xs font-medium">{s.label}</p>
@@ -434,7 +434,7 @@ export function CustomerProfileView({
           <CardContent className="p-0">
             {visits.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-primary/10 text-primary mb-3">
                   <CalendarCheck className="h-6 w-6" />
                 </div>
                 <p className="text-sm font-semibold">
@@ -462,7 +462,7 @@ export function CustomerProfileView({
               <ul className="divide-y">
                 {visits.map((v, idx) => (
                   <li key={v.id} className="flex items-center gap-4 px-6 py-3.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-600 text-[11px] font-bold">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-[color:var(--gold-ink)] text-[11px] font-bold">
                       #{visits.length - idx}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -887,7 +887,7 @@ function VipToggleCard({
       className={cn(
         "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
         vip
-          ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/15"
+          ? "border-amber-500/50 bg-amber-500/10 text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] hover:bg-amber-500/15"
           : "text-muted-foreground hover:text-foreground hover:bg-accent",
       )}
     >

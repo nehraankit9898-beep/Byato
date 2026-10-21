@@ -188,7 +188,10 @@ export function LeadsView() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600">
+                            <Badge
+                              variant="outline"
+                              className="bg-amber-500/10 text-[color:var(--gold-ink)]"
+                            >
                               +{e.points}
                             </Badge>
                           </TableCell>

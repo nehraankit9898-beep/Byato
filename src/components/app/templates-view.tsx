@@ -83,7 +83,7 @@ export function TemplatesView() {
       />
 
       {data?.variables?.length ? (
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-[6px] border bg-muted/40 p-3 text-xs text-muted-foreground">
           <Info className="h-3.5 w-3.5 shrink-0 text-primary" />
           <span className="font-medium text-foreground">Supported variables:</span>
           {data.variables.map((v) => (
@@ -101,7 +101,7 @@ export function TemplatesView() {
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
+            <Skeleton key={i} className="h-40 rounded-[6px]" />
           ))}
         </div>
       ) : templates.length === 0 ? (

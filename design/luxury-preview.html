@@ -244,6 +244,24 @@
   .price.feature .tagline{color:#b7ac9e}
 
 
+
+  /* ============ Guests table ============ */
+  .tablecard{border:1px solid var(--line);border-radius:6px;background:#fff;overflow:hidden;box-shadow:var(--shadow)}
+  table.guests{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  table.guests th{text-align:left;height:38px;padding:0 14px;font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);border-bottom:1px solid var(--line)}
+  table.guests td{padding:13px 14px;border-bottom:1px solid var(--line-soft);color:#3a332c;vertical-align:middle}
+  table.guests tr:last-child td{border-bottom:0}
+  table.guests tbody tr{transition:background 420ms var(--ease)}
+  table.guests tbody tr:hover{background:#fdfbf7}
+  table.guests .who{display:flex;align-items:center;gap:12px}
+  table.guests .who b{font-weight:500;font-size:13px;display:block}
+  table.guests .who span{font-size:11px;color:var(--muted-2)}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;border:1px solid var(--line);color:var(--muted)}
+  .tag.gold{border-color:rgba(196,162,101,.5);color:#7a5c26}
+  .tag.sage{border-color:rgba(127,148,131,.5);color:#5d7361}
+  .tag.rose{border-color:rgba(181,122,92,.5);color:#9a5a3c}
+  .money{text-align:right;font-weight:500}
+
   /* ============ Sign-in ============ */
   .auth{display:grid;grid-template-columns:1fr 1fr;border-radius:12px;overflow:hidden;border:1px solid rgba(196,162,101,.28);box-shadow:var(--shadow-lg);min-height:580px}
   .auth-brand{position:relative;padding:44px;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(90% 70% at 20% 0%,#332b25 0%,transparent 60%),linear-gradient(160deg,#241f1a 0%,#15110e 100%);color:#f6f1e8}
@@ -305,6 +323,7 @@
       <a href="#product">Product</a>
       <a href="#system">Design system</a>
       <a href="#signin">Sign in</a>
+      <a href="#guests">Guests</a>
       <a href="#qr">QR experience</a>
       <a href="#pricing">Pricing</a>
     </div>
@@ -601,6 +620,69 @@
           <p style="font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.7">Ink CTA, 6px radii, hairline border, serif numerals, one champagne accent, tabular figures.</p>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ================= GUESTS ================= -->
+<section id="guests">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <div class="eyebrow">Lists &amp; tables</div>
+        <h2>A ledger, not a spreadsheet.</h2>
+      </div>
+      <p>Uppercase micro-headers, hairline rows, tabular numerals so money never jitters, outlined status chips instead of coloured fills. This is what <code style="font-size:12px;background:#f1ece3;padding:2px 6px;border-radius:3px">table.tsx</code> and <code style="font-size:12px;background:#f1ece3;padding:2px 6px;border-radius:3px">customers-view.tsx</code> now render.</p>
+    </div>
+
+    <div class="tablecard reveal">
+      <table class="guests">
+        <thead>
+          <tr>
+            <th style="width:46px"></th>
+            <th>Guest</th>
+            <th>Phone</th>
+            <th>Visits</th>
+            <th>Last visit</th>
+            <th>Consent</th>
+            <th>Status</th>
+            <th style="text-align:right">Spend</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="av">RM</span></td>
+            <td><div class="who"><div><b>Rahul Mehta</b><span>Returning · VIP</span></div></div></td>
+            <td style="color:var(--muted)">+91 98290 •• 214</td>
+            <td><span class="tag sage">6</span></td>
+            <td style="color:var(--muted)">12 Jul</td>
+            <td><span class="tag sage">Opted in</span></td>
+            <td><span class="tag sage">Active</span></td>
+            <td class="money">₹28,400</td>
+          </tr>
+          <tr>
+            <td><span class="av">AS</span></td>
+            <td><div class="who"><div><b>Aditi Sharma</b><span>Lapsed 112 days</span></div></div></td>
+            <td style="color:var(--muted)">+91 99820 •• 701</td>
+            <td><span class="tag gold">4</span></td>
+            <td style="color:var(--muted)">24 Jun</td>
+            <td><span class="tag">No consent</span></td>
+            <td><span class="tag sage">Active</span></td>
+            <td class="money">₹19,120</td>
+          </tr>
+          <tr>
+            <td><span class="av">KV</span></td>
+            <td><div class="who"><div><b>Kabir Verma</b><span>High value · 9 visits</span></div></div></td>
+            <td style="color:var(--muted)">+91 90014 •• 388</td>
+            <td><span class="tag sage">9</span></td>
+            <td style="color:var(--muted)">09 Jun</td>
+            <td><span class="tag rose">Opted out</span></td>
+            <td><span class="tag">Inactive</span></td>
+            <td class="money">₹64,800</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>

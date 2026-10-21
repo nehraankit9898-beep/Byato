@@ -74,10 +74,10 @@ const INTEGRATION_TYPES: Record<string, string> = {
 const STATUS_TONES: Record<string, string> = {
   CONNECTED: "bg-emerald-500/15 text-emerald-600",
   VERIFIED: "bg-emerald-500/15 text-emerald-600",
-  SAVED_UNVERIFIED: "bg-amber-500/15 text-amber-600",
+  SAVED_UNVERIFIED: "bg-amber-500/15 text-[color:var(--gold-ink)]",
   DISCONNECTED: "bg-slate-500/15 text-slate-600",
   ERROR: "bg-rose-500/15 text-rose-600",
-  PENDING: "bg-amber-500/15 text-amber-600",
+  PENDING: "bg-amber-500/15 text-[color:var(--gold-ink)]",
 };
 
 /** RECHECK FIX (G) — provider-specific credential fields. The old UI saved
@@ -304,7 +304,7 @@ export function IntegrationsView() {
                         <Badge className={STATUS_TONES[i.status]}>{i.status}</Badge>
                         {!i.hasCredentials && (
                           <span
-                            className="text-[10.5px] text-amber-600"
+                            className="text-[10.5px] text-[color:var(--gold-ink)]"
                             title="No credentials saved yet"
                           >
                             no creds
@@ -313,7 +313,7 @@ export function IntegrationsView() {
                       </div>
                       {/* RECHECK FIX (G): distinct, honest states — saved ≠ verified. */}
                       {i.hasCredentials && i.status === "SAVED_UNVERIFIED" && (
-                        <span className="mt-0.5 block text-[10px] text-amber-600">
+                        <span className="mt-0.5 block text-[10px] text-[color:var(--gold-ink)]">
                           saved — verify to enable live sends
                         </span>
                       )}

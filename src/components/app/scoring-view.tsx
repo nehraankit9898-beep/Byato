@@ -38,7 +38,7 @@ const TIER_LABELS: Record<string, string> = {
 const TIER_BADGES: Record<string, string> = {
   COLD: "bg-slate-500/15 text-slate-600",
   WARM: "bg-sky-500/15 text-sky-600",
-  HOT: "bg-amber-500/15 text-amber-600",
+  HOT: "bg-amber-500/15 text-[color:var(--gold-ink)]",
   VERY_HOT: "bg-rose-500/15 text-rose-600",
 };
 
@@ -119,7 +119,7 @@ export function ScoringView() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Hot (61-80)</p>
-            <p className="text-2xl font-bold tabular-nums mt-1 text-amber-600">
+            <p className="text-2xl font-bold tabular-nums mt-1 text-[color:var(--gold-ink)]">
               {leaderboard.filter((c) => c.leadTier === "HOT").length}
             </p>
           </CardContent>
@@ -182,7 +182,7 @@ export function ScoringView() {
                   <TableRow key={c.id}>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
-                        {idx === 0 && <Crown className="h-4 w-4 text-amber-500" />}
+                        {idx === 0 && <Crown className="h-4 w-4 text-[color:var(--gold-ink)]" />}
                         <span className="font-bold tabular-nums">{idx + 1}</span>
                       </div>
                     </TableCell>

@@ -639,7 +639,7 @@ function HealthTab() {
     s === "HEALTHY"
       ? "bg-emerald-500/15 text-emerald-600"
       : s === "DEGRADED"
-        ? "bg-amber-500/15 text-amber-600"
+        ? "bg-amber-500/15 text-[color:var(--gold-ink)]"
         : "bg-rose-500/15 text-rose-600";
 
   return (
@@ -698,7 +698,7 @@ function SupportTab() {
         ? "bg-slate-500/15 text-slate-600"
         : s === "ENDED"
           ? "bg-slate-500/15 text-slate-600"
-          : "bg-amber-500/15 text-amber-600";
+          : "bg-amber-500/15 text-[color:var(--gold-ink)]";
 
   return (
     <Card>

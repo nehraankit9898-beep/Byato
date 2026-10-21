@@ -39,11 +39,13 @@ export function InventoryView() {
 
   const ingredientsQ = useQuery({
     queryKey: ["ingredients"],
-    queryFn: async () => (await api.get("/api/inventory/ingredients")) as { ingredients: Ingredient[] },
+    queryFn: async () =>
+      (await api.get("/api/inventory/ingredients")) as { ingredients: Ingredient[] },
   });
   const ledgerQ = useQuery({
     queryKey: ["stock-ledger"],
-    queryFn: async () => (await api.get("/api/inventory/ledger?limit=50")) as { entries: LedgerEntry[] },
+    queryFn: async () =>
+      (await api.get("/api/inventory/ledger?limit=50")) as { entries: LedgerEntry[] },
   });
 
   const create = useMutation({
@@ -58,8 +60,12 @@ export function InventoryView() {
   });
 
   const move = useMutation({
-    mutationFn: async (input: { ingredientId: string; qtyDelta: number; reason: "WASTAGE" | "ADJUSTMENT"; wastageReason?: string }) =>
-      (await api.post("/api/inventory/ledger", input)) as Record<string, unknown>,
+    mutationFn: async (input: {
+      ingredientId: string;
+      qtyDelta: number;
+      reason: "WASTAGE" | "ADJUSTMENT";
+      wastageReason?: string;
+    }) => (await api.post("/api/inventory/ledger", input)) as Record<string, unknown>,
     onSuccess: () => {
       toast.success("Stock movement recorded.");
       setWaste({});
@@ -80,7 +86,7 @@ export function InventoryView() {
       />
 
       {low.length > 0 && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
+        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-[color:var(--gold-ink)] dark:text-[color:var(--gold)] flex items-center gap-2">
           <AlertTriangle className="h-4 w-4" />
           Low stock: {low.map((i) => `${i.name} (${i.stockQty} ${i.unit})`).join(", ")}
         </div>
@@ -90,15 +96,29 @@ export function InventoryView() {
         <CardContent className="p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">New ingredient</label>
-            <Input className="w-52" placeholder="e.g. Paneer" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input
+              className="w-52"
+              placeholder="e.g. Paneer"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Unit</label>
-            <select className="border rounded-md h-9 px-2 text-sm bg-background" value={unit} onChange={(e) => setUnit(e.target.value)}>
-              {["GRAM", "KG", "ML", "LITRE", "PIECE"].map((u) => <option key={u}>{u}</option>)}
+            <select
+              className="border rounded-md h-9 px-2 text-sm bg-background"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+            >
+              {["GRAM", "KG", "ML", "LITRE", "PIECE"].map((u) => (
+                <option key={u}>{u}</option>
+              ))}
             </select>
           </div>
-          <Button onClick={() => create.mutate()} disabled={create.isPending || name.trim().length < 2}>
+          <Button
+            onClick={() => create.mutate()}
+            disabled={create.isPending || name.trim().length < 2}
+          >
             <Package className="h-4 w-4" /> Add
           </Button>
         </CardContent>
@@ -106,7 +126,11 @@ export function InventoryView() {
 
       <div className="space-y-2">
         {ingredients.length === 0 ? (
-          <EmptyState icon={Package} title="No ingredients" description="Add ingredients, attach recipes to menu items, and stock deducts automatically on paid bills." />
+          <EmptyState
+            icon={Package}
+            title="No ingredients"
+            description="Add ingredients, attach recipes to menu items, and stock deducts automatically on paid bills."
+          />
         ) : (
           ingredients.map((i) => (
             <Card key={i.id}>
@@ -115,7 +139,9 @@ export function InventoryView() {
                 <Badge variant={i.stockQty <= i.lowStockThreshold ? "destructive" : "secondary"}>
                   {i.stockQty} {i.unit}
                 </Badge>
-                <span className="text-xs text-muted-foreground">alert ≤ {i.lowStockThreshold} {i.unit}</span>
+                <span className="text-xs text-muted-foreground">
+                  alert ≤ {i.lowStockThreshold} {i.unit}
+                </span>
                 <span className="flex-1" />
                 <Input
                   className="w-24"
@@ -124,10 +150,33 @@ export function InventoryView() {
                   value={waste[i.id] ?? ""}
                   onChange={(e) => setWaste((w) => ({ ...w, [i.id]: e.target.value }))}
                 />
-                <Button size="sm" variant="outline" onClick={() => move.mutate({ ingredientId: i.id, qtyDelta: -Math.abs(Number(waste[i.id]) || 0), reason: "WASTAGE", wastageReason: "SPOILAGE" })} disabled={!waste[i.id]}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    move.mutate({
+                      ingredientId: i.id,
+                      qtyDelta: -Math.abs(Number(waste[i.id]) || 0),
+                      reason: "WASTAGE",
+                      wastageReason: "SPOILAGE",
+                    })
+                  }
+                  disabled={!waste[i.id]}
+                >
                   Wastage
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => move.mutate({ ingredientId: i.id, qtyDelta: Math.abs(Number(waste[i.id]) || 0), reason: "ADJUSTMENT" })} disabled={!waste[i.id]}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    move.mutate({
+                      ingredientId: i.id,
+                      qtyDelta: Math.abs(Number(waste[i.id]) || 0),
+                      reason: "ADJUSTMENT",
+                    })
+                  }
+                  disabled={!waste[i.id]}
+                >
                   Add stock
                 </Button>
               </CardContent>
@@ -145,9 +194,13 @@ export function InventoryView() {
             <div className="space-y-1 text-xs max-h-64 overflow-y-auto">
               {(ledgerQ.data?.entries ?? []).map((e) => (
                 <div key={e.id} className="flex justify-between border-b py-1">
-                  <span>{e.ingredient.name} · {e.reason}{e.note ? ` · ${e.note}` : ""}</span>
+                  <span>
+                    {e.ingredient.name} · {e.reason}
+                    {e.note ? ` · ${e.note}` : ""}
+                  </span>
                   <span className={e.qtyDelta < 0 ? "text-red-600" : "text-emerald-600"}>
-                    {e.qtyDelta > 0 ? "+" : ""}{e.qtyDelta} {e.ingredient.unit} → {e.balanceAfter}
+                    {e.qtyDelta > 0 ? "+" : ""}
+                    {e.qtyDelta} {e.ingredient.unit} → {e.balanceAfter}
                   </span>
                 </div>
               ))}

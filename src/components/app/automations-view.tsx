@@ -57,7 +57,7 @@ const TRIGGER_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
   DRAFT: { label: "Draft", tone: "bg-slate-500/15 text-slate-600" },
   ACTIVE: { label: "Active", tone: "bg-emerald-500/15 text-emerald-600" },
-  PAUSED: { label: "Paused", tone: "bg-amber-500/15 text-amber-600" },
+  PAUSED: { label: "Paused", tone: "bg-amber-500/15 text-[color:var(--gold-ink)]" },
   ARCHIVED: { label: "Archived", tone: "bg-slate-500/15 text-slate-600" },
   FAILED: { label: "Failed", tone: "bg-rose-500/15 text-rose-600" },
 };
@@ -289,7 +289,7 @@ export function AutomationsView() {
                               ? "bg-rose-500/15 text-rose-600"
                               : e.status === "CANCELLED"
                                 ? "bg-slate-500/15 text-slate-600"
-                                : "bg-amber-500/15 text-amber-600"
+                                : "bg-amber-500/15 text-[color:var(--gold-ink)]"
                         }
                       >
                         {e.status}
