@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireAuth, jsonError, readJson, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
 import { validateMenuItem } from "@/lib/menu";
+import { isManagedMediaUrl, mediaReferenceBelongsToHotel } from "@/lib/media";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -64,7 +65,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
     // client toasts "Item updated".
     if (
       "priceMinor" in body &&
-      (body.priceMinor === null || body.priceMinor === "" || !Number.isFinite(Number(body.priceMinor)))
+      (body.priceMinor === null ||
+        body.priceMinor === "" ||
+        !Number.isFinite(Number(body.priceMinor)))
     ) {
       return jsonError("Price must be a valid integer amount in paise.", 400, "VALIDATION_ERROR");
     }
@@ -82,10 +85,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     const merged = {
       name: body.name ?? current.name,
-      description: clearDescription ? "" : body.description ?? current.description ?? "",
+      description: clearDescription ? "" : (body.description ?? current.description ?? ""),
       priceMinor: body.priceMinor ?? current.priceMinor,
       prepMinutes: body.prepMinutes ?? current.prepMinutes,
-      imageUrl: clearImageUrl ? "" : body.imageUrl ?? current.imageUrl ?? "",
+      imageUrl: clearImageUrl ? "" : (body.imageUrl ?? current.imageUrl ?? ""),
       dietaryTags: body.dietaryTags ?? JSON.parse(current.dietaryTags ?? "[]"),
       sortOrder: body.sortOrder ?? current.sortOrder,
       active: body.active ?? current.active,
@@ -93,6 +96,15 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const { issues, value } = validateMenuItem(merged);
     if (!value) {
       return jsonError(issues[0]?.message ?? "Invalid menu item.", 400, "VALIDATION_ERROR");
+    }
+
+    // Ownership of a managed photo reference (tenant isolation). Clearing the
+    // photo (`imageUrl: null`) never needs this check.
+    if (!clearImageUrl && isManagedMediaUrl(value.imageUrl)) {
+      const owned = await mediaReferenceBelongsToHotel(hotelId, value.imageUrl);
+      if (!owned) {
+        return jsonError("That photo does not belong to your restaurant.", 400, "VALIDATION_ERROR");
+      }
     }
 
     // Category move (optional) — must stay inside the tenant.

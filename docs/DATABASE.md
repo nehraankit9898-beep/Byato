@@ -22,6 +22,9 @@ Schemas: `prisma/schema.prisma` (SQLite) and `prisma/schema.postgres.prisma`
 - Every tenant query derives `hotelId` from the authenticated session (DB
   re-read per request) — never from client input. Foreign-key cascades
   (`onDelete: Cascade`) remove owned rows with the tenant.
+- Menu photos are tenant rows too: `MediaAsset` (migration `0016_menu_photos`)
+  holds the re-encoded WebP bytes with a `hotelId` FK, and `/api/media/<id>`
+  only ever returns a row by its unguessable id. See `docs/MENU_PHOTOS.md`.
 
 ## 3. Concurrency & integrity guarantees (verified by tests)
 
@@ -50,6 +53,8 @@ on PostgreSQL rests on the same unique constraints and transactions.
   plus `hotelId`, `type`, `createdAt`.
 - Lookup: `Customer(email)`, `Customer(vip/leadTier/birthday)`,
   `QRCode.code @unique`.
+- Menu photos: `MediaAsset(hotelId, checksum, kind) @unique` (upload
+  de-duplication + tenant scoping) and `MediaAsset(hotelId, createdAt)`.
 - Deliberate: no blind extra indexes — each listed index matches a measured
   query path.
 

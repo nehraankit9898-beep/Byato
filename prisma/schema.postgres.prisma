@@ -138,6 +138,8 @@ model Hotel {
   // Phase 12 — restaurant menu & tables
   menuCategories          MenuCategory[]
   menuItems               MenuItem[]
+  // Menu photos (bytes live in Postgres, served from /api/media/<id>)
+  mediaAssets             MediaAsset[]
   menuOptionGroups        MenuOptionGroup[]
   menuOptions             MenuOption[]
   diningTables            DiningTable[]
@@ -3285,4 +3287,26 @@ model SustainabilityBadge {
   updatedAt   DateTime @updatedAt
 
   @@index([hotelId, active])
+}
+
+/// Menu photo bytes, stored in the database so uploads survive Vercel's
+/// ephemeral/read-only filesystem and require no external bucket credentials.
+/// One row per (tenant, checksum) — identical photos are de-duplicated.
+/// `data` is the re-encoded WebP payload (<=1600 px, EXIF stripped).
+model MediaAsset {
+  id        String   @id @default(uuid())
+  hotelId   String
+  hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  kind      String   @default("MENU_PHOTO")
+  mimeType  String
+  byteSize  Int
+  width     Int
+  height    Int
+  checksum  String
+  data      Bytes
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@unique([hotelId, checksum, kind])
+  @@index([hotelId, createdAt])
 }

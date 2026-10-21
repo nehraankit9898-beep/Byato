@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireAuth, jsonError, readJson, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
 import { validateMenuItem, validateOptionGroups, menuItemCapFor } from "@/lib/menu";
+import { isManagedMediaUrl, mediaReferenceBelongsToHotel } from "@/lib/media";
 import { withHotelWriteLock } from "@/lib/saas/limits";
 
 /**
@@ -95,6 +96,16 @@ export async function POST(req: Request) {
     const { issues, value } = validateMenuItem(body);
     if (!value) {
       return jsonError(issues[0]?.message ?? "Invalid menu item.", 400, "VALIDATION_ERROR");
+    }
+
+    // A managed /api/media/<id> reference is only valid inside the tenant that
+    // owns the bytes. Without this check one restaurant could point its menu at
+    // another restaurant's upload (and probe which ids exist).
+    if (isManagedMediaUrl(value.imageUrl)) {
+      const owned = await mediaReferenceBelongsToHotel(hotelId, value.imageUrl);
+      if (!owned) {
+        return jsonError("That photo does not belong to your restaurant.", 400, "VALIDATION_ERROR");
+      }
     }
 
     const groupsResult = validateOptionGroups(body.optionGroups);
