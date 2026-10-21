@@ -22,12 +22,28 @@ platform dashboards or in your local shell, never in the repository.
 | Build command    | `npm run build` (runs `prisma generate --schema prisma/schema.postgres.prisma` and then `next build`)                                                                                                             |
 | Output directory | default Next.js output. Do **not** set `STAYLOOP_STANDALONE=1` (that is for the Docker image only)                                                                                                               |
 
-**Background worker:** StayLoop's queue (large campaigns, exports, backups,
-scheduled journeys) runs in a separate long-lived process, `npm run worker`
-(see `scripts/worker.ts` and `docker-compose.prod.yml`). A Vercel deployment
-serves the web app only. Until the worker runs somewhere else, background jobs
-do not execute, and `GET /api/health` reports the worker as not ready. Plan the
-worker host before going live.
+**Scheduled automation (cron):** Vercel has no long-lived process, so the
+scheduler and the job queue are driven by **two Vercel Cron endpoints** declared
+in `vercel.json` (see §6):
+
+| Schedule | Path | What it runs |
+| --- | --- | --- |
+| `*/5 * * * *` | `/api/cron/sweep` | stale-lease recovery, due SCHEDULED campaigns, journey step delivery, outbound webhook retries, then the DB job queue is drained inline |
+| `7 * * * *` | `/api/cron/maintenance` | automation trigger scan (+ due execution drain and stale-PROCESSING reaper), owner report schedule enqueue, then a queue drain |
+
+Both require `CRON_SECRET` (fail-closed: 503 in production when unset) and are
+safe to run concurrently with each other and with a worker, because every claim
+is fenced in the database.
+
+**What still needs the standalone worker** (`npm run worker`, see
+`scripts/worker.ts` and `docker-compose.prod.yml`): `pg_dump` backups and the
+restore drill, token/audit/export housekeeping, SaaS trial-expiry and renewal
+maintenance, and CSV-export files on a **persistent** volume (`var/exports` —
+Vercel's filesystem is ephemeral/read-only outside `/tmp`, so exports should be
+hosted on a worker or moved to object storage before relying on them). Plan the
+worker host (a small VPS/container is enough) before going live; `GET
+/api/health` reports the worker as `unknown` (non-failing) when only cron is
+running, and `stale` when a worker died.
 
 ## 2. Environment variables
 
@@ -44,6 +60,7 @@ database. Never point Preview at the production Neon database.
 | `AUTH_SECRET` | required | required | ≥ 32 chars, random (`openssl rand -hex 32`). Startup fails if missing or weak. |
 | `INTEGRATION_ENCRYPTION_KEY` | required | required | 64 hex chars (32 bytes). Startup fails if missing or weak. |
 | `TRACKING_WEBHOOK_SECRET` | optional | optional | ≥ 32 chars when set. |
+| `CRON_SECRET` | **required** | required | ≥ 32 chars (`openssl rand -hex 32`). Authenticates `/api/cron/*`; Vercel Cron sends it as `Authorization: Bearer $CRON_SECRET`. Missing ⇒ cron answers 503 (fail-closed, never open). |
 | `APP_ORIGIN` | required | recommended | Public `https://` origin. Required when `REQUIRE_EMAIL_VERIFICATION=true`. |
 | `ADMIN_BOOTSTRAP_SECRET` | **only while bootstrapping**, then remove | do not set | ≥ 32 chars, random. See §4. |
 | `REDIS_URL` | recommended | optional | Shared rate limits across serverless instances. Without it, limits are per instance. |
@@ -116,7 +133,80 @@ a strong value and no Super Admin exists yet.
 ## 5. Post-deploy verification
 
 - `GET https://<domain>/` returns 200 and the login screen.
-- `GET https://<domain>/api/health` returns 200 when the database and required services are ready. It returns 503 when the worker is not running (see §1).
+- `GET https://<domain>/api/health` returns 200 when the database and required services are ready. It returns 503 when a previously-seen worker heartbeat went stale (see §1); a cron-only deployment reports `worker: "unknown"`, which does not fail readiness.
+- `GET https://<domain>/api/cron/sweep` returns **401** without credentials (proves the endpoint is not open) and **200** with `-H "Authorization: Bearer $CRON_SECRET"`.
+- Vercel → Project → Cron Jobs shows both jobs with a successful last run (§6).
 - Super Admin signs in, is forced to change the password, and then reaches the Super Admin dashboard.
 - A hotel owner account can sign in and sees only its own hotel's data.
 - Vercel → Deployments → (latest) → Logs show no `[config]` / `StayLoop configuration is invalid` startup errors.
+
+## 6. Scheduled automation (cron endpoints)
+
+`vercel.json` declares the schedules; the handlers live in
+`src/app/api/cron/sweep/route.ts` and `src/app/api/cron/maintenance/route.ts`
+and share `src/lib/cron.ts`.
+
+### 6.1 Setup
+
+1. Generate a secret and add it to **Production** (and Preview):
+   `openssl rand -hex 32` → `CRON_SECRET`.
+2. Redeploy. Vercel reads `vercel.json` and registers both cron jobs
+   automatically; Vercel Cron sends `Authorization: Bearer $CRON_SECRET` on
+   every invocation.
+3. Open **Vercel → Project → Cron Jobs**: both entries should be listed with
+   the schedules above. Trigger one manually with *Run* and confirm a 200.
+
+### 6.2 Manual invocation (ops / on-demand catch-up)
+
+```bash
+curl -i https://<domain>/api/cron/sweep \
+  -H "Authorization: Bearer $CRON_SECRET"
+curl -i https://<domain>/api/cron/maintenance \
+  -H "x-cron-secret: $CRON_SECRET"
+```
+
+Response (abridged):
+
+```json
+{
+  "ok": true,
+  "task": "sweep",
+  "auth": "secret",
+  "scheduler": { "campaignsDispatched": 1, "journeyDeliveriesSent": 3, "journeyDeliveriesSkipped": 0, "journeyDeliveriesFailed": 0, "journeyEnrollmentsCompleted": 0 },
+  "webhooks": 0,
+  "queue": { "claimed": 2, "completed": 2, "retried": 0, "deadLettered": 0, "stoppedReason": "empty" },
+  "errors": []
+}
+```
+
+### 6.3 Status codes
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 401 | `UNAUTHORIZED` | Missing/invalid `Authorization: Bearer` or `x-cron-secret`. Query-string secrets (`?secret=`) are **not** accepted. |
+| 503 | `CRON_SECRET_NOT_CONFIGURED` | Production deployment without `CRON_SECRET` — fail-closed. |
+| 503 | `CRON_SECRET_WEAK` | `CRON_SECRET` is shorter than 32 characters. |
+| 500 | (body `errors[]`) | One or more steps failed. The others still ran; the failing step is named in `errors`. Vercel marks the run failed so monitoring sees it. |
+| 200 | — | All steps ran. |
+
+### 6.4 Bounds and safety
+
+- Each invocation is bounded: queue drain stops after `CRON_QUEUE_BUDGET_MS`
+  (default 25 s, max 45 s) or `CRON_QUEUE_MAX_JOBS` (default 20) and resumes on
+  the next tick. Both are optional env overrides; the route also declares
+  `maxDuration = 60`.
+- Every sweep and every job claim is idempotent and DB-fenced, so overlapping
+  invocations, retries after a function timeout, and a worker running in
+  parallel can never double-send a campaign message.
+- A job left `RUNNING` by a killed invocation is recovered by the next tick
+  (`recoverStaleJobs`, 10-minute staleness TTL) and re-executed with the same
+  idempotency guarantees.
+- Vercel **Hobby** allows only 2 cron jobs, once per day each — use a Pro plan
+  for the 5-minute schedule (or keep a worker instead).
+
+### 6.5 Deployments without Vercel Cron
+
+Any external scheduler (cron-job.org, GitHub Actions, a VPS crontab) can call
+the same two URLs with the same secret. On Docker/self-hosted, `npm run worker`
+covers everything in this section and the endpoints can stay unused; both
+drivers are safe to run together.

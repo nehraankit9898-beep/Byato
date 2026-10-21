@@ -30,6 +30,8 @@ errors name the variable and the reason — values are never echoed.
 |---|---|
 | `TRACKING_WEBHOOK_SECRET` (≥ 32 chars) | engagement webhooks stay DISABLED (503) |
 | `FOLLOWUP_ENGINE_SECRET` (≥ 32 chars) | cron-triggered follow-up engine disabled |
+| `CRON_SECRET` (≥ 32 chars) | `/api/cron/*` answers **503 in production** (fail-closed). Required on Vercel — the cron endpoints are what run scheduled campaigns, journeys, automations, owner reports, webhook retries and the job queue there. See `docs/VERCEL_NEON_DEPLOYMENT.md` §6 |
+| `CRON_QUEUE_BUDGET_MS` / `CRON_QUEUE_MAX_JOBS` | queue drain per cron tick uses 25 s / 20 jobs (max 45 s / 100) |
 | `REDIS_URL` (`redis://…`/`rediss://…`) | rate limiting falls back to per-instance memory |
 | `ADMIN_BOOTSTRAP_SECRET` (≥ 32 chars) | super-admin bootstrap disabled entirely (recommended default) |
 
