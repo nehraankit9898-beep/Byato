@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireAuth, jsonError, readJson, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { parsePromoDate, PROMO_DAYS, PROMO_TIME_RE, PROMO_TYPES } from "@/lib/promotions";
 
 /**
  * Phase 15 — promotions (percent/flat/happy-hour/combo).
@@ -31,10 +32,6 @@ export async function GET(req: Request) {
   }
 }
 
-const PROMO_TYPES = ["PERCENT", "FLAT", "HAPPY_HOUR", "COMBO"];
-const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
 export async function POST(req: Request) {
   try {
     const auth = await requireAuth(req);
@@ -48,7 +45,7 @@ export async function POST(req: Request) {
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (name.length < 3) return jsonError("Promotion name is required (min 3 chars).", 422, "INVALID_NAME");
     const type = body.type;
-    if (typeof type !== "string" || !PROMO_TYPES.includes(type)) {
+    if (typeof type !== "string" || !PROMO_TYPES.includes(type as never)) {
       return jsonError(`type must be one of ${PROMO_TYPES.join(", ")}.`, 422, "INVALID_TYPE");
     }
     let percentBps: number | null = null;
@@ -66,25 +63,28 @@ export async function POST(req: Request) {
     }
     let daysOfWeek: string | null = null;
     if (Array.isArray(body.daysOfWeek)) {
-      const days = (body.daysOfWeek as unknown[]).filter((d): d is string => typeof d === "string" && DAYS.includes(d));
+      const days = (body.daysOfWeek as unknown[]).filter((d): d is string => typeof d === "string" && PROMO_DAYS.includes(d as never));
       if (days.length > 0) daysOfWeek = JSON.stringify([...new Set(days)]);
     }
     let startTime: string | null = null;
     let endTime: string | null = null;
     if (type === "HAPPY_HOUR") {
-      if (typeof body.startTime !== "string" || !TIME_RE.test(body.startTime) || typeof body.endTime !== "string" || !TIME_RE.test(body.endTime)) {
+      if (typeof body.startTime !== "string" || !PROMO_TIME_RE.test(body.startTime) || typeof body.endTime !== "string" || !PROMO_TIME_RE.test(body.endTime)) {
         return jsonError("Happy-hour promotions need startTime/endTime as HH:MM (hotel-local).", 422, "INVALID_WINDOW");
       }
       startTime = body.startTime;
       endTime = body.endTime;
     }
-    const parseDate = (v: unknown): Date | null => {
-      if (typeof v !== "string" || !v) return null;
-      const d = new Date(v);
-      return Number.isNaN(d.getTime()) ? null : d;
-    };
-    const startDate = parseDate(body.startDate);
-    const endDate = parseDate(body.endDate);
+    // BUG FIX (2026-10-21): a date-only endDate used to be stored at 00:00Z,
+    // so an offer "until 31 Dec" stopped applying at the START of the 31st.
+    // End dates are now inclusive for the whole calendar day.
+    const startParsed = parsePromoDate(body.startDate ?? null, "start");
+    const endParsed = parsePromoDate(body.endDate ?? null, "end");
+    if (!startParsed.ok || !endParsed.ok) {
+      return jsonError("startDate/endDate must be valid dates.", 422, "INVALID_WINDOW");
+    }
+    const startDate = startParsed.date;
+    const endDate = endParsed.date;
     if (startDate && endDate && endDate < startDate) {
       return jsonError("endDate must be after startDate.", 422, "INVALID_WINDOW");
     }

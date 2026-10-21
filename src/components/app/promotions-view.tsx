@@ -49,16 +49,33 @@ export function PromotionsView() {
   });
 
   const create = useMutation({
-    mutationFn: async () =>
-      (await api.post("/api/promotions", {
+    mutationFn: async () => {
+      // BUG FIX (2026-10-21): the form sent percentBps ONLY for PERCENT while
+      // the API requires it for HAPPY_HOUR too (HAPPY_HOUR is a percent-off
+      // window, `valueMinor` is rejected for it). Every "Happy hour" attempt
+      // failed with 422 "percentBps must be 1..10000". Payload fields now
+      // follow the documented API contract per type:
+      //   PERCENT / HAPPY_HOUR → percentBps
+      //   FLAT / COMBO         → valueMinor
+      const isPercentType = type === "PERCENT" || type === "HAPPY_HOUR";
+      const percentValue = Number(percent);
+      if (isPercentType && (!Number.isFinite(percentValue) || percentValue <= 0 || percentValue > 100)) {
+        throw new Error("Enter a discount between 0.01% and 100%.");
+      }
+      const amountValue = Number(amount);
+      if (!isPercentType && (!Number.isFinite(amountValue) || amountValue <= 0)) {
+        throw new Error("Enter a positive amount.");
+      }
+      return (await api.post("/api/promotions", {
         name,
         type,
-        percentBps: type === "PERCENT" ? Math.round(Number(percent) * 100) : undefined,
-        valueMinor: type !== "PERCENT" ? Math.round(Number(amount) * 100) : undefined,
+        percentBps: isPercentType ? Math.round(percentValue * 100) : undefined,
+        valueMinor: isPercentType ? undefined : Math.round(amountValue * 100),
         daysOfWeek: days.length > 0 ? days : undefined,
         startTime: type === "HAPPY_HOUR" ? start : undefined,
         endTime: type === "HAPPY_HOUR" ? end : undefined,
-      })) as { promotion: Promotion },
+      })) as { promotion: Promotion };
+    },
     onSuccess: () => {
       toast.success("Promotion created. Bills freeze the version they used.");
       setName("");
@@ -74,7 +91,14 @@ export function PromotionsView() {
   });
 
   const describe = (p: Promotion) => {
-    if (p.type === "PERCENT") return `${(p.percentBps! / 100).toFixed(2)}% off`;
+    // BUG FIX: HAPPY_HOUR was rendered as "flat ₹0 off" (it fell through to
+    // the FLAT branch even though it is a percentage window).
+    if (p.type === "PERCENT" || p.type === "HAPPY_HOUR") {
+      const percent = `${((p.percentBps ?? 0) / 100).toFixed(2)}% off`;
+      return p.type === "HAPPY_HOUR" && p.startTime && p.endTime
+        ? `${percent} · ${p.startTime}–${p.endTime}`
+        : percent;
+    }
     if (p.type === "COMBO") return `combo price ${rupees(p.valueMinor ?? 0)}`;
     return `flat ${rupees(p.valueMinor ?? 0)} off`;
   };

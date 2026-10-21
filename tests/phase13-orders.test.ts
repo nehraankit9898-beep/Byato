@@ -14,7 +14,9 @@
  *   6. staff lifecycle: invite → activate → last-admin guard
  */
 import { describe, test, expect } from "bun:test";
-import { apiCall, login, HOTEL_A_ADMIN, HOTEL_B_ADMIN, ADMIN_PASSWORD, testDb } from "./helpers";
+import { apiCall, login, HOTEL_A_ADMIN, HOTEL_B_ADMIN, ADMIN_PASSWORD, testDb,
+  currentUser,
+} from "./helpers";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3100";
 
@@ -41,8 +43,9 @@ async function registerFreshHotel(suffix: string) {
     }),
   });
   if (res.status !== 201) throw new Error("fresh hotel registration failed: " + res.status);
-  const body = (await res.json()) as { hotel: { id: string } };
-  return { hotelId: body.hotel.id, session: await login(email, "FreshOwner123!") };
+  const session = await login(email, "FreshOwner123!");
+  const me = await currentUser(session.jar);
+  return { hotelId: me.hotelId, session };
 }
 
 const fresh = await registerFreshHotel(String(Date.now()));

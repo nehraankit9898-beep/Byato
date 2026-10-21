@@ -379,8 +379,22 @@ export async function POST(req: Request) {
   }
 }
 
+/**
+ * Parse a DATE-ONLY customer field (birthday / anniversary).
+ *
+ * BUG FIX (2026-10-21, BUG_REPORT_NEW M-4): `new Date("1990-05-15")` is UTC
+ * midnight, `new Date("1990-05-15T00:00")` is LOCAL midnight — the same user
+ * input produced different instants depending on the string form. Calendar
+ * labels are now normalised to UTC midnight, and impossible dates
+ * ("2026-02-30") are rejected instead of silently rolling over.
+ */
 function parseDateOrNull(value: unknown): Date | null {
   if (typeof value !== "string" || !value.trim()) return null;
-  const d = new Date(value);
+  const raw = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const d = new Date(`${raw}T00:00:00.000Z`);
+    return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== raw ? null : d;
+  }
+  const d = new Date(raw);
   return isNaN(d.getTime()) ? null : d;
 }

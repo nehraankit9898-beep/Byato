@@ -3,6 +3,32 @@ import { requireAuth, jsonError, readJson, serverError } from "@/lib/api-helpers
 import { requirePermission } from "@/lib/permissions";
 import { createBillFromSession, BillValidationError } from "@/lib/billing";
 
+const INVALID_DATE = Symbol("invalid-date");
+
+/**
+ * Parse a date-range query value.
+ *  - date-only "YYYY-MM-DD": start → 00:00:00.000Z, end → 23:59:59.999Z
+ *    (so `to=2026-10-21` includes the whole day instead of excluding it)
+ *  - anything else must be a parseable ISO timestamp.
+ * Returns null when absent and INVALID_DATE when malformed.
+ */
+function parseDateRangeBound(
+  raw: string | null,
+  edge: "start" | "end",
+): Date | null | typeof INVALID_DATE {
+  if (raw === null || raw.trim() === "") return null;
+  const value = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const suffix = edge === "end" ? "T23:59:59.999Z" : "T00:00:00.000Z";
+    const date = new Date(`${value}${suffix}`);
+    // Reject impossible calendar dates like 2026-02-30 (JS rolls them over).
+    const roundTrip = date.toISOString().slice(0, 10);
+    return roundTrip === value ? date : INVALID_DATE;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? INVALID_DATE : date;
+}
+
 /**
  * Phase 14 — bills (POS invoices).
  *
@@ -26,9 +52,24 @@ export async function GET(req: Request) {
       ["ISSUED", "PARTIALLY_PAID", "PAID", "PARTIALLY_REFUNDED", "REFUNDED", "VOID"].includes(s),
     );
     const sessionId = url.searchParams.get("sessionId");
-    const from = url.searchParams.get("from");
-    const to = url.searchParams.get("to");
-    const limit = Math.min(Number(url.searchParams.get("limit") ?? 50) || 50, 200);
+    const fromRaw = url.searchParams.get("from");
+    const toRaw = url.searchParams.get("to");
+
+    // BUG FIX (2026-10-21, BUG_REPORT_NEW M-2): `from`/`to` were passed
+    // straight to `new Date()` → Prisma. A malformed value produced an
+    // Invalid Date, Prisma threw, and the endpoint answered 500 instead of
+    // telling the client its filter was wrong. Dates are now validated and an
+    // inverted range is rejected; a date-only `to` is inclusive for its day.
+    const from = parseDateRangeBound(fromRaw, "start");
+    const to = parseDateRangeBound(toRaw, "end");
+    if (from === INVALID_DATE || to === INVALID_DATE) {
+      return jsonError("from/to must be valid ISO dates (YYYY-MM-DD).", 400, "INVALID_DATE_RANGE");
+    }
+    if (from && to && from > to) {
+      return jsonError("from must be before or equal to to.", 400, "INVALID_DATE_RANGE");
+    }
+    const limitRaw = Number(url.searchParams.get("limit") ?? 50);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 200) : 50;
 
     const bills = await db.bill.findMany({
       where: {
@@ -38,8 +79,8 @@ export async function GET(req: Request) {
         ...(from || to
           ? {
               issuedAt: {
-                ...(from ? { gte: new Date(from) } : {}),
-                ...(to ? { lte: new Date(to) } : {}),
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
               },
             }
           : {}),

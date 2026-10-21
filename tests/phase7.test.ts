@@ -119,6 +119,12 @@ describe("Phase 7 — security headers & middleware", () => {
 /* 3. Email verification flow                                          */
 /* ------------------------------------------------------------------ */
 
+/** Pull the one-time token out of the verification email HTML. */
+function extractVerifyToken(html: string): string | null {
+  const match = html.match(/verify-email\?token=([A-Za-z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
 async function fetchMockEmails(): Promise<any[]> {
   // The mock outbox lives in the dev-server process; exposed only in tests via
   // a debug endpoint that is registered when STAYLOOP_TEST=1.
@@ -141,16 +147,18 @@ describe("Phase 7 — email verification", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    // dev/test convenience: the response carries the dev verification URL
-    expect(body.emailVerification).toBeDefined();
-    expect(typeof body.emailVerification.devUrl).toBe("string");
-    expect(body.emailVerification.devUrl).toContain("/verify-email?token=");
+    // ANTI-ENUMERATION (2026-10-21): the response shape is identical for new
+    // and existing emails — no hotel id and no verification URL is ever
+    // returned. The token travels only through the email channel.
+    expect(body.hotel).toBeUndefined();
+    expect(body.emailVerification).toBeUndefined();
 
     // the mock outbox captured the same email (never a real send in tests)
     const emails = await fetchMockEmails();
     const match = emails.find((e) => e.to === email && e.kind === "verification");
     expect(match).toBeDefined();
     expect(match.html).toContain("verify-email?token=");
+    expect(extractVerifyToken(match.html)).toBeTruthy();
   });
 
   test("verify-email consumes the token once; reuse and garbage are rejected", async () => {
@@ -161,9 +169,12 @@ describe("Phase 7 — email verification", () => {
       email,
       password: "VerifyPass123",
     });
-    const regBody = await reg.json();
-    const url: string = regBody.emailVerification.devUrl;
-    const token = new URL(url).searchParams.get("token")!;
+    expect(reg.status).toBe(201);
+    const emails = await fetchMockEmails();
+    const match = emails.find((e) => e.to === email && e.kind === "verification");
+    expect(match).toBeDefined();
+    const token = extractVerifyToken(match.html)!;
+    expect(token.length).toBeGreaterThan(20);
 
     const ok = await fetch(`${BASE}/api/auth/verify-email`, {
       method: "POST",

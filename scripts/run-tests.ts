@@ -356,6 +356,10 @@ async function main() {
       // DB-driven pricing page (DPDP notice + payment-provider KYC requirement).
       "tests/legal-pages.test.ts",
       "tests/bootstrap-atomicity.test.ts",
+      // 2026-10-21 bug-sweep regressions (BUG_REPORT_NEW): unpaid renewals,
+      // midnight-crossing reservations, hotel-local birthdays, promotion PATCH
+      // persistence/validation, date-only calendar labels.
+      "tests/audit-2026-10-21-fixes.test.ts",
       // RECHECK REGRESSION: the F01–F18 audit-fix suite was previously MISSING
       // from this list — `bun run test` silently skipped it. Registered now.
       "tests/audit-fixes.test.ts",

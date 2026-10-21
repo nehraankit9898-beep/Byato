@@ -11,8 +11,15 @@
  * setting.
  *
  * Time model: local business date "YYYY-MM-DD" + "HH:MM" strings in the
- * TENANT timezone (matches the financial-day convention from Phase 14);
- * overlap math is done in minutes-of-day on the same local date.
+ * TENANT timezone (matches the financial-day convention from Phase 14).
+ *
+ * AUDIT FIX (2026-10-21, BUG_REPORT_NEW H-1): overlap math was minutes-of-day
+ * ONLY and the conflict query only loaded reservations of the SAME `date`.
+ * A 23:30 booking (90 min) and a 00:30 booking the next day therefore never
+ * compared as a conflict — the same physical table could be double-booked
+ * across midnight. Intervals are now resolved onto an absolute minute
+ * timeline (local date + time-of-day), multi-day-tolerant, and the conflict
+ * query also loads the neighbouring business dates.
  */
 
 import { db } from "@/lib/db";
@@ -20,17 +27,74 @@ import { logAudit } from "@/lib/audit";
 
 const ACTIVE_STATUSES = ["PENDING", "CONFIRMED", "SEATED"] as const;
 
+const MINUTES_PER_DAY = 24 * 60;
+const MS_PER_DAY = 86_400_000;
+
 export function timeToMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 }
 
+/** Split an interval at midnight into 1-2 [start, end) segments of the day. */
+function daySegments(startMinute: number, duration: number): Array<[number, number]> {
+  const end = startMinute + duration;
+  if (end <= MINUTES_PER_DAY) return [[startMinute, end]];
+  const segments: Array<[number, number]> = [[startMinute, MINUTES_PER_DAY]];
+  // A duration can span more than one day (defensive; the API caps at 300m).
+  let leftover = end - MINUTES_PER_DAY;
+  while (leftover > 0) {
+    segments.push([0, Math.min(leftover, MINUTES_PER_DAY)]);
+    leftover -= MINUTES_PER_DAY;
+  }
+  return segments;
+}
+
+/**
+ * Same-date overlap test. A reservation that runs past midnight is treated as
+ * continuing into the next day (23:30 + 90m → 23:30–24:00 and 00:00–01:00).
+ * Invalid input fails CLOSED (reports a conflict) — a malformed booking must
+ * never be able to bypass the availability check.
+ */
 export function overlaps(aStart: string, aDur: number, bStart: string, bDur: number): boolean {
   const a0 = timeToMinutes(aStart);
-  const a1 = a0 + aDur;
   const b0 = timeToMinutes(bStart);
-  const b1 = b0 + bDur;
-  return a0 < b1 && b0 < a1;
+  if (![a0, b0, aDur, bDur].every(Number.isFinite) || aDur <= 0 || bDur <= 0) return true;
+  return daySegments(a0, aDur).some(([as, ae]) =>
+    daySegments(b0, bDur).some(([bs, be]) => as < be && bs < ae),
+  );
+}
+
+/** "YYYY-MM-DD" shifted by whole days (UTC arithmetic — no DST surprises). */
+export function shiftIsoDate(date: string, days: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const base = Date.UTC(y, (m ?? 1) - 1, d ?? 1);
+  return new Date(base + days * MS_PER_DAY).toISOString().slice(0, 10);
+}
+
+/**
+ * Absolute minute index of a hotel-local date + time. Multiplying the UTC day
+ * number by 1440 lets intervals that cross midnight compare correctly across
+ * business dates.
+ */
+export function absoluteStartMinute(date: string, time: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  const dayIndex = Math.floor(Date.UTC(y, (m ?? 1) - 1, d ?? 1) / MS_PER_DAY);
+  return dayIndex * MINUTES_PER_DAY + timeToMinutes(time);
+}
+
+/** True when two dated intervals overlap (half-open, midnight-safe). */
+export function intervalsOverlap(
+  aDate: string,
+  aStart: string,
+  aDur: number,
+  bDate: string,
+  bStart: string,
+  bDur: number,
+): boolean {
+  const a0 = absoluteStartMinute(aDate, aStart);
+  const b0 = absoluteStartMinute(bDate, bStart);
+  if (![a0, b0, aDur, bDur].every(Number.isFinite) || aDur <= 0 || bDur <= 0) return true;
+  return a0 < b0 + bDur && b0 < a0 + aDur;
 }
 
 export interface CreateReservationInput {
@@ -107,17 +171,35 @@ export async function createReservation(input: CreateReservationInput) {
         if (input.tableId) {
           // Overlap re-check INSIDE the transaction (SQLite serializes writes;
           // on PostgreSQL the unique index below is the authoritative fence).
-          const sameDay = await tx.reservation.findMany({
+          // Neighbouring dates are included: a late-night reservation on the
+          // previous evening can run into this one, and an early-morning
+          // reservation on the next date can overlap a booking that runs past
+          // midnight.
+          const candidateDates = [
+            shiftIsoDate(input.date, -1),
+            input.date,
+            shiftIsoDate(input.date, 1),
+          ];
+          const nearby = await tx.reservation.findMany({
             where: {
               hotelId: input.hotelId,
               tableId: input.tableId,
-              date: input.date,
+              date: { in: candidateDates },
               status: { in: [...ACTIVE_STATUSES] },
             },
-            select: { startTime: true, durationMinutes: true },
+            select: { date: true, startTime: true, durationMinutes: true },
           });
-          for (const r of sameDay) {
-            if (overlaps(input.startTime, duration, r.startTime, r.durationMinutes)) {
+          for (const r of nearby) {
+            if (
+              intervalsOverlap(
+                input.date,
+                input.startTime,
+                duration,
+                r.date,
+                r.startTime,
+                r.durationMinutes,
+              )
+            ) {
               throw new ReservationConflictError("That table is already reserved for an overlapping time.");
             }
           }
@@ -177,7 +259,11 @@ export async function transitionReservation(
   if (!ALLOWED[reservation.status].includes(to)) {
     return { ok: false as const, reason: `Cannot move a ${reservation.status.toLowerCase()} reservation to ${to.toLowerCase()}.` };
   }
-  if ((to === "CANCELLED" || to === "NO_SHOW") && !cancelReason && to === "CANCELLED") {
+  // CLEANUP (2026-10-21): the guard read
+  //   `(CANCELLED || NO_SHOW) && !cancelReason && to === "CANCELLED"`
+  // — the NO_SHOW branch was dead code. Cancellation keeps requiring a
+  // reason (the documented policy); the redundant condition is gone.
+  if (to === "CANCELLED" && !cancelReason?.trim()) {
     return { ok: false as const, reason: "A reason is required to cancel." };
   }
 
@@ -192,7 +278,10 @@ export async function transitionReservation(
       confirmedByUserId: to === "CONFIRMED" ? actorUserId : reservation.confirmedByUserId,
       seatedAt: to === "SEATED" ? new Date() : reservation.seatedAt,
       cancelledAt: to === "CANCELLED" ? new Date() : reservation.cancelledAt,
-      cancelReason: to === "CANCELLED" ? (cancelReason ?? reservation.cancelReason) : reservation.cancelReason,
+      cancelReason:
+        to === "CANCELLED" || to === "NO_SHOW"
+          ? (cancelReason?.trim() ?? reservation.cancelReason)
+          : reservation.cancelReason,
       // BUG FIX: inactive reservations kept holding the (tableId, date,
       // startTime) unique slot, so a cancelled slot could never be re-booked.
       activeFence: (ACTIVE_STATUSES as readonly string[]).includes(to) ? 1 : null,

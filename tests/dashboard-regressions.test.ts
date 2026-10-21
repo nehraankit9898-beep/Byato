@@ -109,8 +109,13 @@ describe("dashboard visit trend calendar", () => {
 
   test("stats route uses tenant-local trend bounds and date classification", () => {
     const route = source("src/app/api/dashboard/stats/route.ts");
-    expect(route).toContain("const trendDays = recentZonedDays(now, timezone, 14)");
-    expect(route).toContain("buildVisitTrend(recentVisits, now, timezone, 14)");
+    // 2026-10-21: the window is no longer hard-coded — `?days=` is validated
+    // (1..90, default 14) and applied to BOTH the query bounds and the trend
+    // classifier (previously the param was silently ignored).
+    expect(route).toContain('searchParams.get("days")');
+    expect(route).toContain("const trendDays = recentZonedDays(now, timezone, trendWindow)");
+    expect(route).toContain("buildVisitTrend(recentVisits, now, timezone, trendWindow)");
+    expect(route).toContain("trendWindow < 1 || trendWindow > 90");
   });
 
   test("client dashboard helpers do not pull the server-only Prisma module", () => {

@@ -21,7 +21,11 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const ingredientId = url.searchParams.get("ingredientId");
-    const limit = Math.min(Number(url.searchParams.get("limit") ?? 100) || 100, 500);
+    // BUG FIX (2026-10-21): a NEGATIVE `limit` reached Prisma's `take`, where a
+    // negative value means "take N rows backwards" — the ledger silently
+    // flipped direction instead of rejecting/clamping. Always a positive int.
+    const limitRaw = Number(url.searchParams.get("limit") ?? 100);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.floor(limitRaw), 1), 500) : 100;
     const entries = await db.stockLedger.findMany({
       where: { hotelId: auth.user.hotelId, ...(ingredientId ? { ingredientId } : {}) },
       orderBy: { createdAt: "desc" },

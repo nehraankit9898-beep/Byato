@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireAuth, jsonError, readJson, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { buildPromotionPatch } from "@/lib/promotions";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -10,6 +11,12 @@ type Ctx = { params: Promise<{ id: string }> };
  * snapshot) or toggle active. Body: partial fields or { active: boolean }.
  * DELETE /api/promotions/[id] — archive (deactivate). Bills that reference
  * the promotion keep their frozen snapshot rows.
+ *
+ * BUG FIX (2026-10-21): `type`, `daysOfWeek`, `itemIds`, `categoryIds`,
+ * `startDate` and `endDate` were accepted by the API contract but SILENTLY
+ * DROPPED by this handler — the response was 200 with an incremented version
+ * while the requested edit was never saved. Validation/payload building now
+ * lives in `buildPromotionPatch` (shared, unit-tested rules).
  */
 export async function PATCH(req: Request, ctx: Ctx) {
   try {
@@ -25,51 +32,20 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const existing = await db.promotion.findFirst({ where: { id, hotelId: auth.user.hotelId } });
     if (!existing) return jsonError("Promotion not found.", 404, "NOT_FOUND");
 
-    const data: Record<string, unknown> = { version: { increment: 1 } };
-    if (typeof body.name === "string" && body.name.trim().length >= 3) data.name = body.name.trim();
-    // AUDIT FIX (P15-PRM-1): value fields were stored with no validation —
-    // negative/zero discounts and type-inconsistent edits were accepted.
-    if (typeof body.percentBps === "number") {
-      const bps = Math.floor(body.percentBps);
-      if (!Number.isFinite(bps) || bps <= 0 || bps > 10_000) {
-        return jsonError("percentBps must be between 1 and 10000 (0.01%–100%).", 422, "INVALID_PERCENT");
-      }
-      data.percentBps = bps;
-    }
-    if (typeof body.valueMinor === "number") {
-      const value = Math.floor(body.valueMinor);
-      if (!Number.isFinite(value) || value <= 0) {
-        return jsonError("valueMinor must be a positive integer (minor units).", 422, "INVALID_VALUE");
-      }
-      data.valueMinor = value;
-    }
-    const nextType = typeof body.type === "string" && body.type ? body.type : existing.type;
-    if (nextType === "PERCENT" && (data.percentBps ?? existing.percentBps) == null) {
-      return jsonError("PERCENT promotions require percentBps.", 422, "MISSING_PERCENT");
-    }
-    if ((nextType === "FLAT" || nextType === "COMBO") && (data.valueMinor ?? existing.valueMinor) == null) {
-      return jsonError(`${nextType} promotions require valueMinor.`, 422, "MISSING_VALUE");
-    }
-    if (typeof body.priority === "number") {
-      const priority = Math.floor(body.priority);
-      if (!Number.isFinite(priority) || priority < 0 || priority > 1000) {
-        return jsonError("priority must be between 0 and 1000.", 422, "INVALID_PRIORITY");
-      }
-      data.priority = priority;
-    }
-    if (typeof body.stackable === "boolean") data.stackable = body.stackable;
-    if (typeof body.active === "boolean") data.active = body.active;
-    if (typeof body.startTime === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(body.startTime)) data.startTime = body.startTime;
-    if (typeof body.endTime === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(body.endTime)) data.endTime = body.endTime;
+    const patch = buildPromotionPatch(existing, body);
+    if (!patch.ok) return jsonError(patch.message, 422, patch.code);
 
-    const promo = await db.promotion.update({ where: { id }, data });
+    const promo = await db.promotion.update({
+      where: { id },
+      data: { ...patch.data, version: { increment: 1 } },
+    });
     await logAudit({
       hotelId: auth.user.hotelId,
       userId: auth.user.userId,
       action: "PROMOTION_UPDATED",
       entityType: "Promotion",
       entityId: id,
-      metadata: { name: promo.name, version: promo.version },
+      metadata: { name: promo.name, version: promo.version, fields: Object.keys(patch.data) },
       req,
     });
     return Response.json({ promotion: promo });

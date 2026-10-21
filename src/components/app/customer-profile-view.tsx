@@ -54,7 +54,7 @@ import {
   Send,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatDate, formatDateTime, formatRelative, initials, phoneDisplay } from "@/lib/format";
+import { formatCalendarDate, formatDate, formatDateTime, formatRelative, initials, phoneDisplay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -678,12 +678,12 @@ export function CustomerProfileView({
             <Detail
               icon={Cake}
               label="Birthday"
-              value={customer.birthday ? formatDate(customer.birthday) : null}
+              value={customer.birthday ? formatCalendarDate(customer.birthday) : null}
             />
             <Detail
               icon={Heart}
               label="Anniversary"
-              value={customer.anniversary ? formatDate(customer.anniversary) : null}
+              value={customer.anniversary ? formatCalendarDate(customer.anniversary) : null}
             />
             <Detail
               icon={Wallet}

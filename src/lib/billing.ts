@@ -1341,11 +1341,46 @@ export async function closeCashSession(hotelId: string, userId: string, sessionI
   const payments = await db.billPayment.findMany({
     where: { hotelId, cashSessionId: sessionId, status: { in: ["RECORDED", "CAPTURED"] } },
   });
-  const refunds = await db.billRefund.findMany({
-    where: { hotelId, bill: { hotelId }, createdAt: { gte: session.openedAt, lte: new Date() }, mode: "MANUAL" },
-  });
   const cashSales = payments.filter((p) => p.method === "CASH").reduce((s, p) => s + p.amountMinor, 0);
-  const refundMinor = refunds.reduce((s, r) => s + r.amountMinor, 0);
+
+  // AUDIT FIX (2026-10-21, BUG_REPORT_NEW H-2): refunds were selected by a
+  // pure time window (every MANUAL refund for the hotel since the drawer
+  // opened) and subtracted from CASH, so a card/UPI refund — or a cash refund
+  // for a bill paid in an earlier session — produced a phantom cash shortfall
+  // (or hid a real one). Only cash can leave the drawer, and never more than
+  // the cash actually collected for that bill:
+  //   · refunds in this drawer's window are grouped per bill;
+  //   · each bill's refund is capped by the CASH actually received for it;
+  //   · gateway refunds are excluded entirely.
+  const windowRefunds = await db.billRefund.findMany({
+    where: {
+      hotelId,
+      createdAt: { gte: session.openedAt, lte: new Date() },
+      mode: "MANUAL",
+    },
+    select: { billId: true, amountMinor: true },
+  });
+  const refundsByBill = new Map<string, number>();
+  for (const r of windowRefunds) {
+    refundsByBill.set(r.billId, (refundsByBill.get(r.billId) ?? 0) + r.amountMinor);
+  }
+  let refundMinor = 0;
+  if (refundsByBill.size > 0) {
+    const cashByBill = await db.billPayment.groupBy({
+      by: ["billId"],
+      where: {
+        hotelId,
+        method: "CASH",
+        status: { in: ["RECORDED", "CAPTURED"] },
+        billId: { in: [...refundsByBill.keys()] },
+      },
+      _sum: { amountMinor: true },
+    });
+    const cashPaidPerBill = new Map(cashByBill.map((row) => [row.billId, row._sum.amountMinor ?? 0]));
+    for (const [billId, refunded] of refundsByBill) {
+      refundMinor += Math.min(refunded, cashPaidPerBill.get(billId) ?? 0);
+    }
+  }
   const expected = session.openingFloatMinor + cashSales - refundMinor;
 
   const closed = await db.cashSession.updateMany({

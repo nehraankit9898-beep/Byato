@@ -140,7 +140,13 @@ export function ReservationsView() {
                   };
                   if (!(allowed[r.status] ?? []).includes(to)) return null;
                   return (
-                    <Button key={to} size="sm" variant="outline" onClick={() => transition.mutate({ id: r.id, to, reason: to === "CANCELLED" ? "changed plans" : undefined })}>
+                    <Button key={to} size="sm" variant="outline" onClick={() =>
+                      transition.mutate({
+                        id: r.id,
+                        to,
+                        reason: to === "CANCELLED" ? "changed plans" : undefined,
+                      })
+                    }>
                       {to === "NO_SHOW" ? "No-show" : to.charAt(0) + to.slice(1).toLowerCase()}
                     </Button>
                   );

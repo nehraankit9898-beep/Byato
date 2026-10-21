@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { requireAuth, serverError } from "@/lib/api-helpers";
+import { requireAuth, jsonError, serverError } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/permissions";
 
 /**
@@ -31,15 +31,24 @@ export async function GET(req: Request) {
         { customer: { phone: { contains: q.replace(/[\s\-()+]/g, "") } } },
       ];
     }
+    // BUG FIX (2026-10-21, BUG_REPORT_NEW L-4): an unparseable `from`/`to` was
+    // silently DROPPED (the filter simply disappeared and the caller got the
+    // unfiltered list with a 200). Malformed date filters are now rejected.
     if (from || to) {
-      const checkinFilter: { gte?: Date; lte?: Date } = {};
-      if (from && !isNaN(new Date(from).getTime())) checkinFilter.gte = new Date(from);
-      if (to && !isNaN(new Date(to).getTime())) {
-        const end = new Date(to);
-        end.setHours(23, 59, 59, 999);
-        checkinFilter.lte = end;
+      const parseBound = (raw: string, edge: "start" | "end"): Date | null => {
+        const value = raw.trim();
+        const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+        const date = new Date(dateOnly ? `${value}T${edge === "end" ? "23:59:59.999" : "00:00:00.000"}Z` : value);
+        if (Number.isNaN(date.getTime())) return null;
+        if (dateOnly && date.toISOString().slice(0, 10) !== value) return null;
+        return date;
+      };
+      const gte = from ? parseBound(from, "start") : null;
+      const lte = to ? parseBound(to, "end") : null;
+      if ((from && !gte) || (to && !lte) || (gte && lte && gte > lte)) {
+        return jsonError("from/to must be valid dates (YYYY-MM-DD) and from must not be after to.", 400, "INVALID_DATE_RANGE");
       }
-      where.checkin = checkinFilter;
+      where.checkin = { ...(gte ? { gte } : {}), ...(lte ? { lte } : {}) };
     }
 
     const total = await db.visit.count({ where });

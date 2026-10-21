@@ -61,8 +61,11 @@ export async function POST(req: Request) {
     if (amountMinor <= 0) return jsonError("Nothing due on this bill.", 422, "NOTHING_DUE");
 
     // Revoke stale ACTIVE links for the same bill (one live link per bill).
+    // Tenant-scoped even though the bill was just verified: every other write
+    // in this handler carries hotelId, and defence-in-depth keeps this safe if
+    // the pre-check is ever refactored away (BUG_REPORT_NEW M-6).
     await db.paymentLink.updateMany({
-      where: { billId, status: "ACTIVE" },
+      where: { billId, hotelId: auth.user.hotelId, status: "ACTIVE" },
       data: { status: "REVOKED" },
     });
 

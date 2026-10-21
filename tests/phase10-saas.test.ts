@@ -315,7 +315,14 @@ describe("Phase 10 — Feature flags & usage limits enforcement", () => {
     if (!free) return;
     const before = await db.hotel.findUnique({ where: { id: hotelBId } });
     await db.hotel.update({ where: { id: hotelBId }, data: { planId: free.id } });
-    const segment = await db.segment.findFirst({ where: { hotelId: hotelBId } });
+    // The seed may not give this tenant a segment; create one so the fixture is
+    // self-contained (an empty segmentId violated the Campaign FK and made this
+    // test fail on a fresh database — BUG_REPORT_NEW test-fixture fix).
+    const segment =
+      (await db.segment.findFirst({ where: { hotelId: hotelBId } })) ??
+      (await db.segment.create({
+        data: { hotelId: hotelBId, name: `Limit Probe Segment ${Date.now()}`, type: "MANUAL" },
+      }));
     // Fill the plan's campaign quota directly, then attempt one more via API.
     const limit = free.limits?.campaigns ?? 1;
     const existing = await db.campaign.count({ where: { hotelId: hotelBId } });
@@ -324,7 +331,7 @@ describe("Phase 10 — Feature flags & usage limits enforcement", () => {
         data: {
           hotelId: hotelBId,
           name: `Limit Probe fill ${i} ${Date.now()}`,
-          segmentId: segment?.id ?? "",
+          segmentId: segment.id,
           channels: JSON.stringify(["SMS"]),
           messageTemplate: "probe",
           status: "DRAFT",
@@ -348,6 +355,9 @@ describe("Phase 10 — Feature flags & usage limits enforcement", () => {
     });
     await db.campaign.deleteMany({
       where: { hotelId: hotelBId, name: { contains: "Should Be Blocked" } },
+    });
+    await db.segment.deleteMany({
+      where: { hotelId: hotelBId, name: { contains: "Limit Probe Segment" } },
     });
   });
 

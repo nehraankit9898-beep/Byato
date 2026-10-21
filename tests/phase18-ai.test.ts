@@ -28,7 +28,9 @@
  *      recommendations/passes/interactions (404/empty semantics).
  */
 import { describe, test, expect } from "bun:test";
-import { apiCall, login, testDb } from "./helpers";
+import { apiCall, login, testDb,
+  currentUser,
+} from "./helpers";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3100";
 
@@ -244,9 +246,9 @@ async function registerFreshHotel(suffix: string) {
     }),
   });
   if (res.status !== 201) throw new Error("fresh hotel registration failed: " + res.status);
-  const body = (await res.json()) as { hotel: { id: string } };
   const session = await login(ADMIN_EMAIL, "OwnerPass123!");
-  return { hotelId: body.hotel.id, session: session.jar };
+  const me = await currentUser(session.jar);
+  return { hotelId: me.hotelId, session: session.jar };
 }
 
 const fresh = await registerFreshHotel(String(Date.now()));

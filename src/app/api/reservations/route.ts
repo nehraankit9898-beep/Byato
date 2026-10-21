@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { requireAuth, jsonError, readJson, serverError } from "@/lib/api-helpers";
+import { isValidDateKey } from "@/lib/timezone";
 import { requirePermission } from "@/lib/permissions";
 import {
   createReservation,
@@ -27,6 +28,13 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const date = url.searchParams.get("date");
     const status = url.searchParams.get("status");
+
+    // BUG FIX (2026-10-21, BUG_REPORT_NEW L-4): an impossible date
+    // ("2026-13-45") was used as a literal filter and returned an empty list
+    // with 200, hiding client bugs. Impossible calendar dates are now 400.
+    if (date && !isValidDateKey(date)) {
+      return jsonError("date must be a real YYYY-MM-DD calendar date.", 400, "INVALID_DATE");
+    }
     const reservations = await db.reservation.findMany({
       where: {
         hotelId: auth.user.hotelId,
