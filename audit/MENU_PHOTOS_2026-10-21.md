@@ -153,6 +153,15 @@ Command / scope | Result
 `bun run build` (production, `schema.postgres.prisma`) | success; `/api/media/[id]` and `/api/menu/items/[id]/photo` compiled as dynamic routes
 Full `bun run test` (all registered suites + functional acceptance) | **ALL TEST SUITES PASSED**, exit 0
 
+### CI — PR #30, run [`39577910497`](https://github.com/nehraankit9898-beep/Byato/actions/runs/39577910497)
+
+| Job | Result | Notes |
+|---|---|---|
+| `quality-and-security` | ✅ success (6m27s) | install, Prisma generate, dependency audit, secret scan, typecheck, lint, **full test suite**, production build |
+| `postgres-migrations` | ✅ success | applies `0001`–`0016` to a clean PostgreSQL 16 and the `migrate diff --script` drift gate is **empty** — proves `0016_menu_photos` matches `schema.postgres.prisma` exactly |
+| `postgres-integration` | ✅ success | production build (standalone) + PostgreSQL end-to-end suite |
+| `docker` | ❌ failure in 3s | **pre-existing, unrelated**: `Unable to resolve action aquasecurity/trivy-action@0.36.0` (owned by PR #24; same failure on `main` and on PR #29) |
+
 What the 22 tests specifically prove:
 
 - **Upload & preview**: PNG upload returns `201`, stored row is WebP at the
