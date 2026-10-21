@@ -13,9 +13,9 @@ gets a business to first revenue — not by what is interesting to build.
 | Feature surface is huge: 113 Prisma models, ~80 API route groups, phases 1–18 | `prisma/schema.prisma`, `src/app/api/*` |
 | Operator-facing docs say production was **never approved or verified** | `DEPLOYMENT_READINESS.md`, `REMAINING_ISSUES.md` |
 | No live deployment, no real WhatsApp / email / Razorpay credentials configured | `.env.example`, `src/lib/providers/index.ts` — simulation mode is the default |
-| No marketing page, pricing page, privacy policy or terms route | `src/app` contains only the app shell + `menu`, `pay`, `r/`, auth screens |
+| ~~No marketing page, pricing page, privacy policy or terms route~~ **FIXED 2026-10-21**: `/pricing` (DB-driven), `/privacy`, `/terms`, `/refund-policy` are public and linked from the login/register footers; still missing: a landing page that sells the wedge | `src/app/(legal)/*`, `tests/legal-pages.test.ts` |
 | No error tracking / product analytics / uptime integration | no Sentry/PostHog/gtag in `src` |
-| No `vercel.json` → campaign queue, follow-up engine and scheduled reports have **no scheduler on Vercel** | repo root |
+| ~~No `vercel.json` → campaign queue, follow-up engine and scheduled reports have **no scheduler on Vercel**~~ **FIXED 2026-10-21**: `vercel.json` + `/api/cron/sweep` (5 min) and `/api/cron/maintenance` (hourly) now drive every sweep AND drain the job queue without a worker; `CRON_SECRET` is fail-closed | `vercel.json`, `src/lib/cron.ts`, `tests/cron-scheduler.test.ts` |
 | UI is English-only | no i18n layer |
 | Build could not be verified in this sandbox (`binaries.prisma.sh` blocked) | `prisma generate` fails on engine download |
 
@@ -70,14 +70,22 @@ blocker*, not a nice-to-have.
    emails must arrive in Gmail, not in spam.
 5. **Razorpay live.** KYC, live keys, webhook reachable, subscription invoice with GSTIN,
    refund path tested with ₹1. Until then you cannot take money.
-6. **A scheduler that actually runs.** Add `vercel.json` crons (or keep the worker on a small
-   VPS) for: campaign queue drain, follow-up engine, scheduled reports, retention sweep.
-   Without it, "automation" silently never fires.
+6. **A scheduler that actually runs.** ✅ **DONE (2026-10-21)** — `vercel.json` declares
+   `/api/cron/sweep` (every 5 min: stale-lease recovery, due campaigns, journey steps,
+   webhook retries, job-queue drain) and `/api/cron/maintenance` (hourly: automation trigger
+   scan + owner reports). Both are `CRON_SECRET`-authenticated and fail closed in production.
+   Remaining operator step: set `CRON_SECRET` on Vercel and confirm both jobs are green in
+   Project → Cron Jobs (see `docs/VERCEL_NEON_DEPLOYMENT.md` §6). Still worker-only: `pg_dump`
+   backups, housekeeping/retention purges and SaaS renewal maintenance — run
+   `npm run worker` on a small VPS before taking paying customers.
 7. **Observability.** Sentry (or equivalent) + uptime check on `/api/health/live` + a daily
    backup that you have actually restored once (`restore:backup` on a throwaway DB).
-8. **Legal pages.** `/privacy`, `/terms`, `/refund-policy`, `/pricing` — linked in the footer.
-   Under India's DPDP Act 2023 you need notice + consent proof + deletion on request; the
-   consent and privacy-request code already exists, the *pages* do not.
+8. **Legal pages.** ✅ **DONE (2026-10-21)** — `/privacy` (DPDP notice: purposes, retention,
+   data-principal rights, grievance contact), `/terms` (governing law, consent obligations,
+   billing), `/refund-policy` (cancellation, refund window, processing time, GST) and
+   `/pricing` (reads live prices from the Plan table, so it cannot drift from billing) are
+   public and linked from the login and register footers. Operator step: set
+   `LEGAL_CONTACT_EMAIL` to a monitored mailbox and have the text reviewed once by a lawyer.
 
 **Definition of done:** a stranger with the link can register, import guests, send a real
 WhatsApp campaign and see results — no terminal, no help from you.

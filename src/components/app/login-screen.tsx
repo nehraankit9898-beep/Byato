@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { api, ApiError, storeSessionToken } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -177,9 +178,24 @@ export function LoginScreen({
           </div>
         </div>
 
-        <div className="relative flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-white/35">
+        <div className="relative flex flex-wrap items-center justify-between gap-y-2 text-[10px] uppercase tracking-[0.18em] text-white/35">
           <span>© {new Date().getFullYear()} Beyto</span>
-          <span>Hospitality, held quietly</span>
+          {/* Public legal + pricing pages must be reachable BEFORE signup
+              (DPDP notice, and the payment provider's refund-policy check). */}
+          <nav aria-label="Legal and pricing" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link href="/pricing" className="transition-colors hover:text-white/70">
+              Pricing
+            </Link>
+            <Link href="/privacy" className="transition-colors hover:text-white/70">
+              Privacy
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-white/70">
+              Terms
+            </Link>
+            <Link href="/refund-policy" className="transition-colors hover:text-white/70">
+              Refunds
+            </Link>
+          </nav>
         </div>
       </div>
 

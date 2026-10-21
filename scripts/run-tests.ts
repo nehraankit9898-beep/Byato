@@ -28,6 +28,9 @@ const BASE = `http://localhost:${PORT}`;
 const TEST_SECRETS = {
   TRACKING_WEBHOOK_SECRET: "test-webhook-hmac-secret-0123456789abcdef0123456789abcdef",
   ADMIN_BOOTSTRAP_SECRET: "test-bootstrap-secret-0123456789abcdef0123456789abcdef",
+  // Serverless cron driver (vercel.json → /api/cron/*). Set so the suite can
+  // prove the endpoint is CLOSED without a valid secret and OPEN with one.
+  CRON_SECRET: "test-cron-secret-0123456789abcdef0123456789abcdef",
 };
 
 function wait(ms: number) {
@@ -346,6 +349,12 @@ async function main() {
       // disposable test database. Removing WAL (or making the retry swallow
       // non-lock errors) fails this suite.
       "tests/test-db-concurrency.test.ts",
+      // Serverless cron driver (vercel.json → /api/cron/sweep|maintenance):
+      // auth fail-closed, schedule invariants, and queue drain without a worker.
+      "tests/cron-scheduler.test.ts",
+      // Go-live gate 1 item 8: public privacy notice, terms, refund policy and
+      // DB-driven pricing page (DPDP notice + payment-provider KYC requirement).
+      "tests/legal-pages.test.ts",
       "tests/bootstrap-atomicity.test.ts",
       // RECHECK REGRESSION: the F01–F18 audit-fix suite was previously MISSING
       // from this list — `bun run test` silently skipped it. Registered now.
@@ -454,6 +463,11 @@ async function main() {
         // payment flow several times (first-hit dev compilation of those
         // routes is slow).
         "customers-crm",
+        // Compiles both new /api/cron routes on first hit and then drives a
+        // real queue drain (job handler execution) end to end.
+        "cron-scheduler",
+        // Compiles four new public pages on first hit.
+        "legal-pages",
       ];
       const timeout = longFiles.some((f) => file.includes(f)) ? "120000" : "30000";
       failures += await runInherited("bun", ["test", file, "--timeout", timeout], testEnv);

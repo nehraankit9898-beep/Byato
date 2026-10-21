@@ -86,6 +86,13 @@ schema and apply checked-in migrations before serving real customer traffic.
 Do not run development seed or destructive database-push commands against
 production.
 
+**Scheduled automation:** Vercel has no worker process, so `vercel.json` registers
+two cron jobs — `/api/cron/sweep` (every 5 minutes: due campaigns, journey steps,
+webhook retries, job-queue drain) and `/api/cron/maintenance` (hourly: automation
+triggers, owner reports). Set `CRON_SECRET` (≥ 32 chars) in the Vercel project;
+the endpoints fail closed without it, and Vercel Cron sends it automatically.
+See [`docs/VERCEL_NEON_DEPLOYMENT.md` §6](docs/VERCEL_NEON_DEPLOYMENT.md).
+
 For deployment-specific steps, follow the Vercel project settings and the
 repository's PostgreSQL migration instructions in [`docs/DATABASE.md`](docs/DATABASE.md).
 Check [`LAUNCH_CHECKLIST.md`](LAUNCH_CHECKLIST.md) before enabling real

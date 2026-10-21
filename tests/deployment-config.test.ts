@@ -230,3 +230,70 @@ describe("dockerignore / build context sanity", () => {
     expect(existsSync(join(ROOT, "prisma", "schema.postgres.prisma"))).toBe(true);
   });
 });
+
+/**
+ * CI-001 (2026-10-21) — the docker job failed at "Set up job" for two days'
+ * worth of runs: `aquasecurity/trivy-action@0.36.0` does not exist (the action
+ * publishes tags WITH a `v` prefix), so GitHub aborted the job before a single
+ * step ran. Because the scans sat directly after the build, this also meant the
+ * compose stack, health checks, export round-trip and the real pg_dump
+ * backup/restore drill NEVER executed — silently, while the other jobs were
+ * green. These tests pin the ref format and the step ORDER that fixes both.
+ */
+describe("CI-001 — docker release gate is resolvable and cannot starve the functional checks", () => {
+  /** The `docker:` job block (from its key to the next top-level job). */
+  const dockerJob = ci.split(/^  docker:\s*$/m)[1]?.split(/^  [a-z][\w-]*:\s*$/m)[0] ?? "";
+
+  test("the docker job block is found", () => {
+    expect(dockerJob.length).toBeGreaterThan(0);
+    expect(dockerJob).toContain("Build production images");
+  });
+
+  test("trivy-action is pinned to an existing `v`-prefixed release", () => {
+    const refs = [...ci.matchAll(/uses:\s*(aquasecurity\/trivy-action@\S+)/g)].map((m) => m[1]);
+    expect(refs.length).toBeGreaterThanOrEqual(2);
+    for (const ref of refs) {
+      // Verified against https://api.github.com/repos/aquasecurity/trivy-action/tags:
+      // tags are `v0.x.y`; a bare `0.x.y` resolves to nothing and kills the job.
+      expect(ref).toMatch(/^aquasecurity\/trivy-action@v\d+\.\d+\.\d+$/);
+    }
+  });
+
+  test("no action in the workflow is referenced without a version", () => {
+    const refs = [...ci.matchAll(/uses:\s*([^\s#]+)/g)].map((m) => m[1]);
+    expect(refs.length).toBeGreaterThan(0);
+    for (const ref of refs) {
+      expect(ref).toContain("@");
+      // Mutable branches would make a release gate non-reproducible.
+      expect(ref).not.toMatch(/@(master|main|latest)$/);
+    }
+  });
+
+  test("the functional container checks run BEFORE the security scans", () => {
+    const functional = dockerJob.indexOf("Compose stack startup + health checks");
+    const scan = dockerJob.indexOf("Trivy vulnerability scan (web)");
+    expect(functional).toBeGreaterThan(-1);
+    expect(scan).toBeGreaterThan(-1);
+    // A vulnerability finding must not skip the only end-to-end image test.
+    expect(functional).toBeLessThan(scan);
+  });
+
+  test("the scans still gate the job (fail on HIGH/CRITICAL) and publish findings", () => {
+    const scanSections = dockerJob.split("- name: Trivy vulnerability scan").slice(1);
+    expect(scanSections.length).toBe(2);
+    for (const section of scanSections) {
+      expect(section).toContain("severity: HIGH,CRITICAL");
+      expect(section).toContain('exit-code: "1"');
+      expect(section).toContain("format: json");
+    }
+    expect(dockerJob).toContain("node scripts/trivy-summary.mjs");
+    expect(existsSync(join(ROOT, "scripts", "trivy-summary.mjs"))).toBe(true);
+  });
+
+  test("teardown is unconditional so a failed stack never leaks containers", () => {
+    const teardownIndex = dockerJob.indexOf("- name: Teardown");
+    expect(teardownIndex).toBeGreaterThan(-1);
+    const teardown = dockerJob.slice(teardownIndex, teardownIndex + 200);
+    expect(teardown).toContain("if: always()");
+  });
+});
